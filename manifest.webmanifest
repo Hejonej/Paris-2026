@@ -1,0 +1,10 @@
+{
+  "name": "Paris by H",
+  "short_name": "Paris by H",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f1e8",
+  "theme_color": "#f5f1e8",
+  "description": "Paris itinerary, saved places and shopping list"
+}
