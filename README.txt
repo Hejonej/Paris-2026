@@ -1,1 +1,1 @@
-Paris by H route-fix v2. Replace the repository root files with these files.
+Paris by H v5 — Trip Setup + local Smart Replan foundation for future AI planner.

@@ -4,7 +4,6 @@
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#f5f1e8",
-  "theme_color": "#f5f1e8",
-  "description": "Paris itinerary, saved places and shopping list"
+  "background_color": "#f4efe6",
+  "theme_color": "#8d1737"
 }
