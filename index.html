@@ -61,6 +61,7 @@ main{max-width:1460px;margin:auto;padding:22px 24px 60px}.hero{display:flex;alig
 .priorityEdit{margin-top:10px;display:none;gap:6px;align-items:center}
 .editingPlaces .priorityEdit{display:flex}
 .priorityEdit select{border:1px solid #d8cdc1;border-radius:8px;background:#fff;padding:5px 7px;font-size:10px}
+
 </style>
 <style id="routefix-mobile">
 .gmRoute{display:inline-flex;align-items:center;justify-content:center;margin-top:7px;margin-left:6px;padding:8px 10px;border-radius:999px;background:#fff;border:1px solid #d8cec2;color:#201b18;text-decoration:none;font-size:11px;font-weight:700}
@@ -81,9 +82,110 @@ main{max-width:1460px;margin:auto;padding:22px 24px 60px}.hero{display:flex;alig
 <style id="trip-setup-v5">.setupGrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:20px 0}.setupCard,.replanBox{background:rgba(255,255,255,.68);border:1px solid #ddd1c4;border-radius:24px;padding:18px}.setupHead,.replanBox{display:flex;justify-content:space-between;gap:14px;align-items:center}.setupHead small{display:block;color:#786f68;margin-top:4px}.miniBtn,.replanBtn{border:0;border-radius:999px;padding:10px 14px;background:#8d1737;color:#fff;font-weight:750}.tripRow{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px;padding-top:14px;border-top:1px solid #e7ded5}.tripRow input{width:100%;box-sizing:border-box;border:1px solid #d8cec2;border-radius:12px;padding:11px;background:#fff}.tripRow .wide{grid-column:1/-1}.removeTrip{justify-self:end;border:0;background:transparent;text-decoration:underline;color:#756b64}.plannerPrefs{margin:0 0 16px}.rulechips{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0}.rulechips span{padding:7px 10px;border-radius:999px;background:#f1e8df;font-size:12px}.toggleline{font-size:13px;color:#665e58}.replanBox{margin:16px 0}.replanBox p{margin:5px 0 0;color:#6f6660;max-width:680px}.replanNote{margin:12px 0 28px;color:#6f1832;font-weight:650;white-space:pre-line}@media(max-width:700px){.setupGrid{grid-template-columns:1fr}.setupHead,.replanBox{align-items:flex-start}.replanBox{flex-direction:column}.replanBtn{width:100%}.tripRow{grid-template-columns:1fr}.tripRow .wide{grid-column:auto}}</style><style id="planner-db-v6">.plannerDbPanel{margin:0 0 18px;padding:18px;border:1px solid #d9cdbf;border-radius:24px;background:#ffffffb3}.dbHead{display:flex;justify-content:space-between;align-items:center;gap:14px}.dbHead h3{margin:3px 0;font-family:Georgia,serif;font-size:24px}.plannerDbPanel p{color:#6d645d}.dbStats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0}.dbStat{padding:12px;border-radius:16px;background:#f3ece4}.dbStat b{display:block;font-size:20px}.dbStat small{color:#746b64}@media(max-width:700px){.dbStats{grid-template-columns:1fr 1fr}}</style><style id="ai-planner-v7">
 .aiControls{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:18px 0}.aiControls textarea{width:100%;min-height:105px;box-sizing:border-box;margin:12px 0;border:1px solid #d8cec2;border-radius:16px;padding:13px;font:inherit;background:#fff}.toggleline{display:block;margin-top:10px}.aiStatus{padding:14px 16px;border-radius:18px;background:#f2e9df;color:#6a5f57;margin:14px 0}.suggestHead{display:flex;justify-content:space-between;align-items:end;gap:12px;margin:24px 0 10px}.suggestHead h3{font-family:Georgia,serif;font-size:25px;margin:3px 0}.miniBtn.ghost{background:#eee5dc;color:#5f5550}.suggestions{display:grid;gap:10px}.suggestCard{display:grid;grid-template-columns:auto 1fr;gap:12px;padding:16px;border:1px solid #ddd1c4;border-radius:20px;background:#ffffffb8}.suggestCard input{margin-top:5px}.suggestAction{font-weight:800}.suggestReason{font-size:13px;color:#71665f;margin-top:5px;line-height:1.45}.suggestMeta{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#8d1737;margin-top:8px}.emptySuggest{padding:28px;border:1px dashed #d6c9bc;border-radius:20px;color:#776d66;text-align:center}
 @media(max-width:700px){.aiControls{grid-template-columns:1fr}.suggestHead{align-items:flex-start;flex-direction:column}}
-</style><style id="live-ai-v8">.backendInput{width:100%;box-sizing:border-box;margin:12px 0 8px;border:1px solid #d8cec2;border-radius:14px;padding:12px;background:#fff;font:inherit}.backendActions{display:flex;gap:8px;flex-wrap:wrap}.backendCard small{display:block;margin-top:9px;color:#766b64}.liveBadge{display:inline-block;padding:5px 8px;border-radius:999px;background:#e8efe6;font-size:11px;font-weight:800}.hoursWarn{background:#f5eadb}.sourceLine{font-size:11px;color:#8a8078;margin-top:5px}</style></head>
+</style><style id="live-ai-v8">.backendInput{width:100%;box-sizing:border-box;margin:12px 0 8px;border:1px solid #d8cec2;border-radius:14px;padding:12px;background:#fff;font:inherit}.backendActions{display:flex;gap:8px;flex-wrap:wrap}.backendCard small{display:block;margin-top:9px;color:#766b64}.liveBadge{display:inline-block;padding:5px 8px;border-radius:999px;background:#e8efe6;font-size:11px;font-weight:800}.hoursWarn{background:#f5eadb}.sourceLine{font-size:11px;color:#8a8078;margin-top:5px}</style><style id="liquid-editorial-2026">
+/* =========================================================
+   2026 UI REFRESH — Liquid glass × fashion/editorial commerce
+   Keeps all v8.2 data / planner / route logic unchanged.
+   ========================================================= */
+:root{
+  --ink:#111111;--paper:#efede8;--card:rgba(255,255,255,.58);--line:rgba(20,20,20,.10);
+  --wine:#111111;--wine2:#2b2b2b;--muted:#6f6d68;--sage:#5f6a5e;--gold:#a18f72;
+  --glass:rgba(255,255,255,.52);--glass-strong:rgba(255,255,255,.72);
+  --shadow:0 18px 60px rgba(18,18,18,.08),0 2px 12px rgba(18,18,18,.04);
+  --radius:28px;--radius-sm:18px;
+}
+html{background:#ebe8e2;scroll-behavior:smooth}
+body{
+  background:
+    radial-gradient(900px 560px at 88% -8%,rgba(224,211,197,.85),transparent 68%),
+    radial-gradient(800px 520px at -5% 28%,rgba(217,223,213,.72),transparent 66%),
+    linear-gradient(180deg,#f4f2ed 0%,#ebe9e4 100%);
+  color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue",Arial,sans-serif;
+  letter-spacing:-.012em;
+}
+body:before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;background:linear-gradient(115deg,rgba(255,255,255,.18),transparent 42%,rgba(255,255,255,.10));}
+button,input,select,textarea{font-family:inherit}
+::selection{background:#111;color:#fff}
+.app{min-height:100dvh}
+header{position:sticky;top:0;z-index:700;background:transparent;border:0;backdrop-filter:none;padding:14px 18px 0}
+.topbar{
+  max-width:1320px;margin:auto;padding:8px 10px 8px 16px;min-height:58px;
+  border:1px solid rgba(255,255,255,.68);border-radius:999px;
+  background:linear-gradient(180deg,rgba(255,255,255,.72),rgba(255,255,255,.42));
+  backdrop-filter:blur(28px) saturate(160%);-webkit-backdrop-filter:blur(28px) saturate(160%);
+  box-shadow:0 10px 36px rgba(20,20,20,.08),inset 0 1px 0 rgba(255,255,255,.86);
+  gap:18px;
+}
+.brand{display:flex;align-items:baseline;gap:6px;font-family:inherit;font-size:18px;font-weight:650;letter-spacing:-.04em}
+.brand span{font-weight:720}.brand em{font-style:normal;font-weight:470;color:#8b8882;font-size:14px;letter-spacing:-.02em}
+nav{gap:3px;margin:auto}.navbtn{padding:10px 14px;color:#6f6d68;font-size:13px;font-weight:560;letter-spacing:-.015em;transition:.2s ease}
+.navbtn:hover{background:rgba(255,255,255,.45);color:#111}.navbtn.active{background:#111;color:#fff;box-shadow:0 5px 14px rgba(0,0,0,.16)}
+.sync{font-size:10px;color:#94918b;max-width:180px;overflow:hidden;text-overflow:ellipsis}
+main{max-width:1320px;margin:auto;padding:46px 26px 110px}
+.hero{position:relative;align-items:flex-end;min-height:250px;padding:26px 4px 30px;margin:2px 0 18px;border-bottom:1px solid rgba(17,17,17,.08)}
+.hero:before{content:"PARIS / 2026";position:absolute;top:0;left:5px;font-size:10px;font-weight:650;letter-spacing:.16em;color:#8c8984}
+.hero h1{font-family:inherit;font-size:clamp(58px,8vw,116px);font-weight:590;line-height:.82;letter-spacing:-.072em;max-width:850px}
+.hero h1 span{color:#9a9690;font-weight:470}
+.hero p{max-width:400px;font-size:14px;line-height:1.5;color:#77746f;padding-bottom:4px}
+.days{gap:8px;padding:4px 0 18px;scrollbar-width:none}.days::-webkit-scrollbar{display:none}
+.daybtn{min-width:126px;padding:14px 15px;border:1px solid rgba(255,255,255,.72);border-radius:22px;background:rgba(255,255,255,.43);backdrop-filter:blur(18px);box-shadow:inset 0 1px 0 rgba(255,255,255,.6);transition:.22s ease}
+.daybtn:hover{transform:translateY(-2px);background:rgba(255,255,255,.64)}.daybtn.active{background:#111;color:#fff;border-color:#111;box-shadow:0 12px 28px rgba(0,0,0,.15)}
+.daybtn b{font-size:13px;font-weight:640}.daybtn span,.daybtn small{font-size:11px;opacity:.56}
+.editbar{margin:0 0 14px}.editHint{color:#8c8984;font-size:11px}.editToggle{background:rgba(255,255,255,.45)!important;border-color:rgba(17,17,17,.09)!important;backdrop-filter:blur(14px)}
+.editToggle.active{background:#111!important;color:#fff!important}
+.mapShell{border-radius:30px;box-shadow:0 30px 80px rgba(17,17,17,.12);border:1px solid rgba(255,255,255,.6)}
+.maphud{background:rgba(245,244,241,.67);backdrop-filter:blur(26px) saturate(150%);-webkit-backdrop-filter:blur(26px) saturate(150%);border:1px solid rgba(255,255,255,.66);border-radius:21px;box-shadow:0 14px 38px rgba(0,0,0,.10)}
+.optiontoggle,.gmRoute{border:0;background:rgba(255,255,255,.58)!important;color:#111!important;border-radius:999px;font-weight:560;text-decoration:none}
+.routeGrid{grid-template-columns:minmax(0,1.25fr) minmax(310px,.75fr);gap:16px}
+.timeline,.panel,.rawCard,.plannerDbPanel,.aiCard,.tripCard,.tripPanel{background:linear-gradient(180deg,rgba(255,255,255,.60),rgba(255,255,255,.38));border:1px solid rgba(255,255,255,.70);border-radius:30px;box-shadow:var(--shadow);backdrop-filter:blur(22px) saturate(135%);-webkit-backdrop-filter:blur(22px) saturate(135%)}
+.timeline{padding:10px}.panel{padding:24px}.panel h2,.rawCard h2,.recipe h2{font-family:inherit;font-weight:610;letter-spacing:-.045em}
+.step{grid-template-columns:38px 1fr auto;gap:12px;padding:15px 12px;border-radius:20px;transition:.18s ease}
+.step:hover{background:rgba(255,255,255,.52)}.stepNum{width:34px;height:34px;background:#111;font-size:11px;box-shadow:0 5px 14px rgba(0,0,0,.13)}
+.step.optional .stepNum{background:rgba(255,255,255,.72);color:#666;border:1px solid rgba(17,17,17,.1);box-shadow:none}
+.step h3{font-size:14px;font-weight:620;letter-spacing:-.025em}.step p{font-size:12px;color:#77746f}.stepMeta{font-size:10px;color:#99958f}.badge{border:0;background:rgba(17,17,17,.06);padding:4px 8px;font-size:9px;color:#666}
+.slotLabel{font-size:9px!important;letter-spacing:.08em;text-transform:uppercase;color:#9a9690!important}
+.section{animation:fadeup .36s cubic-bezier(.2,.8,.2,1)}@keyframes fadeup{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.toolbar{gap:8px}.search,input,select,textarea{border:1px solid rgba(17,17,17,.09)!important;background:rgba(255,255,255,.58)!important;border-radius:16px!important;outline:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.5);transition:.18s ease}
+.search:focus,input:focus,select:focus,textarea:focus{border-color:rgba(17,17,17,.28)!important;background:rgba(255,255,255,.78)!important;box-shadow:0 0 0 4px rgba(17,17,17,.05)}
+.chip,.priorityFilter,.softBtn,.miniBtn,.editToggle,.dangerBtn{border:1px solid rgba(17,17,17,.09)!important;background:rgba(255,255,255,.48)!important;color:#555!important;backdrop-filter:blur(12px);border-radius:999px!important}
+.chip.active,.priorityFilter.active,.primaryBtn{background:#111!important;color:#fff!important;border-color:#111!important}
+.placeGrid,.shopGrid{gap:10px}.placeCard,.shopCard{background:rgba(255,255,255,.48);border:1px solid rgba(255,255,255,.7);border-radius:24px;padding:18px;box-shadow:0 8px 26px rgba(20,20,20,.045);backdrop-filter:blur(14px);transition:.24s cubic-bezier(.2,.8,.2,1)}
+.placeCard:hover,.shopCard:hover{transform:translateY(-4px);background:rgba(255,255,255,.68);box-shadow:0 18px 42px rgba(20,20,20,.08)}
+.placeCard .eyebrow,.shopCard .kicker{color:#9b968f;font-size:9px;letter-spacing:.13em}.placeCard h3,.shopCard h3{font-weight:620;letter-spacing:-.025em}.priority{background:rgba(17,17,17,.055);color:#68645f}.priority.MUST{background:#111;color:#fff}.priority.ROUTE{background:#e4e8df;color:#445044}
+.recipe{background:#111;border-radius:30px;box-shadow:0 24px 60px rgba(0,0,0,.15)}
+.drawer{background:rgba(245,244,240,.86);backdrop-filter:blur(34px) saturate(145%);-webkit-backdrop-filter:blur(34px) saturate(145%);border-left:1px solid rgba(255,255,255,.7);box-shadow:-30px 0 80px rgba(0,0,0,.12)}
+.drawer h2{font-family:inherit;font-weight:610;letter-spacing:-.055em}.close{background:rgba(255,255,255,.55);backdrop-filter:blur(10px)}
+.aiStatus{border:0!important;background:rgba(255,255,255,.42)!important;border-radius:20px!important;color:#6e6b66!important;padding:14px 16px!important}
+.suggestCard{background:rgba(255,255,255,.52)!important;border:1px solid rgba(255,255,255,.72)!important;border-radius:24px!important;padding:17px!important;box-shadow:0 8px 24px rgba(20,20,20,.045)}
+.suggestAction{font-weight:630!important;letter-spacing:-.025em}.suggestReason{color:#79756f!important;line-height:1.5}.suggestMeta,.sourceLine{color:#99958f!important}
+.liveBadge{border:0!important;background:#e9ece5!important;color:#4f5b4d!important}.hoursWarn{background:#f0e8df!important;color:#735c45!important}
+.primaryBtn,.softBtn,.dangerBtn,.editToggle{min-height:40px;padding:10px 15px;font-weight:580;transition:.18s ease}.primaryBtn:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(0,0,0,.12)}
+.rawCard{box-shadow:0 16px 44px rgba(20,20,20,.055)}
+code{font-family:ui-monospace,"SFMono-Regular",Menlo,monospace;font-size:.92em}
+/* mobile-first 2026 dock */
+@media(max-width:820px){
+  body{background:radial-gradient(560px 360px at 110% 2%,rgba(224,210,196,.9),transparent 72%),linear-gradient(180deg,#f4f2ed,#eae8e3)}
+  header{position:fixed;top:auto;bottom:10px;left:0;right:0;padding:0 10px;z-index:1200;pointer-events:none}
+  .topbar{pointer-events:auto;min-height:62px;padding:6px 7px;border-radius:24px;gap:2px;background:rgba(246,245,242,.68);box-shadow:0 14px 46px rgba(17,17,17,.16),inset 0 1px 0 rgba(255,255,255,.84)}
+  .brand,.sync{display:none}nav{width:100%;justify-content:space-between;overflow:visible;gap:1px}
+  .navbtn{flex:1;padding:10px 4px 9px;border-radius:18px;font-size:10px;font-weight:590;min-width:0;color:#7a7772}
+  .navbtn.active{background:#111;color:#fff;box-shadow:0 5px 16px rgba(0,0,0,.16)}
+  main{padding:24px 14px 108px}.hero{display:block;min-height:205px;padding:46px 3px 22px;margin-bottom:12px}
+  .hero:before{left:3px}.hero h1{font-size:clamp(58px,18vw,82px);line-height:.84;letter-spacing:-.075em}.hero p{font-size:12px;margin-top:18px;max-width:330px;color:#77736e}
+  .days{margin-right:-14px;padding-right:14px}.daybtn{min-width:116px;border-radius:20px;padding:13px}
+  .routeGrid{grid-template-columns:1fr}.timeline{border-radius:26px;padding:7px}.panel{display:none}.step{grid-template-columns:34px 1fr;gap:10px;padding:14px 10px}.stepMeta{grid-column:2;text-align:left;margin-top:-4px}.stepNum{width:31px;height:31px}
+  .mapShell{border-radius:26px}.mapShell.open{height:48dvh;min-height:330px}.maphud{left:10px;right:10px;top:10px;max-width:none;border-radius:18px}
+  .placeGrid,.shopGrid{grid-template-columns:1fr}.placeCard,.shopCard{border-radius:22px}.rawGrid{grid-template-columns:1fr}.rawCard{border-radius:26px;padding:18px}
+  .drawer{width:100vw;border:0}.recipe{border-radius:26px;margin-bottom:20px}
+}
+@media(min-width:821px) and (max-width:1100px){.sync{display:none}.topbar{max-width:960px}.routeGrid{grid-template-columns:1fr}.panel{display:none}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+
+
+</style></head>
 <body><div class="app">
-<header><div class="topbar"><div class="brand">Paris, <em>by H</em></div><nav><button class="navbtn" data-view="trip">Trip Setup</button><button class="navbtn" data-view="aiplanner">AI Planner ✨</button><button class="navbtn active" data-view="route">Itinerary</button><button class="navbtn" data-view="places">Saved Places</button><button class="navbtn" data-view="shopping">Shopping List</button><button class="navbtn" data-view="raw">Raw Data</button></nav><div class="sync">Source: Paris_Master_FINAL.xlsx · browser-editable</div></div></header>
+<header><div class="topbar"><div class="brand"><span>Paris</span><em>by H</em></div><nav><button class="navbtn" data-view="trip">Trip</button><button class="navbtn" data-view="aiplanner">AI</button><button class="navbtn active" data-view="route">Today</button><button class="navbtn" data-view="places">Saved</button><button class="navbtn" data-view="shopping">Shop</button><button class="navbtn" data-view="raw">Edit</button></nav><div class="sync">Source: Paris_Master_FINAL.xlsx · browser-editable</div></div></header>
 <main>
 <section id="trip" class="section"><div class="hero"><h1>Trip<br><span>Setup.</span></h1><p>항공편과 숙소를 입력하면 도착·출발, 체크인·체크아웃을 일정의 고정 앵커로 사용해요.</p></div>
 <div class="setupGrid"><div class="setupCard"><div class="setupHead"><div><b>✈ Flights</b><small>여러 구간 추가 가능</small></div><button class="miniBtn" onclick="addFlight()">＋ Flight</button></div><div id="flightRows"></div></div>
