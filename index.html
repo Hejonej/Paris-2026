@@ -81,7 +81,7 @@ main{max-width:1460px;margin:auto;padding:22px 24px 60px}.hero{display:flex;alig
 <style id="trip-setup-v5">.setupGrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:20px 0}.setupCard,.replanBox{background:rgba(255,255,255,.68);border:1px solid #ddd1c4;border-radius:24px;padding:18px}.setupHead,.replanBox{display:flex;justify-content:space-between;gap:14px;align-items:center}.setupHead small{display:block;color:#786f68;margin-top:4px}.miniBtn,.replanBtn{border:0;border-radius:999px;padding:10px 14px;background:#8d1737;color:#fff;font-weight:750}.tripRow{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px;padding-top:14px;border-top:1px solid #e7ded5}.tripRow input{width:100%;box-sizing:border-box;border:1px solid #d8cec2;border-radius:12px;padding:11px;background:#fff}.tripRow .wide{grid-column:1/-1}.removeTrip{justify-self:end;border:0;background:transparent;text-decoration:underline;color:#756b64}.plannerPrefs{margin:0 0 16px}.rulechips{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0}.rulechips span{padding:7px 10px;border-radius:999px;background:#f1e8df;font-size:12px}.toggleline{font-size:13px;color:#665e58}.replanBox{margin:16px 0}.replanBox p{margin:5px 0 0;color:#6f6660;max-width:680px}.replanNote{margin:12px 0 28px;color:#6f1832;font-weight:650;white-space:pre-line}@media(max-width:700px){.setupGrid{grid-template-columns:1fr}.setupHead,.replanBox{align-items:flex-start}.replanBox{flex-direction:column}.replanBtn{width:100%}.tripRow{grid-template-columns:1fr}.tripRow .wide{grid-column:auto}}</style><style id="planner-db-v6">.plannerDbPanel{margin:0 0 18px;padding:18px;border:1px solid #d9cdbf;border-radius:24px;background:#ffffffb3}.dbHead{display:flex;justify-content:space-between;align-items:center;gap:14px}.dbHead h3{margin:3px 0;font-family:Georgia,serif;font-size:24px}.plannerDbPanel p{color:#6d645d}.dbStats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0}.dbStat{padding:12px;border-radius:16px;background:#f3ece4}.dbStat b{display:block;font-size:20px}.dbStat small{color:#746b64}@media(max-width:700px){.dbStats{grid-template-columns:1fr 1fr}}</style><style id="ai-planner-v7">
 .aiControls{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:18px 0}.aiControls textarea{width:100%;min-height:105px;box-sizing:border-box;margin:12px 0;border:1px solid #d8cec2;border-radius:16px;padding:13px;font:inherit;background:#fff}.toggleline{display:block;margin-top:10px}.aiStatus{padding:14px 16px;border-radius:18px;background:#f2e9df;color:#6a5f57;margin:14px 0}.suggestHead{display:flex;justify-content:space-between;align-items:end;gap:12px;margin:24px 0 10px}.suggestHead h3{font-family:Georgia,serif;font-size:25px;margin:3px 0}.miniBtn.ghost{background:#eee5dc;color:#5f5550}.suggestions{display:grid;gap:10px}.suggestCard{display:grid;grid-template-columns:auto 1fr;gap:12px;padding:16px;border:1px solid #ddd1c4;border-radius:20px;background:#ffffffb8}.suggestCard input{margin-top:5px}.suggestAction{font-weight:800}.suggestReason{font-size:13px;color:#71665f;margin-top:5px;line-height:1.45}.suggestMeta{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#8d1737;margin-top:8px}.emptySuggest{padding:28px;border:1px dashed #d6c9bc;border-radius:20px;color:#776d66;text-align:center}
 @media(max-width:700px){.aiControls{grid-template-columns:1fr}.suggestHead{align-items:flex-start;flex-direction:column}}
-</style></head>
+</style><style id="live-ai-v8">.backendInput{width:100%;box-sizing:border-box;margin:12px 0 8px;border:1px solid #d8cec2;border-radius:14px;padding:12px;background:#fff;font:inherit}.backendActions{display:flex;gap:8px;flex-wrap:wrap}.backendCard small{display:block;margin-top:9px;color:#766b64}.liveBadge{display:inline-block;padding:5px 8px;border-radius:999px;background:#e8efe6;font-size:11px;font-weight:800}.hoursWarn{background:#f5eadb}.sourceLine{font-size:11px;color:#8a8078;margin-top:5px}</style></head>
 <body><div class="app">
 <header><div class="topbar"><div class="brand">Paris, <em>by H</em></div><nav><button class="navbtn" data-view="trip">Trip Setup</button><button class="navbtn" data-view="aiplanner">AI Planner ✨</button><button class="navbtn active" data-view="route">Itinerary</button><button class="navbtn" data-view="places">Saved Places</button><button class="navbtn" data-view="shopping">Shopping List</button><button class="navbtn" data-view="raw">Raw Data</button></nav><div class="sync">Source: Paris_Master_FINAL.xlsx · browser-editable</div></div></header>
 <main>
@@ -95,9 +95,9 @@ main{max-width:1460px;margin:auto;padding:22px 24px 60px}.hero{display:flex;alig
   <div class="setupCard"><b>Planner constraints</b><div class="rulechips"><span>✈ Flight</span><span>⌂ Stay</span><span>🕒 Hours</span><span>🍽 Meal rhythm</span><span>⏱ Dwell time</span><span>📍 Route</span><span>★ Priority</span></div>
   <label class="toggleline"><input id="protectMust" type="checkbox" checked> MUST 보호</label>
   <label class="toggleline"><input id="verifyHours" type="checkbox" checked> AI 연결 시 최신 영업시간·휴무 확인</label></div>
-  <div class="setupCard"><b>Replan request</b><textarea id="plannerPrompt" placeholder="예: 첫날은 가볍게, 쇼핑은 줄이고 미술관을 우선해줘."></textarea><button class="replanBtn" onclick="runPlannerPreview()">✨ Plan with AI</button></div>
+  <div class="setupCard backendCard"><b>AI connection</b><input id="backendUrl" class="backendInput" placeholder="Cloudflare Worker URL"><div class="backendActions"><button class="miniBtn ghost" onclick="saveBackendUrl()">Save URL</button><button class="miniBtn ghost" onclick="testBackend()">Test connection</button></div><small id="backendState">Not connected</small></div><div class="setupCard"><b>Replan request</b><textarea id="plannerPrompt" placeholder="예: 첫날은 가볍게, 쇼핑은 줄이고 미술관을 우선해줘."></textarea><button class="replanBtn" onclick="planWithAI()">✨ Plan with AI</button></div>
 </div>
-<div class="aiStatus" id="aiStatus">현재는 안전한 로컬 Planner Preview입니다. 실제 최신 웹 영업시간 조회는 백엔드 AI 연결 후 활성화됩니다.</div>
+<div class="aiStatus" id="aiStatus">Backend URL을 연결하면 실제 AI Planner가 동작해요. 연결 전에는 안전한 Local Preview로 작동합니다.</div>
 <div class="suggestHead"><div><div class="eyebrow">SUGGESTED CHANGES</div><h3>Review before applying</h3></div><div><button class="miniBtn ghost" onclick="toggleAllSuggestions(true)">Select all</button> <button class="miniBtn" onclick="applySelectedSuggestions()">Apply selected</button></div></div>
 <div id="suggestions" class="suggestions"><div class="emptySuggest">Plan with AI를 누르면 변경안이 여기에 나타나요.</div></div>
 </section><section id="route" class="section active"><div class="hero"><h1>Your Paris,<br><span>mapped.</span></h1><p>Day를 누르면 동선이 펼쳐집니다. 숫자 핀에 마우스를 올리면 액션과 카테고리, 클릭하면 저장한 이유와 Instagram 출처까지 확인할 수 있어요.</p></div><div class="days" id="days"></div><div class="editbar"><button id="editToggle" class="editToggle">✦ 일정 편집</button><span class="editHint">PC: 드래그해서 순서 변경 / Day 버튼 위에 놓아 날짜 이동 · 모바일: ↑ ↓ / 날짜 선택</span></div><div class="mapShell" id="mapShell"><div id="map" class="map"></div><div class="maphud"><b id="mapTitle">DAY 1</b><small id="mapSub">Core route only</small><button class="optiontoggle" id="optionToggle">＋ 옵션 핀 보기</button><a class="gmRoute" id="gmRoute" target="_blank" rel="noopener">Google Maps 길찾기 ↗</a></div></div><div class="routeGrid"><div class="timeline" id="timeline"></div><div class="panel" id="sidePanel"></div></div></section>
@@ -420,5 +420,50 @@ function applySelectedSuggestions(){
  localStorage.setItem('paris_by_h_ai_applied_constraints_v1',JSON.stringify({at:new Date().toISOString(),items:chosen}));
  document.getElementById('aiStatus').textContent=`${chosen.length}개 Planner constraint를 저장했어요. 현재 버전은 안전을 위해 itinerary 카드를 자동 삭제/이동하지 않습니다.`;
 }
+const BACKEND_KEY='paris_by_h_backend_v1';
+function backendURL(){return(document.getElementById('backendUrl')?.value||localStorage.getItem(BACKEND_KEY)||'').replace(/\/$/,'')}
+function saveBackendUrl(){const u=backendURL();if(u)localStorage.setItem(BACKEND_KEY,u);document.getElementById('backendState').textContent=u?'Saved. Test connection next.':'Enter a URL first.'}
+async function testBackend(){const e=document.getElementById('backendState'),u=backendURL();if(!u){e.textContent='Backend URL이 없어요.';return}e.textContent='Testing…';try{const r=await fetch(u+'/health');if(!r.ok)throw new Error('HTTP '+r.status);const j=await r.json();e.textContent=j.ok?'Connected ✓':'Not ready'}catch(err){e.textContent='Connection failed: '+err.message}}
+function compactPlannerPlaces(){const db=plannerDB(),src=(typeof DATA!=='undefined'&&Array.isArray(DATA.master))?DATA.master:[];return src.slice(0,260).map((x,i)=>{const k=x.id||x.title||x.name||('place_'+i),m=db[k]||inferPlannerMeta(x);return{id:k,name:x.title||x.name||x.place||x.location||k,priority:x.priority||x.prio||'',routeStatus:m.routeStatus||'',category:m.category,mealRole:m.mealRole,dwellMinutes:m.dwellMinutes,environment:m.environment,hoursStatus:m.hoursStatus,notes:x.notes||x.feature||x.doing||''}})}
+async function planWithAI(){const u=backendURL();if(!u){runPlannerPreview();document.getElementById('aiStatus').textContent='Backend가 없어 Local Preview로 분석했어요.';return}const st=document.getElementById('aiStatus'),box=document.getElementById('suggestions');st.textContent='AI가 일정 제약과 영업정보를 확인하고 있어요…';box.innerHTML='<div class="emptySuggest">Planning…</div>';try{const payload={trip:(typeof TRIP!=='undefined'?TRIP:{}),itinerary:currentItineraryForAI(),places:compactPlannerPlaces(),request:(document.getElementById('plannerPrompt')?.value||''),protectMust:document.getElementById('protectMust')?.checked!==false,verifyHours:document.getElementById('verifyHours')?.checked!==false};const r=await fetch(u+'/plan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});if(!r.ok)throw new Error('HTTP '+r.status+' '+await r.text());const j=await r.json();AI_SUGGESTIONS=Array.isArray(j.suggestions)?j.suggestions:[];renderLiveSuggestions();st.textContent=`Live AI 완료 · ${AI_SUGGESTIONS.length}개 변경안. 아직 itinerary에는 적용되지 않았어요.`}catch(err){st.textContent='Live AI 연결 실패, Local Preview로 전환: '+err.message;runPlannerPreview()}}
+function renderLiveSuggestions(){const b=document.getElementById('suggestions');b.innerHTML=AI_SUGGESTIONS.map((x,i)=>`<label class="suggestCard"><input type="checkbox" class="suggestCheck" data-i="${i}" ${x.selected===false?'':'checked'}><div><div class="suggestAction">${x.action||x.change||'Suggested change'}</div><div class="suggestReason">${x.reason||''}</div>${x.hours_status?`<div class="sourceLine"><span class="liveBadge ${x.hours_status==='uncertain'?'hoursWarn':''}">${x.hours_status==='verified'?'Hours verified':'Hours uncertain ⚠︎'}</span>${x.hours_note?' · '+x.hours_note:''}</div>`:''}${x.source_url?`<div class="sourceLine">Source: ${x.source_name||x.source_url}${x.checked_at?' · checked '+x.checked_at:''}</div>`:''}<div class="suggestMeta">${x.type||'AI'}</div></div></label>`).join('')||'<div class="emptySuggest">변경이 필요 없어요.</div>'}
+document.addEventListener('DOMContentLoaded',()=>{const i=document.getElementById('backendUrl');if(i)i.value=localStorage.getItem(BACKEND_KEY)||''});
+function currentItineraryForAI(){
+  // Use the itinerary data model itself, not the currently rendered day in the DOM.
+  // This sends ALL itinerary rows, including Optional items, so AI sees the full trip context.
+  if(typeof DATA==='undefined' || !Array.isArray(DATA.itinerary)) return [];
+
+  function inferPriority(x){
+    const text=((x.feature||'')+' '+(x.doing||'')+' '+(x.theme||'')).toUpperCase();
+    if(text.includes('MUST')) return 'MUST';
+    if(text.includes('ROUTE PICK')) return 'ROUTE PICK';
+    if(text.includes('BACKUP')) return 'BACKUP';
+    if(text.includes('DROP')) return 'DROP';
+    return '';
+  }
+
+  const grouped={};
+  for(const x of DATA.itinerary){
+    const date=x.date||'unspecified';
+    (grouped[date] ||= []).push({
+      id:String(x.row||''),
+      order:Number(x.row||0),
+      date,
+      title:x.title||'',
+      doing:x.doing||'',
+      feature:x.feature||'',
+      district:x.district||'',
+      category:x.category||'',
+      priority:inferPriority(x),
+      routeStatus:x.core?'ROUTE':'OPTIONAL'
+    });
+  }
+
+  return Object.entries(grouped).map(([date,items])=>({
+    date,
+    items:items.sort((a,b)=>a.order-b.order)
+  }));
+}
+
 </script>
 </body></html>
