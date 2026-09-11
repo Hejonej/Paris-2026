@@ -1,1 +1,1 @@
-Paris by H v5 — Trip Setup + local Smart Replan foundation for future AI planner.
+Paris by H v7 — integrates v6 Planner DB + AI Planner review/apply UI. Live AI/web lookup requires a secure backend.
