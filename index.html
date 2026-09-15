@@ -89,8 +89,9 @@ function addTransport(){TRANSPORT_TYPE='flight';modal(`<div class="ey">ADD TRANS
 function transportType(t){TRANSPORT_TYPE=t;$('#segFlight').classList.toggle('on',t==='flight');$('#segTrain').classList.toggle('on',t==='train');$('#segOther').classList.toggle('on',t==='other');renderTransportFields()}
 function renderTransportFields(){let train=TRANSPORT_TYPE==='train',other=TRANSPORT_TYPE==='other';$('#transportFields').innerHTML=`<div class="transportForm">${other?`<div class="field"><label>TYPE</label><select id="totype" class="input"><option>Bus</option><option>Ferry</option><option>Car</option><option>Other</option></select></div>`:''}<div class="field"><label>${train?'TRAIN NUMBER / SERVICE':other?'SERVICE / NOTE':'FLIGHT NUMBER'}</label><input id="tno" class="input" placeholder="${train?'ICE 9574 / TGV 6123':other?'FlixBus / Rental car':'OZ501'}"></div><div class="row"><div class="field"><label>FROM</label><input id="tf" class="input" placeholder="${train?'Paris Gare de Lyon':other?'Paris':'ICN'}"></div><div class="field"><label>TO</label><input id="tt" class="input" placeholder="${train?'Marseille St-Charles':other?'Brussels':'CDG'}"></div></div></div>`}
 function saveTransport(){let no=$('#tno').value.trim(),from=$('#tf').value.trim(),to=$('#tt').value.trim();if(!from||!to)return alert('출발지와 도착지를 알려주세요.');let type=TRANSPORT_TYPE==='other'?($('#totype')?.value||'Other').toLowerCase():TRANSPORT_TYPE;state.draft.flights.push({type,no:no||(type==='train'?'Train':type==='flight'?'Flight':type),from,to});save();closeM();onboard()}
-function addStay(){modal(`<div class="ey">ADD STAY</div><h2>숙소 추가</h2><div class="field"><label>HOTEL / ADDRESS</label><input id="sn" class="input" placeholder="호텔명 또는 주소"></div><div class="actions"><button class="btn" onclick="closeM()">취소</button><button class="btn primary" onclick="saveStay()">추가</button></div>`)}
-function saveStay(){state.draft.stays.push({name:$('#sn').value||'Stay'});save();closeM();onboard()}
+function addStay(){modal(`<div class="ey">ADD STAY</div><h2>숙소를 검색해볼까요?</h2><p class="small">Google Maps에서 정확한 호텔이나 숙소를 찾아 저장해요.</p><div class="field"><label>SEARCH</label><div class="placeSearch"><input id="sq" class="input" placeholder="Floride Etoile"><button class="btn black" onclick="searchStayGoogle()">Google Maps ↗</button></div></div><div class="field"><label>PLACE / HOTEL NAME</label><input id="sn" class="input" placeholder="Hôtel Floride Etoile"></div><div class="field"><label>GOOGLE ADDRESS</label><input id="sa" class="input" placeholder="14 Rue Saint-Didier, 75116 Paris, France"></div><div class="actions"><button class="btn" onclick="closeM()">취소</button><button class="btn primary" onclick="saveStay()">이 숙소 선택</button></div>`)}
+function searchStayGoogle(){let q=$('#sq').value.trim();if(!q)return;window.open('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q+' '+(state.draft?.city||'')),'_blank');$('#sn').value=q}
+function saveStay(){let n=$('#sn').value.trim(),a=$('#sa').value.trim();if(!n||!a)return;state.draft.stays.push({name:n,address:a,source:'Google Maps'});save();closeM();onboard()}
 function googlePlaceSearch(){let q=encodeURIComponent(($('#place')?.value||'')+' '+(state.draft?.city||''));window.open('https://www.google.com/maps/search/?api=1&query='+q,'_blank')}
 function addPlace(){let v=$('#place').value.trim(),a=$('#placeAddress').value.trim();if(!v)return;state.draft.saved.push({name:v,address:a,why:'',category:'Other',sourceType:'user'});save();onboard()}
 function renderSaved(d){return d.saved.map((p,i)=>{p=typeof p==='string'?{name:p,why:'',address:'',sourceType:'user',category:'Other'}:p;return `<div class="saved"><div style="flex:1"><b>${p.name}</b>${p.address?`<div class="why">${p.address}</div>`:''}<div><button class="softLink" onclick="this.nextElementSibling.classList.toggle('hidden')">${p.why?'왜 저장했는지 수정':'왜 저장했나요? +'}</button><input data-why="${i}" class="input ${p.why?'':'hidden'}" style="font-size:13px;padding:9px 11px;margin-top:5px" value="${p.why||''}" onchange="state.draft.saved[${i}].why=this.value;save()" placeholder="예: 여기 플랑을 꼭 먹어보고 싶어서"></div></div><button class="pill" onclick="state.draft.saved.splice(${i},1);save();onboard()">×</button></div>`}).join('')}
@@ -102,7 +103,18 @@ function readIG(file){
  if(!file)return;
  if(!/\.json$/i.test(file.name)){alert('JSON 파일을 선택해주세요.');return}
  let r=new FileReader();
- r.onload=()=>{try{let raw=JSON.parse(r.result);IG_FILE_NAME=file.name;let exact=parseInstagramCollections(raw);if(exact.length){IG_COLLECTIONS=exact;renderIGCollections(file.name);return}IG_IMPORT=parseInstagramJSON(raw).map(x=>({...x,category:guessCategory(x)}));renderIGPreview(file.name)}catch(e){alert('JSON을 읽지 못했어요. 다른 Instagram export JSON을 선택해주세요.')}};
+ r.onload=()=>{try{
+ let clean=String(r.result||'').replace(/^\uFEFF/,'').trim();
+ let raw=JSON.parse(clean);
+ IG_FILE_NAME=file.name;
+ let exact=parseInstagramCollections(raw);
+ if(exact.length){IG_COLLECTIONS=exact;renderIGCollections(file.name);return}
+ IG_IMPORT=parseInstagramJSON(raw).map(x=>({...x,category:guessCategory(x)}));
+ renderIGPreview(file.name);
+}catch(e){
+ let p=$('#igPreview');
+ if(p)p.innerHTML=`<div class="notice"><b>이 파일을 읽지 못했어요.</b><p class="small">Instagram에서 내려받은 saved collections JSON을 그대로 선택해주세요.</p></div>`;
+}};
  r.readAsText(file);
 }
 function walkJSON(v,path='',out=[]){
