@@ -44,8 +44,31 @@
 
 .suggestBox{position:relative}.suggestions{position:absolute;z-index:30;left:0;right:0;top:calc(100% + 6px);background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 16px 40px #0002;overflow:hidden;max-height:250px;overflow-y:auto}
 .suggestion{display:block;width:100%;border:0;background:#fff;text-align:left;padding:12px 14px;font:inherit;border-bottom:1px solid #eee}.suggestion:last-child{border-bottom:0}.suggestion:hover{background:#f6f6f3}.suggestion b{display:block}.suggestion span{font-size:12px;color:#888}
+
+.igIntro{margin-bottom:22px}
+.igDrop{display:flex;min-height:150px;border:1.5px dashed #c9c9c3;border-radius:28px;background:#fff;align-items:center;justify-content:center;text-align:center;padding:28px;margin:20px 0;transition:.15s}
+.igDrop:hover,.igDrop.drag{background:#f3f3ef;border-color:#999}
+.igDrop b{font-size:19px}.igDrop .small{font-size:15px;margin-top:7px}
+.igToolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:-30px;background:#fbfbf9;padding:14px 0 12px;z-index:3;border-bottom:1px solid var(--line)}
+.igToolbar .left{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.selectAllBtn{border:1px solid var(--line);background:#fff;border-radius:999px;padding:9px 13px;font-weight:800}
+.dayBody{margin-top:12px}
+.dayEmpty{border:1px dashed var(--line);border-radius:24px;padding:28px;text-align:center;color:var(--muted);background:#fff}
+.planSummary{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 18px}
+.planSummary span{background:#ededE9;border-radius:999px;padding:8px 11px;font-size:12px;font-weight:750}
+
+
+.extractSummary{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 18px}.extractSummary span{padding:8px 11px;border-radius:999px;background:#efefeb;font-size:12px;font-weight:800}.extractPost{border:1px solid var(--line);border-radius:26px;background:#fff;padding:20px;margin:12px 0}.extractPostHead{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.placeCandidates{display:flex;flex-direction:column;gap:8px;margin-top:14px}.placeCandidate{display:flex;align-items:center;gap:11px;padding:12px 14px;border-radius:18px;background:#f5f5f2}.placeCandidate input{width:18px;height:18px}.placeCandidate .candidateText{flex:1}.needsMatch,.inspirationTag{font-size:11px;font-weight:800;color:#777}
+
+.matchBadge{display:inline-flex;align-items:center;gap:5px;padding:5px 8px;border-radius:999px;font-size:10px;font-weight:850;background:#ecece8}
+.matchBadge.ok{background:#e8eee8}.matchBadge.warn{background:#f3eee4}
+.routeMeta{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.routeMeta span{font-size:11px;background:#efefeb;border-radius:999px;padding:6px 8px}
+.optimizeStatus{border:1px solid var(--line);border-radius:22px;padding:18px;background:#fff;margin:14px 0}
+
 </style></head><body><div id="app"></div><div id="modal"></div>
 <script>
+console.info('Afield build: 1.1.20260915.google-optimize');
 const $=s=>document.querySelector(s), app=()=>$('#app');
 const cities=[
  ['Paris','France',['파리','프랑스']],['Berlin','Germany',['베를린','독일']],['Copenhagen','Denmark',['코펜하겐','덴마크']],
@@ -57,29 +80,76 @@ const cities=[
  ['Zurich','Switzerland',['취리히','스위스']],['Milan','Italy',['밀라노','이탈리아']],['Florence','Italy',['피렌체','이탈리아']],
  ['Venice','Italy',['베네치아','베니스','이탈리아']],['Madrid','Spain',['마드리드','스페인']],['Nice','France',['니스','프랑스']]
 ];
-let state=JSON.parse(localStorage.getItem('afield10')||'null')||{lang:'ko',chapters:[],draft:null,current:null,step:0};
-const save=()=>localStorage.setItem('afield10',JSON.stringify(state));
+const AFIELD_API='https://travel-ai.luckyjungheywon.workers.dev';
+const EMPTY_STATE={lang:'ko',chapters:[],draft:null,current:null,step:0};
+let state;
+try{state=JSON.parse(localStorage.getItem('afield10')||'null')||structuredClone(EMPTY_STATE)}
+catch(e){console.warn('Afield: invalid saved state; starting clean',e);state=structuredClone(EMPTY_STATE)}
+state.chapters=Array.isArray(state.chapters)?state.chapters:[];
+const save=()=>{try{localStorage.setItem('afield10',JSON.stringify(state));return true}catch(e){console.warn('Afield: save failed',e);return false}};
+
+function esc(x){return String(x??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function fmtDate(v){if(!v)return '';let d=new Date(v+'T12:00:00');return Number.isNaN(d.getTime())?v:`${d.getMonth()+1}/${d.getDate()}`}
+function tripDates(c){
+ if(!c?.start||!c?.end)return [];
+ let a=new Date(c.start+'T12:00:00'),b=new Date(c.end+'T12:00:00'),out=[],guard=0;
+ while(a<=b&&guard++<31){out.push({iso:a.toISOString().slice(0,10),md:`${a.getMonth()+1}/${a.getDate()}`,day:['일','월','화','수','목','금','토'][a.getDay()]});a.setDate(a.getDate()+1)}
+ return out;
+}
+function cancelDraft(){state.draft=null;state.step=0;save();home()}
+
+
+let VIEW='home', VIEW_HISTORY=[], NAV_BACK=false, ACTIVE_DAY=0;
+function markView(v){
+ if(NAV_BACK){VIEW=v;NAV_BACK=false;return}
+ if(VIEW!==v){if(VIEW)VIEW_HISTORY.push(VIEW);VIEW=v}
+}
+function renderView(v){
+ NAV_BACK=true;
+ if(v==='home')return home();
+ if(v.startsWith('onboard:')){state.step=Number(v.split(':')[1]);return onboard()}
+ if(v==='chapter')return chapter();
+ if(v==='places')return places();
+ if(v==='map')return mapView();
+ home();
+}
+
 function iconHome(){return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 10.8 12 4.7l7.5 6.1v8.1a1.6 1.6 0 0 1-1.6 1.6H6.1a1.6 1.6 0 0 1-1.6-1.6z"/><path d="M9.2 20.5v-6.1h5.6v6.1"/></svg>`}
 function iconBack(){return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5"/><path d="m10.5 6.5-5.5 5.5 5.5 5.5"/></svg>`}
 function smartBack(){
- if(state.draft&&state.step>1){state.step--;save();onboard();return}
- if(state.draft){state.draft=null;state.step=0;save();home();return}
- if(state.current){home();return}
+ closeM();
+ let prev=VIEW_HISTORY.pop();
+ if(prev&&prev.startsWith('onboard:')&&!state.draft)prev='places';
+ if(prev){renderView(prev);return}
+ if(state.draft&&state.step>1){state.step--;onboard();return}
  home();
 }
 function shell(inner,opts={}){
  let back=opts.back!==false&&(!!state.draft||!!state.current);
  app().innerHTML=`<div class="wrap"><header class="top">${back?`<button class="navIcon backIcon" aria-label="뒤로" onclick="smartBack()">${iconBack()}</button>`:`<span class="navSpacer"></span>`}<div class="logo">afield</div><button class="navIcon" aria-label="홈" title="Home" onclick="home()">${iconHome()}</button></header>${inner}</div>`
 }
-function home(){state.current=null;save();shell(`<section class="hero"><div class="ey">AFIELD</div><h1>어디로 떠날까요?</h1><p>가고 싶은 곳을 모으면 Afield가 하나의 여행으로 이어드려요.</p><button class="btn black newChapterCTA" onclick="startNew()">+ New Chapter&nbsp;&nbsp;→</button></section><section class="chapters">${state.chapters.map(c=>`<article class="chapter" onclick="openChapter('${c.id}')"><div class="ey">${c.city} · ${c.start}—${c.end}</div><h2>${c.title}</h2><p class="small">${c.saved.length}곳 저장됨 · ${c.planned?'Planning':'Dreaming'}</p></article>`).join('')}</section>`)}
+function home(){markView('home');state.current=null;save();shell(`<section class="hero"><div class="ey">AFIELD</div><h1>어디로 떠날까요?</h1><p>가고 싶은 곳을 모으면 Afield가 하나의 여행으로 이어드려요.</p><button type="button" class="btn black newChapterCTA" onclick="startNew()">+ New Chapter&nbsp;&nbsp;→</button></section><section class="chapters">${state.chapters.map(c=>`<article class="chapter" onclick="openChapter('${esc(c.id)}')"><div class="ey">${esc(c.city)} · ${esc(c.start)}—${esc(c.end)}</div><h2>${esc(c.title)}</h2><p class="small">${(c.saved||[]).length}곳 저장됨 · ${c.planned?'Planning':'Dreaming'}</p></article>`).join('')}</section>`,{back:false})}
 function startNew(){state.draft={id:'c'+Date.now(),title:'',city:'',country:'',start:'',end:'',flights:[],stays:[],saved:[],reminders:{stayMoveEve:true,stayMoveMorning:true},planned:false};state.step=1;save();onboard()}
 function prog(n){return `<div class="progress">${[1,2,3].map(x=>`<i class="${x<=n?'on':''}"></i>`).join('')}</div>`}
-function onboard(){let d=state.draft;if(state.step===1){shell(`<main class="screen">${prog(1)}<div class="ey">NEW CHAPTER · 1 OF 3</div><h1>어디로 떠날까요?</h1><p class="lead">여행의 뼈대만 먼저 만들어요. 나머지는 나중에 바꿀 수 있어요.</p><div class="field citybox"><label>CITY</label><input class="input" id="city" autocomplete="off" placeholder="Paris, Berlin, Tokyo…" oninput="cityFind(this.value)"><div id="cityResults" class="results hidden"></div></div><div class="field"><label>COUNTRY</label><input class="input" id="country" readonly placeholder="도시를 선택하면 자동 입력"></div><div class="row"><div class="field"><label>START</label><input class="input" id="start" type="date"></div><div class="field"><label>END</label><input class="input" id="end" type="date"></div></div><div class="field"><label>CHAPTER NAME</label><input class="input" id="title" placeholder="예: 2026년의 베를린 일기"></div><div class="actions"><button class="btn" onclick="home()">취소</button><button class="btn primary" onclick="step1()">계속</button></div></main>`)}
-else if(state.step===2){shell(`<main class="screen">${prog(2)}<div class="ey">NEW CHAPTER · 2 OF 3</div><h1>여행 정보를 더해볼까요?</h1><p class="lead">알고 있는 것만 넣어도 충분해요. <b>나중에 언제든 추가할 수 있어요.</b></p><div class="optional"><div class="ey">GETTING THERE · OPTIONAL</div><h3>✈️ 🚆 도시 간 이동</h3><p class="small">비행기나 기차 시간을 알면 도착일·이동일·마지막 날을 현실적으로 계획할 수 있어요. 아직 정하지 않았다면 건너뛰어도 돼요.</p><div id="flights">${d.flights.map(f=>`<div class="saved"><b>${f.type==='train'?'🚆 '+(f.no||'Train'):'✈️ '+(f.no||'Flight')}</b><span>${f.from||''} → ${f.to||''}</span></div>`).join('')}</div><button class="add" onclick="addTransport()">+ 이동편 추가</button></div><div class="optional"><div class="ey">STAYS · OPTIONAL</div><h3>🛏 숙소</h3><p class="small">매일의 시작과 끝을 기준으로 이동 동선을 만들어요.</p><div id="stays">${d.stays.map(s=>`<div class="saved"><b>${s.name}</b><span>${s.dates||''}</span></div>`).join('')}</div><button class="add" onclick="addStay()">+ 숙소 추가</button></div><div class="actions"><button class="btn" onclick="state.step=1;onboard()">이전</button><button type="button" class="btn primary" onclick="state.step=3;save();onboard()">계속 · 지금은 건너뛰기</button></div></main>`)}
-else{shell(`<main class="screen">${prog(3)}<div class="ey">NEW CHAPTER · 3 OF 3</div><h1>가고 싶은 곳을 모아볼까요?</h1><p class="lead">하나씩 저장해도 되고, 이미 모아둔 장소를 가져와도 돼요.</p><div class="field"><label>PLACE SEARCH</label><input class="input" id="place" placeholder="${d.city}에서 가고 싶은 곳"></div><div class="field"><label>GOOGLE ADDRESS</label><input class="input" id="placeAddress" placeholder="Google Maps의 정확한 주소를 붙여넣거나 입력"><button class="softLink" onclick="googlePlaceSearch()">Google Maps에서 검색 ↗</button></div><button class="btn black" onclick="addPlace()">+ 이 장소 저장</button><div id="savedList" class="savedList">${renderSaved(d)}</div><section class="import"><div class="importCard"><div class="ey">BRING WHAT YOU ALREADY SAVED</div><h3>Instagram에 모아둔 것들이 있나요?</h3><p class="small">여행을 위해 모아둔 맛집, 쇼핑, 전시·공연, 숙소와 영감을 가져올 수 있어요.</p><button class="btn" onclick="instagramInfo()">Instagram에서 가져오기 →</button></div></section><div class="actions"><button class="btn" onclick="state.step=2;onboard()">이전</button><button class="btn primary" onclick="finishChapter()">${d.saved.length?`${d.saved.length}곳으로 여행 시작하기 →`:'장소는 나중에 모을게요 →'}</button></div></main>`)}}
+function onboard(){markView('onboard:'+state.step);let d=state.draft;if(state.step===1){shell(`<main class="screen">${prog(1)}<div class="ey">NEW CHAPTER · 1 OF 3</div><h1>어디로 떠날까요?</h1><p class="lead">여행의 뼈대만 먼저 만들어요. 나머지는 나중에 바꿀 수 있어요.</p><div class="field citybox"><label>CITY</label><input class="input" id="city" autocomplete="off" placeholder="Paris, Berlin, Tokyo…" value="${esc(d.city)}" oninput="cityFind(this.value)"><div id="cityResults" class="results hidden"></div></div><div class="field"><label>COUNTRY</label><input class="input" id="country" readonly placeholder="도시를 선택하면 자동 입력" value="${esc(d.country)}"></div><div class="row"><div class="field"><label>START</label><input class="input" id="start" type="date" value="${esc(d.start)}"></div><div class="field"><label>END</label><input class="input" id="end" type="date" value="${esc(d.end)}"></div></div><div class="field"><label>CHAPTER NAME</label><input class="input" id="title" placeholder="예: 2026년의 베를린 일기" value="${esc(d.title)}"></div><div class="actions"><button class="btn" onclick="cancelDraft()">취소</button><button class="btn primary" onclick="step1()">계속</button></div></main>`)}
+else if(state.step===2){shell(`<main class="screen">${prog(2)}<div class="ey">NEW CHAPTER · 2 OF 3</div><h1>여행 정보를 더해볼까요?</h1><p class="lead">알고 있는 것만 넣어도 충분해요. <b>나중에 언제든 추가할 수 있어요.</b></p><div class="optional"><div class="ey">GETTING THERE · OPTIONAL</div><h3>✈️ 🚆 도시 간 이동</h3><p class="small">비행기나 기차 시간을 알면 도착일·이동일·마지막 날을 현실적으로 계획할 수 있어요. 아직 정하지 않았다면 건너뛰어도 돼요.</p><div id="flights">${d.flights.map(f=>`<div class="saved"><b>${f.type==='train'?'🚆 '+esc(f.no||'Train'):f.type==='flight'?'✈️ '+esc(f.no||'Flight'):'••• '+esc(f.no||f.type||'Other')}</b><span>${esc(f.from||'')} → ${esc(f.to||'')}</span></div>`).join('')}</div><button class="add" onclick="addTransport()">+ 이동편 추가</button></div><div class="optional"><div class="ey">STAYS · OPTIONAL</div><h3>🛏 숙소</h3><p class="small">매일의 시작과 끝을 기준으로 이동 동선을 만들어요.</p><div id="stays">${d.stays.map(s=>`<div class="saved"><b>${esc(s.name)}</b><span>${esc([s.address,s.dates].filter(Boolean).join(' · '))}</span></div>`).join('')}</div><button class="add" onclick="addStay()">+ 숙소 추가</button></div><div class="actions"><button class="btn" onclick="state.step=1;onboard()">이전</button><button type="button" class="btn primary" onclick="goCollect()">계속 · 지금은 건너뛰기</button></div></main>`)}
+else{shell(`<main class="screen">${prog(3)}<div class="ey">NEW CHAPTER · 3 OF 3</div><h1>가고 싶은 곳을 모아볼까요?</h1><p class="lead">하나씩 저장해도 되고, 이미 모아둔 장소를 가져와도 돼요.</p><div class="field"><label>PLACE SEARCH</label><input class="input" id="place" placeholder="${esc(d.city)}에서 가고 싶은 곳"></div><div class="field"><label>GOOGLE ADDRESS</label><input class="input" id="placeAddress" placeholder="Google Maps의 정확한 주소를 붙여넣거나 입력"><button class="softLink" onclick="googlePlaceSearch()">Google Maps에서 검색 ↗</button></div><button class="btn black" onclick="addPlace()">+ 이 장소 저장</button><div id="savedList" class="savedList">${renderSaved(d)}</div><section class="import"><div class="importCard"><div class="ey">BRING WHAT YOU ALREADY SAVED</div><h3>Instagram에 모아둔 것들이 있나요?</h3><p class="small">여행을 위해 모아둔 맛집, 쇼핑, 전시·공연, 숙소와 영감을 가져올 수 있어요.</p><button class="btn" onclick="instagramInfo()">Instagram에서 가져오기 →</button></div></section><div class="actions"><button class="btn" onclick="state.step=2;onboard()">이전</button><button class="btn primary" onclick="finishChapter()">${d.saved.length?`${d.saved.length}곳으로 여행 시작하기 →`:'장소는 나중에 모을게요 →'}</button></div></main>`)}}
+
+function goCollect(){
+ if(!state.draft)return;
+ state.step=3;
+ onboard();
+ save();
+}
+
 function cityFind(q){let box=$('#cityResults');q=q.toLowerCase();let r=cities.filter(x=>(x[0]+' '+x[1]+' '+(x[2]||[]).join(' ')).toLowerCase().includes(q)).slice(0,8);box.innerHTML=r.map(x=>`<button class="result" onclick="pickCity('${x[0]}','${x[1]}')"><b>${x[0]}</b><div class="small">${x[1]}${x[2]?.length?' · '+x[2][0]:''}</div></button>`).join('');box.classList.toggle('hidden',!q)}
 function pickCity(c,k){$('#city').value=c;$('#country').value=k;$('#cityResults').classList.add('hidden')}
-function step1(){let d=state.draft;d.city=$('#city').value.trim();d.country=$('#country').value.trim();d.start=$('#start').value;d.end=$('#end').value;d.title=$('#title').value.trim()||`${d.city} 여행`;if(!d.city||!d.start||!d.end)return alert('도시와 여행 날짜를 먼저 알려주세요.');state.step=2;save();onboard()}
+function step1(){
+ let d=state.draft;d.city=$('#city').value.trim();d.country=$('#country').value.trim();d.start=$('#start').value;d.end=$('#end').value;d.title=$('#title').value.trim()||`${d.city} 여행`;
+ if(!d.city||!d.country||!d.start||!d.end)return alert('검색 결과에서 도시를 선택하고 여행 날짜를 알려주세요.');
+ if(d.end<d.start)return alert('체크아웃 날짜보다 여행 종료일이 빠를 수 없어요. 날짜를 다시 확인해주세요.');
+ state.step=2;save();onboard();
+}
 function modal(x){$('#modal').innerHTML=`<div class="modal" onclick="if(event.target===this)closeM()"><div class="sheet">${x}</div></div>`}function closeM(){$('#modal').innerHTML=''}
 const AIRPORTS=[
 ['ICN','Incheon International Airport','인천국제공항','Seoul / Incheon','서울 인천','South Korea'],['GMP','Gimpo International Airport','김포국제공항','Seoul','서울 김포','South Korea'],
@@ -97,13 +167,13 @@ const AIRPORTS=[
 ['EWR','Newark Liberty International Airport','뉴어크 리버티 국제공항','New York / Newark','뉴욕 뉴어크','USA'],['LAX','Los Angeles International Airport','로스앤젤레스 국제공항','Los Angeles','로스앤젤레스 LA','USA']
 ];
 let TRANSPORT_TYPE='flight';
-function addTransport(){TRANSPORT_TYPE='flight';modal(`<div class="ey">ADD TRANSPORT · OPTIONAL</div><h2>어떻게 이동하나요?</h2><p class="small">아직 정하지 않았다면 닫고 나중에 추가해도 돼요.</p><div class="segmented" style="grid-template-columns:1fr 1fr 1fr"><button id="segFlight" class="on" onclick="transportType('flight')">✈️ 비행기</button><button id="segTrain" onclick="transportType('train')">🚆 기차</button><button id="segOther" onclick="transportType('other')">••• Other</button></div><div id="transportFields"></div><div class="actions"><button class="btn" onclick="closeM()">나중에 추가</button><button class="btn primary" onclick="saveTransport()">추가</button></div>`);renderTransportFields()}
+function addTransport(){TRANSPORT_TYPE='flight';modal(`<div class="ey">ADD TRANSPORT · OPTIONAL</div><h2>어떻게 이동하나요?</h2><p class="small">아직 정하지 않았다면 닫고 나중에 추가해도 돼요.</p><div class="segmented" style="grid-template-columns:1fr 1fr 1fr"><button id="segFlight" class="on" onclick="transportType('flight')">✈️ 비행기</button><button id="segTrain" onclick="transportType('train')">🚆 기차</button><button id="segOther" onclick="transportType('other')">••• Other</button></div><div id="transportFields"></div><div class="actions"><button type="button" class="btn" onclick="closeM()">나중에 추가</button><button type="button" class="btn primary" onclick="saveTransport()">추가</button></div>`);renderTransportFields()}
 function transportType(t){TRANSPORT_TYPE=t;$('#segFlight').classList.toggle('on',t==='flight');$('#segTrain').classList.toggle('on',t==='train');$('#segOther').classList.toggle('on',t==='other');renderTransportFields()}
 function renderTransportFields(){
  let train=TRANSPORT_TYPE==='train',other=TRANSPORT_TYPE==='other';
  if(TRANSPORT_TYPE==='flight'){
   $('#transportFields').innerHTML=`<div class="transportForm">
-   <div class="field"><label>FLIGHT</label><div class="placeSearch"><input id="tno" class="input" placeholder="항공편 번호"><button class="btn" onclick="searchFlight()">검색 ↗</button></div><div class="small">실시간 항공편 DB 연결 전이라 항공편 번호는 웹에서 확인해요. 공항은 Afield 안에서 바로 검색할 수 있어요.</div></div>
+   <div class="field"><label>FLIGHT</label><div class="placeSearch"><input id="tno" class="input" placeholder="항공편 번호"><button type="button" class="btn" onclick="searchFlight()">검색 ↗</button></div><div class="small">실시간 항공편 DB 연결 전이라 항공편 번호는 웹에서 확인해요. 공항은 Afield 안에서 바로 검색할 수 있어요.</div></div>
    <div class="row">
     <div class="field suggestBox"><label>FROM AIRPORT</label><input id="tf" class="input" placeholder="공항명 · 도시 · IATA 코드" autocomplete="off" oninput="airportSuggest('tf','tfSug')"><div id="tfSug" class="suggestions hidden"></div></div>
     <div class="field suggestBox"><label>TO AIRPORT</label><input id="tt" class="input" placeholder="공항명 · 도시 · IATA 코드" autocomplete="off" oninput="airportSuggest('tt','ttSug')"><div id="ttSug" class="suggestions hidden"></div></div>
@@ -121,12 +191,39 @@ function airportSuggest(inputId,boxId){
 function pickAirport(inputId,boxId,i){let a=AIRPORTS[i];$('#'+inputId).value=`${a[0]} · ${a[2]}`;$('#'+boxId).classList.add('hidden')}
 function searchFlight(){let q=$('#tno')?.value.trim();if(!q)return;window.open('https://www.google.com/search?q='+encodeURIComponent(q+' flight status'),'_blank')}
 
+function saveTransport(){
+ let no=$('#tno')?.value.trim()||'',from=$('#tf')?.value.trim()||'',to=$('#tt')?.value.trim()||'';
+ if(!from||!to){showInlineTransportError('출발지와 도착지를 선택해주세요.');return}
+ let type=TRANSPORT_TYPE==='other'?($('#totype')?.value||'Other').toLowerCase():TRANSPORT_TYPE;
+ state.draft.flights=state.draft.flights||[];
+ state.draft.flights.push({type,no:no||(type==='train'?'Train':type==='flight'?'Flight':type),from,to});
+ save();closeM();onboard();
+}
+function showInlineTransportError(msg){
+ let host=$('#transportFields');if(!host)return;
+ let old=$('#transportError');if(old)old.remove();
+ host.insertAdjacentHTML('afterend',`<div id="transportError" class="notice" style="margin-top:12px"><b>${msg}</b></div>`);
+}
+
+
 
 function addStay(){
  modal(`<div class="ey">ADD A STAY</div><h2>숙소를 검색해볼까요?</h2><p class="small">Google Maps에서 정확한 호텔이나 숙소를 찾아 저장해요.</p><div class="field"><label>SEARCH</label><div class="placeSearch"><input id="sq" class="input" placeholder="호텔 또는 숙소명"><button type="button" class="btn" onclick="searchStayGoogle()">Google Maps ↗</button></div></div><div class="field"><label>PLACE / HOTEL NAME</label><input id="sn" class="input" placeholder="선택한 숙소명"></div><div class="field"><label>GOOGLE ADDRESS</label><input id="sa" class="input" placeholder="Google Maps의 정확한 주소"></div><div class="row"><div class="field"><label>CHECK-IN</label><input id="sfrom" class="input" type="date"></div><div class="field"><label>CHECK-OUT</label><input id="sto" class="input" type="date"></div></div><div class="actions"><button type="button" class="btn" onclick="closeM()">취소</button><button type="button" class="btn primary" onclick="saveStay()">이 숙소 선택</button></div>`);
 }
 function searchStayGoogle(){let q=$('#sq')?.value.trim();if(!q)return;window.open('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q+' '+(state.draft?.city||'')),'_blank');$('#sn').value=q}
-function saveStay(){let n=$('#sn')?.value.trim(),a=$('#sa')?.value.trim(),f=$('#sfrom')?.value||'',t=$('#sto')?.value||'';if(!n||!a)return;state.draft.stays.push({name:n,address:a,dates:[f,t].filter(Boolean).join(' → '),source:'Google Maps'});save();closeM();onboard()}
+function saveStay(){
+ let n=$('#sn')?.value.trim()||$('#sq')?.value.trim()||'',a=$('#sa')?.value.trim()||'',f=$('#sfrom')?.value||'',t=$('#sto')?.value||'';
+ if(!n){showStayError('숙소 이름을 입력해주세요.');return}
+ if(f&&t&&t<f){showStayError('체크아웃 날짜가 체크인보다 빠를 수 없어요.');return}
+ state.draft.stays=state.draft.stays||[];
+ state.draft.stays.push({name:n,address:a,checkIn:f,checkOut:t,dates:[f,t].filter(Boolean).join(' → '),source:a?'Google Maps':'Added by you'});
+ save();closeM();onboard();
+}
+function showStayError(msg){
+ let sheet=document.querySelector('.sheet');if(!sheet)return;
+ let old=$('#stayError');if(old)old.remove();
+ sheet.querySelector('.actions')?.insertAdjacentHTML('beforebegin',`<div id="stayError" class="notice"><b>${esc(msg)}</b></div>`);
+}
 
 function readIG(file){
  if(!file)return;
@@ -174,7 +271,7 @@ function nestedValues(node,out=[]){
 }
 function parseInstagramPost(node){
  let vals=nestedValues(node,[]);
- let ig=vals.find(x=>x.label==='URL' && /instagram\.com\/(reel|p)\//i.test(x.href||x.value||''));
+ let ig=vals.find(x=>/instagram\.com\/(reel|p)\//i.test(x.href||x.value||''));
  if(!ig)return null;
  let captions=vals.filter(x=>x.label==='캡션' && x.value).map(x=>x.value);
  let caption=captions.sort((a,b)=>b.length-a.length)[0]||'';
@@ -185,17 +282,18 @@ function parseInstagramPost(node){
  return {name:title,why:caption,source:ig.href||ig.value,owner:owner&&owner.value||'',username:username&&username.value||'',caption,category:guessCategory({name:title,why:caption})};
 }
 function parseInstagramCollections(raw){
- if(!Array.isArray(raw))return [];
- let cols=[];
- raw.forEach((col,ci)=>{
-   if(!col||!Array.isArray(col.label_values))return;
-   let nameItem=findLV(col.label_values,'이름');
-   if(!nameItem||!nameItem.value)return;
-   let bucket=col.label_values.find(x=>Array.isArray(x.dict)&&x.dict.length);
-   if(!bucket)return;
-   let posts=bucket.dict.map(parseInstagramPost).filter(Boolean);
-   if(posts.length)cols.push({name:lvValue(nameItem),posts,index:ci});
- });
+ let candidates=walkJSON(raw).map(x=>x.v),cols=[],seen=new Set();
+ for(const col of candidates){
+   if(!col||!Array.isArray(col.label_values))continue;
+   let nameItem=findLV(col.label_values,'이름')||findLV(col.label_values,'Name');
+   if(!nameItem||!nameItem.value)continue;
+   let posts=nestedValues(col,[]); // quick signal that this object actually contains Instagram URLs
+   if(!posts.some(x=>/instagram\.com\/(reel|p)\//i.test(x.href||x.value||'')))continue;
+   let parsed=[];
+   walkJSON(col).forEach(({v})=>{let p=parseInstagramPost(v);if(p&&!parsed.some(x=>x.source===p.source))parsed.push(p)});
+   let key=lvValue(nameItem);
+   if(parsed.length&&!seen.has(key)){seen.add(key);cols.push({name:key,posts:parsed})}
+ }
  return cols;
 }
 function renderIGCollections(filename){
@@ -242,34 +340,142 @@ function guessCategory(x){
 }
 function catLabel(c){return c==='Culture'?'전시/공연':c}
 function renderIGPreview(filename){
- let p=$('#igPreview'); if(!IG_IMPORT.length){p.innerHTML=`<div class="notice"><b>가져올 항목을 찾지 못했어요.</b><div class="small">Instagram export 형식에 따라 저장 항목 구조가 다를 수 있어요. 다른 saved/collection JSON을 선택해보세요. 이 파일이 Instagram의 saved collections export인지도 확인해주세요.</div></div>`;return}
- let fresh=IG_IMPORT.filter(x=>!x.duplicate).length, dup=IG_IMPORT.length-fresh;
- p.innerHTML=`<div class="importStats"><span class="stat">${IG_IMPORT.length}개 찾음</span><span class="stat">${fresh}개 새 장소</span>${dup?`<span class="stat">${dup}개 이미 저장됨</span>`:''}</div><div class="small">${filename} · 가져오기 전에 선택을 확인할 수 있어요.</div><div class="importPreview">${IG_IMPORT.map((x,i)=>`<label class="importRow"><input type="checkbox" ${x.selected?'checked':''} ${x.duplicate?'disabled':''} onchange="IG_IMPORT[${i}].selected=this.checked"><div style="flex:1"><b>${escIG(x.name)}</b><div class="importMeta">${x.duplicate?'이미 이 Chapter에 저장되어 있어요.':x.owner?`@${escIG(x.username||'')} · Instagram saved post`:x.why?escIG(x.why).slice(0,150):'Instagram saved item'}${x.source?` · 원본 링크 있음`:''}</div>${x.caption?`<div class="postContext">${escIG(x.caption)}</div>`:''}<select class="input" style="font-size:13px;padding:8px 10px;margin-top:8px" onchange="IG_IMPORT[${i}].category=this.value">${['Food','Shopping','Culture','Stay','Area','Inspiration','Other'].map(c=>`<option value="${c}" ${x.category===c?'selected':''}>${catLabel(c)}</option>`).join('')}</select></div></label>`).join('')}</div><div class="actions"><button class="btn" onclick="instagramInfo()">다른 파일</button><button class="btn primary" onclick="applyIGImport()">선택한 장소 가져오기</button></div>`;
+ let p=$('#igPreview'); if(!IG_IMPORT.length){p.innerHTML=`<div class="notice"><b>가져올 항목을 찾지 못했어요.</b><div class="small">Instagram의 saved collections JSON인지 확인해주세요.</div></div>`;return}
+ let fresh=IG_IMPORT.filter(x=>!x.duplicate).length, dup=IG_IMPORT.length-fresh, selected=IG_IMPORT.filter(x=>x.selected&&!x.duplicate).length;
+ p.innerHTML=`<div class="igToolbar"><div class="left"><span class="stat">${IG_IMPORT.length}개 찾음</span><span class="stat">${fresh}개 새 항목</span>${dup?`<span class="stat">${dup}개 이미 저장됨</span>`:''}<span class="stat" id="igSelected">${selected}개 선택</span></div><div><button type="button" class="selectAllBtn" onclick="setIGSelection(true)">전체 선택</button> <button type="button" class="selectAllBtn" onclick="setIGSelection(false)">전체 해제</button></div></div><div class="small" style="margin:12px 0">${escIG(filename)} · 가져오기 전에 분류와 선택을 확인할 수 있어요.</div><div class="importPreview">${IG_IMPORT.map((x,i)=>`<label class="importRow"><input type="checkbox" ${x.selected?'checked':''} ${x.duplicate?'disabled':''} onchange="IG_IMPORT[${i}].selected=this.checked;updateIGSelected()"><div style="flex:1"><b>${escIG(x.name)}</b><div class="importMeta">${x.duplicate?'이미 이 Chapter에 저장되어 있어요.':x.owner?`@${escIG(x.username||'')} · Instagram saved post`:x.why?escIG(x.why).slice(0,150):'Instagram saved item'}${x.source?` · 원본 링크 있음`:''}</div>${x.caption?`<div class="postContext">${escIG(x.caption)}</div>`:''}<select class="input" style="font-size:13px;padding:8px 10px;margin-top:8px" onchange="IG_IMPORT[${i}].category=this.value">${['Food','Shopping','Culture','Stay','Area','Inspiration','Other'].map(c=>`<option value="${c}" ${x.category===c?'selected':''}>${catLabel(c)}</option>`).join('')}</select></div></label>`).join('')}</div><div class="actions"><button class="btn" onclick="instagramInfo()">다른 파일</button><button class="btn primary" onclick="applyIGImport()">선택한 ${selected}개 가져오기</button></div>`;
 }
+function setIGSelection(v){IG_IMPORT.forEach(x=>{if(!x.duplicate)x.selected=v});renderIGPreview(IG_FILE_NAME)}
+function updateIGSelected(){let e=$('#igSelected');if(e)e.textContent=IG_IMPORT.filter(x=>x.selected&&!x.duplicate).length+'개 선택'}
 function escIG(x){return String(x||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
-function applyIGImport(){
- let d=state.draft, add=IG_IMPORT.filter(x=>x.selected&&!x.duplicate);
- add.forEach(x=>d.saved.push({name:x.name,why:x.why||'',source:x.source||'',sourceType:'instagram',category:x.category||'Other',address:'',collection:x.collection||'',instagramOwner:x.owner||'',instagramUsername:x.username||''}));
- save();closeM();onboard();
+
+function cleanCandidate(x){return String(x||'').replace(/https?:\/\/\S+/g,' ').replace(/#[^\s]+/g,' ').replace(/^[\s•·→>➡️➜\-\d.)]+|[\s•·→>➡️➜\-]+$/g,'').replace(/\s+/g,' ').trim()}
+function looksLikePlaceCandidate(x){if(!x||x.length<2||x.length>70)return false;if(/^(follow me|save|saved|저장|공유|광고|협찬|파리여행|여행코스|여행|맛집추천|추천|day\s*\d+|d-\d+)/i.test(x))return false;return true}
+function extractIGCandidates(post){let text=[post.caption,post.why].filter(Boolean).join('\n'),out=[];(text.match(/@[A-Za-z0-9._]{3,}/g)||[]).forEach(x=>out.push({name:x.slice(1),kind:'handle',confidence:'high'}));text.split(/(?:->|→|➡️|➜|\n|[•])/).forEach(seg=>{let x=cleanCandidate(seg);if(looksLikePlaceCandidate(x))out.push({name:x,kind:'caption',confidence:'medium'})});let seen=new Set();return out.filter(o=>{let k=o.name.toLowerCase().replace(/[^\p{L}\p{N}]+/gu,'');if(k.length<2||seen.has(k))return false;seen.add(k);return true}).slice(0,12)}
+
+function applyIGImport(){let d=state.draft,add=IG_IMPORT.filter(x=>x.selected&&!x.duplicate);add.forEach(x=>{let post={name:x.name,why:x.why||'',caption:x.caption||x.why||'',source:x.source||'',sourceType:'instagram',category:x.category||'Inspiration',address:'',collection:x.collection||'',instagramOwner:x.owner||'',instagramUsername:x.username||''};post.candidates=extractIGCandidates(post);d.saved.push(post)});save();closeM();onboard()}
+
+function renderSaved(d){
+ return (d.saved||[]).map(p=>`<div class="saved"><div><b>${escIG(p.name||'Saved item')}</b><div class="small">${escIG(p.address||p.category||'')}</div></div><span>${p.sourceType==='instagram'?'Instagram · Saved by you':'Saved by you'}</span></div>`).join('');
 }
-function finishChapter(){let d=state.draft;state.chapters.push(d);state.current=d.id;state.draft=null;save();openChapter(d.id)}
+function googlePlaceSearch(){
+ let q=$('#place')?.value.trim();if(!q)return;
+ window.open('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q+' '+(state.draft?.city||'')),'_blank');
+}
+function addPlace(){
+ let name=$('#place')?.value.trim()||'',address=$('#placeAddress')?.value.trim()||'';
+ if(!name)return;
+ state.draft.saved=state.draft.saved||[];
+ state.draft.saved.push({name,address,why:'',category:'Other',sourceType:'user'});
+ save();onboard();
+}
+function instagramInfo(){
+ modal(`<div class="igIntro"><div class="ey">IMPORT FROM INSTAGRAM</div><h2>Instagram에 모아둔 것들을 가져올까요?</h2><p class="lead">맛집, 쇼핑, 전시·공연, 숙소, 동네와 여행 영감까지. 저장해둔 것들을 Afield가 읽고 정리해요.</p></div><label class="igDrop" for="igFile" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="event.preventDefault();this.classList.remove('drag');readIG(event.dataTransfer.files[0])"><div><b>JSON 파일 선택</b><div class="small">또는 이곳에 파일을 놓으세요</div></div></label><input id="igFile" type="file" accept=".json,application/json" hidden onchange="readIG(this.files[0])"><div id="igPreview"></div><div class="actions"><button type="button" class="btn" onclick="closeM()">나중에 할게요</button></div>`);
+}
+
+function finishChapter(){let d=state.draft;state.chapters.push(d);state.current=d.id;state.draft=null;VIEW_HISTORY=VIEW_HISTORY.filter(v=>!v.startsWith('onboard:'));VIEW_HISTORY.push('places');save();openChapter(d.id);if((d.saved||[]).some(p=>p.sourceType==='instagram'))setTimeout(()=>reviewExtractedPlaces(),120)}
 function C(){return state.chapters.find(c=>c.id===state.current)}
 function openChapter(id){state.current=id;save();chapter()}
-function chapter(){let c=C(),saved=c.saved||[];shell(`<section class="chapterHead"><div class="ey">${c.city} · ${c.start}—${c.end}</div><h1>${c.title}</h1><p class="small">장소 이름뿐 아니라, 왜 저장했는지까지 함께 보며 하루를 만들어요.</p><div class="tabs"><button class="on">Trip</button><button onclick="places()">Places</button><button onclick="mapView()">Map</button></div><div class="dates">${['9/19','9/20','9/21','9/22','9/23'].map((d,i)=>`<button class="date ${i===0?'on':''}">${['토','일','월','화','수'][i]}<br><span class="small">${d}</span></button>`).join('')}</div></section>${c.planned?plannedHTML(c):emptyPlan(c)}<nav class="bottom"><button class="on">여행</button><button onclick="places()">장소</button><button onclick="mapView()">지도</button></nav>`)}
+function chapter(){
+ markView('chapter');let c=C();if(!c){home();return}
+ let ds=tripDates(c);if(ACTIVE_DAY>=ds.length)ACTIVE_DAY=0;
+ shell(`<section class="chapterHead"><div class="ey">${esc(c.city)} · ${esc(c.start)}—${esc(c.end)}</div><h1>${esc(c.title)}</h1><p class="small">장소 이름뿐 아니라, 왜 저장했는지까지 함께 보며 하루를 만들어요.</p><div class="tabs"><button class="on">Trip</button><button onclick="places()">Places</button><button onclick="mapView()">Map</button></div><div class="dates">${ds.map((d,i)=>`<button type="button" class="date ${i===ACTIVE_DAY?'on':''}" onclick="selectDay(${i})">${d.day}<br><span class="small">${d.md}</span></button>`).join('')}</div></section>${c.planned?plannedHTML(c):emptyPlan(c)}<nav class="bottom"><button class="on">여행</button><button onclick="places()">장소</button><button onclick="mapView()">지도</button></nav>`);
+}
+
+function allExtractedCandidates(c){let rows=[];(c.saved||[]).forEach((p,pi)=>{if(p.sourceType!=='instagram')return;(p.candidates||[]).forEach((cand,ci)=>{let o=typeof cand==='string'?{name:cand,confidence:'medium'}:cand;rows.push({postIndex:pi,candidateIndex:ci,name:o.name,confidence:o.confidence||'medium',post:p})})});return rows}
+function reviewExtractedPlaces(){let c=C();if(!c)return;let rows=allExtractedCandidates(c);modal(`<div class="ey">INSPIRATION → PLACES</div><h2>저장한 게시물 속 장소를 먼저 확인할까요?</h2><p class="lead">게시물 자체를 일정에 넣지 않아요. 발견한 <b>실제 장소 후보</b>만 여행 장소로 바꾸고, 원본 게시물은 출처로 남겨둘게요.</p><div class="extractSummary"><span>${(c.saved||[]).filter(p=>p.sourceType==='instagram').length}개 저장 게시물</span><span>${rows.length}개 장소 후보</span></div><div class="importPreview">${(c.saved||[]).map((p,pi)=>{if(p.sourceType!=='instagram')return '';let cs=p.candidates||[];return `<div class="extractPost"><div class="extractPostHead"><div><b>${esc(p.name||'Instagram saved post')}</b><div class="small">${p.instagramUsername?'@'+esc(p.instagramUsername)+' · ':''}원본은 Inspiration으로 보관</div></div></div><div class="placeCandidates">${cs.length?cs.map((cand,ci)=>{let o=typeof cand==='string'?{name:cand,confidence:'medium'}:cand;return `<label class="placeCandidate"><input type="checkbox" checked onchange="setCandidateDecision(${pi},${ci},this.checked)"><div class="candidateText"><b>${esc(o.name)}</b><div>${o.confidence==='high'?'@mention에서 발견':'캡션에서 발견'} · <span class="needsMatch">Google Places 확인 예정</span></div></div></label>`}).join(''):`<div class="small">자동으로 분리한 장소가 없어요. 원본만 Inspiration으로 남겨요.</div>`}</div></div>`}).join('')}</div><div class="actions"><button class="btn" onclick="closeM()">나중에</button><button class="btn primary" onclick="confirmExtractedPlaces()">선택한 장소 확인</button></div>`)}
+function setCandidateDecision(pi,ci,v){let p=C().saved[pi];p.candidateDecisions=p.candidateDecisions||{};p.candidateDecisions[ci]=v;save()}
+function confirmExtractedPlaces(){let c=C(),existing=new Set((c.saved||[]).filter(p=>p.sourceType!=='instagram').map(p=>String(p.name||p).toLowerCase())),made=0;(c.saved||[]).slice().forEach(post=>{if(post.sourceType!=='instagram')return;(post.candidates||[]).forEach((cand,ci)=>{if(post.candidateDecisions&&post.candidateDecisions[ci]===false)return;let o=typeof cand==='string'?{name:cand}:cand,k=String(o.name||'').toLowerCase();if(!k||existing.has(k))return;existing.add(k);c.saved.push({name:o.name,why:post.why||'',category:post.category||'Other',sourceType:'instagram-place',source:post.source||'',sourcePost:post.name||'',placeStatus:'needs_google_match',address:'',lat:null,lng:null});made++})});c.plan=null;c.planned=false;save();closeM();places();setTimeout(()=>modal(`<div class="ey">PLACES READY</div><h2>${made}개 장소 후보를 만들었어요.</h2><p class="lead">게시물은 Inspiration으로 남고, 일정에는 분리한 장소만 사용해요.</p><div class="notice"><b>Google Places 매칭 전</b><div class="small">실제 주소·좌표를 확인한 뒤 거리 기준 최적화를 확정해야 해요.</div></div><div class="actions"><button class="btn" onclick="closeM()">장소 보기</button><button class="btn primary" onclick="closeM();planAI()">Plan with Afield</button></div>`),80)}
+
+
+async function apiJSON(path,body){
+ let r=await fetch(AFIELdURL(path),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+ let data=await r.json().catch(()=>({}));
+ if(!r.ok)throw new Error(data.error||`Afield API ${r.status}`);
+ return data;
+}
+function AFIELdURL(path){return AFIELD_API.replace(/\/$/,'')+path}
+async function matchPlacesWithGoogle(c){
+ let places=(c.saved||[]).filter(p=>typeof p!=='string'&&p.sourceType!=='instagram'&&(!p.placeId||p.placeStatus==='needs_google_match'));
+ if(!places.length)return {matched:0,unmatched:0};
+ let payload={city:c.city,country:c.country,places:places.map((p,i)=>({clientIndex:i,name:p.name,category:p.category||'Other',sourcePost:p.sourcePost||''}))};
+ let data=await apiJSON('/places-match',payload),matched=0,unmatched=0;
+ (data.results||[]).forEach(r=>{
+   let p=places[r.clientIndex];if(!p)return;
+   if(r.match){
+     Object.assign(p,{name:r.match.displayName||p.name,placeId:r.match.placeId,address:r.match.formattedAddress||'',lat:r.match.location?.latitude??null,lng:r.match.location?.longitude??null,googleMapsUri:r.match.googleMapsUri||'',primaryType:r.match.primaryType||'',businessStatus:r.match.businessStatus||'',regularOpeningHours:r.match.regularOpeningHours||null,timeZone:r.match.timeZone||null,placeStatus:'google_matched',matchConfidence:r.confidence||'matched'});matched++;
+   }else{p.placeStatus='google_unmatched';unmatched++}
+ });
+ save();return {matched,unmatched};
+}
+async function optimizeWithGoogle(c){
+ let places=normalizedPlanItems(c).filter(x=>x.placeId&&x.lat!=null&&x.lng!=null);
+ if(!places.length)throw new Error('Google Places에서 확인된 장소가 아직 없어요.');
+ let data=await apiJSON('/optimize-trip',{
+   city:c.city,country:c.country,start:c.start,end:c.end,
+   places,
+   stays:(c.stays||[]).map(x=>({name:x.name,address:x.address||'',checkIn:x.checkIn||'',checkOut:x.checkOut||'',placeId:x.placeId||null,lat:x.lat??null,lng:x.lng??null})),
+   transports:(c.flights||[]).map(x=>({type:x.type||'flight',no:x.no||'',from:x.from||'',to:x.to||''}))
+ });
+ c.plan=data.plan;c.plan.engine='google_places_routes';c.plan.generatedAt=Date.now();save();return data;
+}
+
+function normalizedPlanItems(c){
+ let out=[],seen=new Set();
+ (c.saved||[]).forEach(p=>{
+   let o=typeof p==='string'?{name:p,category:'Other',sourceType:'user'}:p;if(o.sourceType==='instagram')return;
+   let name=cleanCandidate(o.name);if(!name)return;let k=name.toLowerCase().replace(/[^\p{L}\p{N}]+/gu,'');if(k.length<2||seen.has(k))return;seen.add(k);
+   out.push({name,category:o.category||'Other',source:o.sourceType==='instagram-place'?'Instagram · Saved by you':o.sourceType==='afield'?'Suggested by Afield':'Saved by you',why:o.why||'',post:o.sourcePost||'',placeStatus:o.placeStatus||'saved',placeId:o.placeId||null,address:o.address||'',lat:o.lat??null,lng:o.lng??null,googleMapsUri:o.googleMapsUri||'',primaryType:o.primaryType||'',businessStatus:o.businessStatus||'',regularOpeningHours:o.regularOpeningHours||null,timeZone:o.timeZone||null});
+ });
+ return out;
+}
+function selectDay(i){ACTIVE_DAY=i;chapter()}
+
 function emptyPlan(c){return `<div class="brief"><div class="ey">DREAMING → PLANNING</div><h2>${c.saved.length?`${c.saved.length}곳이 모였어요. 이제 하루로 이어볼까요?`:'먼저 가고 싶은 곳을 모아볼까요?'}</h2><p class="small">날짜, 숙소, 이동 동선과 저장한 이유를 함께 볼게요.${c.saved.length<3?' 아직 저장한 곳이 적어서 일부 시간대는 비어 있을 수 있어요.':''}</p><div class="actions"><button class="btn" onclick="places()">+ 장소 더 저장</button>${c.saved.length?`<button class="btn primary" onclick="planAI()">✦ Plan with Afield</button>`:''}</div></div>`}
-function plannedHTML(c){return `<div class="reminderCard"><div class="ey">TRIP RHYTHM · REMINDERS</div><h2>숙소를 옮기는 날도 놓치지 않게.</h2><p class="small">전날 저녁과 당일 아침, 여행의 분위기를 깨지 않는 짧은 인사와 함께 체크아웃·다음 숙소를 알려드려요.</p><div class="reminderRow"><div><b>전날 저녁</b><div class="small">“내일은 숙소를 옮기는 날이에요. 오늘 밤은 천천히 마무리해요.”</div></div><button class="toggle ${c.reminders?.stayMoveEve!==false?'on':''}" onclick="toggleReminder(this,'stayMoveEve')"></button></div><div class="reminderRow"><div><b>당일 아침</b><div class="small">“좋은 아침이에요. 오늘은 숙소를 옮기는 날이에요. 체크아웃 시간과 다음 숙소를 확인해볼까요?”</div></div><button class="toggle ${c.reminders?.stayMoveMorning!==false?'on':''}" onclick="toggleReminder(this,'stayMoveMorning')"></button></div></div><div class="notice"><div class="ey">AFIELD NOTICED SOMETHING</div><h2>첫날 일정이 조금 빡빡해 보여요.</h2><p class="small">항공편이 CDG에 17:20 도착해요. 첫날은 서쪽 파리에서 가볍게 시작하는 편이 자연스러워요.</p><button class="move" onclick="review()">Review changes →</button></div><div class="brief"><div class="ey">오늘의 동네</div><h2>Trocadéro에서 파리의 첫 장면을 시작해요.</h2><p class="small">숙소에 짐을 두고 에펠탑이 가장 잘 보이는 트로카데로 주변을 천천히 걸어요.</p></div>${['숙소','Trocadéro','Eiffel Tower 주변 산책'].map((x,i)=>`<div class="routeCard"><div class="ey">${i+1<10?'0':''}${i+1} · PLACE</div><h2>${x}</h2><p class="small">${i===0?'첫 번째 숙소 · 체크인':i===1?'에펠탑 전망 · 산책 · 16구':'첫날 저녁 · 산책'}</p><span class="sourceTag">${i===2?'Suggested by Afield':'Saved by you'}</span></div>${i<2?`<button class="move" onclick="directions('${x}','${['Trocadéro','Eiffel Tower'][i]}')">🚶 약 ${8+i*4}분 ›</button>`:''}`).join('')}<div class="ey" style="margin-top:30px">오늘의 전체 경로</div><div class="map">Map · 숙소 → Trocadéro → Eiffel Tower</div>`}
-function places(){let c=C();shell(`<main class="screen"><div class="ey">${c.title}</div><h1>Places</h1><p class="lead">계획에 들어간 곳과 아직 일정이 없는 곳을 함께 관리해요.</p><div class="field"><div class="placeSearch"><input class="input" id="cp" placeholder="새 장소 저장"><button class="btn black" onclick="chapterAddPlace()">저장</button></div></div><div class="savedList">${(c.saved||[]).map(p=>`<div class="saved"><div><b>${typeof p==='string'?p:p.name}</b><div class="why">${typeof p==='string'?'':p.why||p.address||''}</div>${typeof p==='string'?'<span class="sourceTag">Saved by you</span>':`<span class="sourceTag">${p.sourceType==='instagram'?'Instagram · Saved by you':p.sourceType==='afield'?'Suggested by Afield':'Saved by you'}</span>`}${typeof p!=='string'&&p.category?` <span class="cat">${catLabel(p.category)}</span>`:''}</div><span>♡</span></div>`).join('')}</div><button class="btn" onclick="chapter()">← Trip</button></main>`)}
-function chapterAddPlace(){let v=$('#cp').value.trim();if(v){C().saved.push({name:v,why:''});save();places()}}
-function mapView(){let c=C();shell(`<main class="screen"><div class="ey">${c.title}</div><h1>Map</h1><div class="map">전체 여행 장소 지도</div><button class="btn" onclick="chapter()">← Trip</button></main>`)}
-function planAI(){modal(`<div class="ey">ASK AFIELD</div><h2>여행을 다시 살펴보고 있어요</h2><p id="loadtxt" class="lead">저장한 장소와 여행 날짜를 확인하고 있어요.</p><div class="reviewbar"><i style="width:42%;animation:p 2s infinite"></i></div>`);let msgs=['영업시간과 우선순위를 맞추고 있어요.','숙소와 이동 동선을 연결하고 있어요.','하루의 리듬을 만들고 있어요.'];let i=0,t=setInterval(()=>{let e=$('#loadtxt');if(e)e.textContent=msgs[i++%msgs.length]},1100);setTimeout(()=>{clearInterval(t);closeM();review()},2700)}
-let ri=0,decisions=[];
-const sugg=[{t:'첫날 일정을 가볍게 할까요?',why:'도착 시간이 늦어 낮 일정을 소화하기 어려워요.',before:'호텔 → 미술관 → 쇼핑 → 에펠',after:'호텔 → Trocadéro → 에펠 주변 산책'},{t:'미술관은 다음 날로 옮길까요?',why:'첫날보다 오전 시간이 있는 날이 관람에 여유로워요.',before:'9/19 Musée d’Art Moderne',after:'9/20 Musée d’Art Moderne'}];
-function review(){ri=0;decisions=[];renderReview()}
+function plannedHTML(c){
+ if(!c.plan||!Array.isArray(c.plan.days))c.plan=makeLocalPlan(c);
+ let day=c.plan.days[ACTIVE_DAY]||{items:[]},dates=tripDates(c),date=dates[ACTIVE_DAY],items=day.items||[],live=c.plan.engine==='google_places_routes';
+ return `<div class="brief"><div class="ey">DAY ${ACTIVE_DAY+1} · ${esc(date?.md||'')}</div><h2>${items.length?`${items.length}곳을 ${live?'실제 이동 동선':'임시 리듬'} 기준으로 잡았어요.`:'이 날은 일부러 여유를 남겨뒀어요.'}</h2><p class="small">${live?'Google Place ID·좌표와 Routes 이동시간을 사용한 일정이에요. 영업시간이 있는 장소는 해당 요일의 regular opening hours도 함께 검토했어요.':'Google backend가 연결되지 않은 fallback 초안이에요. 거리 최적화 결과로 보지 마세요.'}</p><div class="planSummary"><span>${live?'Google optimized':'Fallback draft'}</span><span>${normalizedPlanItems(c).filter(x=>x.placeId).length}곳 Place matched</span>${day.totalTravelMinutes!=null?`<span>이동 약 ${Math.round(day.totalTravelMinutes)}분</span>`:''}${day.totalDistanceMeters!=null?`<span>${(day.totalDistanceMeters/1000).toFixed(1)}km</span>`:''}</div></div><div class="dayBody">${items.length?items.map((x,i)=>`<div class="routeCard"><div class="ey">${String(i+1).padStart(2,'0')} · ${esc(catLabel(x.category||'Other'))}</div><h2>${esc(x.name)}</h2><p class="small">${esc(x.address||'')}${x.openingNote?` · ${esc(x.openingNote)}`:''}</p><span class="sourceTag">${esc(x.source||'Saved by you')}</span> ${x.placeId?`<span class="matchBadge ok">Google Place ✓</span>`:`<span class="matchBadge warn">확인 필요</span>`}${x.arrivalTime?`<div class="routeMeta"><span>${esc(x.arrivalTime)} 도착</span>${x.visitMinutes?`<span>${x.visitMinutes}분 머무름</span>`:''}</div>`:''}</div>${i<items.length-1?`<button class="move" onclick="directions('${encodeURIComponent(x.name)}','${encodeURIComponent(items[i+1].name)}')">${x.travelToNextMinutes!=null?`${Math.round(x.travelToNextMinutes)}분 · `:''}다음 장소 경로 보기 ›</button>`:''}`).join(''):`<div class="dayEmpty">아직 배치된 장소가 없어요.</div>`}</div><div class="ey" style="margin-top:30px">오늘의 전체 경로</div><div class="map">${live?'Google Routes로 계산된 Day route':'Google Routes 연결 대기'}</div>`;
+}
+function places(){markView('places');let c=C();if(!c){home();return}let inspirations=(c.saved||[]).filter(p=>typeof p!=='string'&&p.sourceType==='instagram'),actual=(c.saved||[]).filter(p=>typeof p==='string'||p.sourceType!=='instagram');shell(`<main class="screen"><div class="ey">${esc(c.title)}</div><h1>Places</h1><p class="lead">Instagram 게시물은 영감의 출처로 남기고, 실제 일정에는 분리된 장소만 사용해요.</p><div class="field"><div class="placeSearch"><input class="input" id="cp" placeholder="새 장소 저장"><button type="button" class="btn black" onclick="chapterAddPlace()">저장</button></div></div>${inspirations.length?`<div class="notice"><div class="ey">INSPIRATION</div><h2>${inspirations.length}개 Instagram 저장 게시물</h2><p class="small">게시물 자체는 일정에 들어가지 않아요.</p><button class="btn" onclick="reviewExtractedPlaces()">게시물 속 장소 확인</button></div>`:''}<div class="savedList">${actual.map(p=>{let o=typeof p==='string'?{name:p}:p;return `<div class="saved"><div><b>${esc(o.name)}</b><div class="why">${esc(o.why||o.address||'')}</div><span class="sourceTag">${o.sourceType==='instagram-place'?'Instagram · Saved by you':o.sourceType==='afield'?'Suggested by Afield':'Saved by you'}</span>${o.placeStatus==='google_matched'?` <span class="matchBadge ok">Google Place ✓</span>`:o.placeStatus==='google_unmatched'?` <span class="matchBadge warn">매칭 확인 필요</span>`:o.placeStatus==='needs_google_match'?` <span class="inspirationTag">Google Place 확인 전</span>`:''}</div><span>♡</span></div>`}).join('')}</div>${actual.length?`<button class="btn primary" onclick="planAI()">Plan with Afield</button>`:''}<button class="btn" onclick="chapter()">← Trip</button></main>`)}
+function chapterAddPlace(){let v=$('#cp').value.trim();if(v){C().saved.push({name:v,why:'',category:'Other',sourceType:'user'});C().planned=false;C().plan=null;save();places()}}
+function mapView(){markView('map');let c=C();shell(`<main class="screen"><div class="ey">${esc(c.title)}</div><h1>Map</h1><div class="map">전체 여행 장소 지도</div><button class="btn" onclick="chapter()">← Trip</button></main>`)}
+async function planAI(){
+ let c=C();if(!c)return;
+ modal(`<div class="ey">PLAN WITH AFIELD</div><h2>장소를 확인하고 실제 동선을 계산하고 있어요</h2><p id="loadtxt" class="lead">Google Places에서 저장한 장소를 찾고 있어요.</p><div class="reviewbar"><i id="loadbar" style="width:18%;transition:.35s"></i></div><div class="optimizeStatus"><b id="loadstage">1 · Place matching</b><div class="small">이름 → Place ID · 주소 · 좌표 · 영업시간</div></div>`);
+ try{
+   let m=await matchPlacesWithGoogle(c);
+   $('#loadtxt').textContent=`${m.matched}곳을 Google 장소와 연결했어요${m.unmatched?` · ${m.unmatched}곳은 확인 필요`:''}.`;
+   $('#loadstage').textContent='2 · Geographic optimization';$('#loadbar').style.width='58%';
+   let r=await optimizeWithGoogle(c);
+   $('#loadtxt').textContent='날짜별 동선과 이동시간을 검증하고 있어요.';
+   $('#loadstage').textContent='3 · Day-by-Day itinerary';$('#loadbar').style.width='88%';
+   c.planned=true;ACTIVE_DAY=0;save();
+   setTimeout(()=>{closeM();chapter()},450);
+ }catch(e){
+   console.error(e);
+   c.plan=makeLocalPlan(c);c.plan.engine='local_fallback';c.planned=true;save();
+   modal(`<div class="ey">AFIELD FALLBACK</div><h2>Google 최적화 연결을 완료하지 못했어요.</h2><p class="lead">${esc(e.message||'API 연결을 확인해주세요.')}</p><div class="notice"><b>일정을 지어내지는 않았어요.</b><div class="small">현재는 저장 장소를 날짜별로 나눈 임시 초안만 보여드려요. Afield 서버의 Google Maps 연결이 완료되면 Place matching과 Routes 최적화가 활성화돼요.</div></div><div class="actions"><button class="btn primary" onclick="closeM();chapter()">임시 초안 보기</button></div>`);
+ }
+}
+let ri=0,decisions=[],sugg=[];
+function buildSuggestions(){
+ let c=C(),saved=c?.saved||[],first=saved[0],second=saved[1];
+ let a=typeof first==='string'?first:first?.name,b=typeof second==='string'?second:second?.name;
+ let out=[];
+ if(a)out.push({t:'첫날은 여유 있게 시작할까요?',why:'첫날은 이동 변수가 생기기 쉬워요. 정확한 도착 시간이 없으면 무리한 일정을 만들지 않는 편이 좋아요.',before:'저장한 장소를 모두 첫날에 배치',after:`${a} 중심으로 가볍게 시작`});
+ if(a&&b)out.push({t:'저장한 장소를 가까운 흐름으로 묶어볼까요?',why:'실시간 경로는 아직 연결 전이라 확정 동선이 아니라 검토용 제안이에요.',before:`${a} / ${b} 개별 저장`,after:`두 장소를 같은 날 후보로 검토`});
+ return out.length?out:[{t:'아직 일정 제안에 필요한 정보가 적어요.',why:'장소 1곳만 있어도 계획은 시작할 수 있지만, 빈 시간대가 생길 수 있어요.',before:'현재 저장 정보 유지',after:'빈 시간은 열어둔 초안 만들기'}];
+}
+function review(){ri=0;decisions=[];sugg=buildSuggestions();renderReview()}
 function renderReview(){let s=sugg[ri];modal(`<div class="ey">AFIELD SUGGESTS · ${ri+1}/${sugg.length}</div><div class="reviewbar"><i style="width:${(ri+1)/sugg.length*100}%"></i></div><div class="suggest"><h2>${s.t}</h2><p class="small">${s.why}</p><div class="beforeafter"><div class="ba"><div class="ey">현재</div>${s.before}</div><div class="ba"><div class="ey">바꾸면</div>${s.after}</div></div></div><div class="actions"><button class="choice" onclick="choose(false)">그대로 둘게요</button><button class="choice black" onclick="choose(true)">이렇게 바꾸기</button></div>`)}
-function choose(v){decisions.push(v);ri++;if(ri<sugg.length)renderReview();else modal(`<div class="ey">REVIEW CHANGES</div><h2>${decisions.filter(Boolean).length}가지를 바꿀게요.</h2><p class="lead">수용한 제안만 일정에 반영해요. 고집하고 싶은 일정은 그대로 남겨둬요.</p><div class="actions"><button class="btn" onclick="closeM()">다시 보기</button><button class="btn primary" onclick="applyPlan()">변경사항 적용</button></div>`)}
-function applyPlan(){C().planned=true;save();closeM();chapter()}
+function choose(v){decisions.push(v);ri++;if(ri<sugg.length)renderReview();else modal(`<div class="ey">REVIEW CHANGES</div><h2>${decisions.filter(Boolean).length}가지를 바꿀게요.</h2><p class="lead">수용한 제안만 일정에 반영해요. 고집하고 싶은 일정은 그대로 남겨둬요.</p><div class="actions"><button class="btn" onclick="review()">다시 보기</button><button class="btn primary" onclick="applyPlan()">변경사항 적용</button></div>`)}
+function applyPlan(){let c=C();if(!c.plan)c.plan=makeLocalPlan(c);c.planned=true;ACTIVE_DAY=0;save();closeM();chapter()}
 function toggleReminder(el,key){let c=C();c.reminders=c.reminders||{};c.reminders[key]=!(c.reminders[key]!==false);el.classList.toggle('on',c.reminders[key]);save()}
-function directions(a,b){modal(`<div class="ey">DIRECTIONS</div><h2>${a} → ${b}</h2><div class="modebar"><button class="on" onclick="mode(this,'도보')">🚶 도보</button><button onclick="mode(this,'대중교통')">🚇 대중교통</button><button onclick="mode(this,'택시')">🚕 택시</button></div><div class="map" id="rmap">Route map · 도보</div><p class="small" id="rmeta">약 10분 · 실제 시간은 Google Routes 연결 후 실시간으로 제공돼요.</p><button class="btn primary" onclick="window.open('https://www.google.com/maps','_blank')">Google Maps에서 열기 ↗</button>`)}
-function mode(el,m){document.querySelectorAll('.modebar button').forEach(x=>x.classList.remove('on'));el.classList.add('on');$('#rmap').textContent='Route map · '+m;$('#rmeta').textContent=(m==='도보'?'약 10분':m==='대중교통'?'약 8분':'약 6–12분')+' · 프로토타입 예상치'}
+function directions(a,b){
+ a=decodeURIComponent(a);b=decodeURIComponent(b);
+ let g=`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(a)}&destination=${encodeURIComponent(b)}`;
+ modal(`<div class="ey">DIRECTIONS</div><h2>${esc(a)} → ${esc(b)}</h2><div class="modebar"><button class="on" onclick="mode(this,'도보')">🚶 도보</button><button onclick="mode(this,'대중교통')">🚇 대중교통</button><button onclick="mode(this,'택시')">🚕 택시</button></div><div class="map" id="rmap">Route map · Google Routes 연결 전</div><p class="small" id="rmeta">실제 시간은 Google Routes 연결 후 제공돼요.</p><button class="btn primary" onclick="window.open('${g}','_blank')">Google Maps에서 열기 ↗</button>`);
+}
+function mode(el,m){document.querySelectorAll('.modebar button').forEach(x=>x.classList.remove('on'));el.classList.add('on');$('#rmap').textContent='Route map · '+m;$('#rmeta').textContent=m+' · 실제 시간은 Google Routes 연결 후 제공돼요.'}
 home();
 </script></body></html>
