@@ -394,18 +394,49 @@ async function apiJSON(path,body){
  return data;
 }
 function AFIELdURL(path){return AFIELD_API.replace(/\/$/,'')+path}
-async function matchPlacesWithGoogle(c){
- let places=(c.saved||[]).filter(p=>typeof p!=='string'&&p.sourceType!=='instagram'&&(!p.placeId||p.placeStatus==='needs_google_match'));
- if(!places.length)return {matched:0,unmatched:0};
- let payload={city:c.city,country:c.country,places:places.map((p,i)=>({clientIndex:i,name:p.name,category:p.category||'Other',sourcePost:p.sourcePost||''}))};
- let data=await apiJSON('/places-match',payload),matched=0,unmatched=0;
- (data.results||[]).forEach(r=>{
-   let p=places[r.clientIndex];if(!p)return;
-   if(r.match){
-     Object.assign(p,{name:r.match.displayName||p.name,placeId:r.match.placeId,address:r.match.formattedAddress||'',lat:r.match.location?.latitude??null,lng:r.match.location?.longitude??null,googleMapsUri:r.match.googleMapsUri||'',primaryType:r.match.primaryType||'',businessStatus:r.match.businessStatus||'',regularOpeningHours:r.match.regularOpeningHours||null,timeZone:r.match.timeZone||null,placeStatus:'google_matched',matchConfidence:r.confidence||'matched'});matched++;
-   }else{p.placeStatus='google_unmatched';p.googleCandidates=(r.candidates||[]).slice(0,3);p.googleRejectionReason=r.rejectionReason||'';p.geographicCheck=r.geographicCheck||null;unmatched++}
+async function matchPlacesWithGoogle(c,onProgress){
+ let raw=(c.saved||[]).filter(p=>typeof p!=='string'&&p.sourceType!=='instagram'&&(!p.placeId||p.placeStatus==='needs_google_match'||p.placeStatus==='google_unmatched'||p.placeStatus==='google_batch_error'));
+ if(!raw.length){onProgress?.({done:0,total:0,matched:0,unmatched:0,failed:0});return {matched:0,unmatched:0,failed:0,total:0}}
+ // Exact-name dedupe before Google calls. Duplicate saved references reuse one Google result.
+ let groups=[],byKey=new Map();
+ raw.forEach(p=>{
+   let k=String(p.name||'').toLowerCase().normalize('NFKC').replace(/[^\p{L}\p{N}]+/gu,'').trim();
+   if(!k)return;
+   if(!byKey.has(k)){let g={key:k,query:p,members:[]};byKey.set(k,g);groups.push(g)}
+   byKey.get(k).members.push(p);
  });
- save();return {matched,unmatched};
+ const total=groups.length,BATCH=6;
+ let matched=0,unmatched=0,failed=0,done=0;
+ onProgress?.({done,total,matched,unmatched,failed});
+ for(let offset=0;offset<groups.length;offset+=BATCH){
+   let batch=groups.slice(offset,offset+BATCH);
+   let payload={city:c.city,country:c.country,places:batch.map((g,i)=>({clientIndex:i,name:g.query.name,category:g.query.category||'Other',sourcePost:g.query.sourcePost||''}))};
+   try{
+     let data=await apiJSON('/places-match',payload);
+     let seen=new Set();
+     (data.results||[]).forEach(r=>{
+       let g=batch[r.clientIndex];if(!g)return;seen.add(r.clientIndex);
+       g.members.forEach(p=>{
+         if(r.match){
+           Object.assign(p,{name:r.match.displayName||p.name,placeId:r.match.placeId,address:r.match.formattedAddress||'',lat:r.match.location?.latitude??null,lng:r.match.location?.longitude??null,googleMapsUri:r.match.googleMapsUri||'',primaryType:r.match.primaryType||'',businessStatus:r.match.businessStatus||'',regularOpeningHours:r.match.regularOpeningHours||null,timeZone:r.match.timeZone||null,placeStatus:'google_matched',matchConfidence:r.confidence||'matched'});
+           delete p.googleBatchError;
+         }else{
+           p.placeStatus='google_unmatched';p.googleCandidates=(r.candidates||[]).slice(0,3);p.googleRejectionReason=r.rejectionReason||'';p.geographicCheck=r.geographicCheck||null;
+         }
+       });
+       if(r.match)matched++;else unmatched++;
+     });
+     batch.forEach((g,i)=>{if(!seen.has(i)){g.members.forEach(p=>{p.placeStatus='google_batch_error';p.googleBatchError='Google 응답에 결과가 없었어요.'});failed++}});
+   }catch(e){
+     console.warn('Afield Places batch failed',offset/BATCH+1,e);
+     batch.forEach(g=>g.members.forEach(p=>{p.placeStatus='google_batch_error';p.googleBatchError=e.message||'Place matching failed'}));
+     failed+=batch.length;
+   }
+   done+=batch.length;save();
+   onProgress?.({done:Math.min(done,total),total,matched,unmatched,failed});
+   await new Promise(r=>setTimeout(r,120));
+ }
+ return {matched,unmatched,failed,total};
 }
 async function optimizeWithGoogle(c){
  let places=normalizedPlanItems(c).filter(x=>x.placeId&&x.lat!=null&&x.lng!=null);
@@ -443,20 +474,29 @@ function chapterAddPlace(){let v=$('#cp').value.trim();if(v){C().saved.push({nam
 function mapView(){markView('map');let c=C();shell(`<main class="screen"><div class="ey">${esc(c.title)}</div><h1>Map</h1><div class="map">전체 여행 장소 지도</div><button class="btn" onclick="chapter()">← Trip</button></main>`)}
 async function planAI(){
  let c=C();if(!c)return;
- modal(`<div class="ey">PLAN WITH AFIELD</div><h2>장소를 확인하고 실제 동선을 계산하고 있어요</h2><p id="loadtxt" class="lead">Google Places에서 저장한 장소를 찾고 있어요.</p><div class="reviewbar"><i id="loadbar" style="width:18%;transition:.35s"></i></div><div class="optimizeStatus"><b id="loadstage">1 · Place matching</b><div class="small">이름 → Place ID · 주소 · 좌표 · 영업시간</div></div>`);
+ modal(`<div class="ey">PLAN WITH AFIELD</div><h2>장소를 확인하고 실제 동선을 계산하고 있어요</h2><p id="loadtxt" class="lead">Google Places에서 저장한 장소를 찾고 있어요.</p><div class="reviewbar"><i id="loadbar" style="width:2%;transition:.35s"></i></div><div class="optimizeStatus"><b id="loadstage">1 · Place matching</b><div id="loadsub" class="small">장소를 작은 묶음으로 나눠 안전하게 확인할게요.</div></div>`);
  try{
-   let m=await matchPlacesWithGoogle(c);
-   $('#loadtxt').textContent=`${m.matched}곳을 Google 장소와 연결했어요${m.unmatched?` · ${m.unmatched}곳은 확인 필요`:''}.`;
-   $('#loadstage').textContent='2 · Geographic optimization';$('#loadbar').style.width='58%';
+   let m=await matchPlacesWithGoogle(c,p=>{
+     let pct=p.total?Math.max(2,Math.min(54,Math.round((p.done/p.total)*54))):54;
+     let bar=$('#loadbar'),txt=$('#loadtxt'),sub=$('#loadsub');
+     if(bar)bar.style.width=pct+'%';
+     if(txt)txt.textContent=p.total?`${p.done} / ${p.total} places checked`:'확인할 새 장소가 없어요.';
+     if(sub)sub.textContent=`Google matched ${p.matched} · 확인 필요 ${p.unmatched}${p.failed?` · 재시도 필요 ${p.failed}`:''}`;
+   });
+   let txt=$('#loadtxt'),stage=$('#loadstage'),bar=$('#loadbar'),sub=$('#loadsub');
+   if(txt)txt.textContent=`${m.matched}곳을 Google 장소와 연결했어요${m.unmatched?` · ${m.unmatched}곳은 확인 필요`:''}${m.failed?` · ${m.failed}곳은 나중에 재시도`:''}.`;
+   if(stage)stage.textContent='2 · Geographic optimization';if(bar)bar.style.width='62%';
+   if(sub)sub.textContent='파리 밖 오매칭을 제외하고 실제 이동시간을 계산해요.';
    let r=await optimizeWithGoogle(c);
-   $('#loadtxt').textContent='날짜별 동선과 이동시간을 검증하고 있어요.';
-   $('#loadstage').textContent='3 · Day-by-Day itinerary';$('#loadbar').style.width='88%';
+   if(txt)txt.textContent='날짜별 동선과 이동시간을 검증하고 있어요.';
+   if(stage)stage.textContent='3 · Day-by-Day itinerary';if(bar)bar.style.width='90%';
+   if(sub)sub.textContent='Google Routes 결과를 날짜별 일정으로 정리하고 있어요.';
    c.planned=true;ACTIVE_DAY=0;save();
-   setTimeout(()=>{closeM();chapter()},450);
+   setTimeout(()=>{let b=$('#loadbar');if(b)b.style.width='100%';setTimeout(()=>{closeM();chapter()},250)},180);
  }catch(e){
    console.error(e);
    c.plan=makeLocalPlan(c);c.plan.engine='local_fallback';c.planned=true;save();
-   modal(`<div class="ey">AFIELD FALLBACK</div><h2>Google 최적화 연결을 완료하지 못했어요.</h2><p class="lead">${esc(e.message||'API 연결을 확인해주세요.')}</p><div class="notice"><b>일정을 지어내지는 않았어요.</b><div class="small">현재는 저장 장소를 날짜별로 나눈 임시 초안만 보여드려요. Afield 서버의 Google Maps 연결이 완료되면 Place matching과 Routes 최적화가 활성화돼요.</div></div><div class="actions"><button class="btn primary" onclick="closeM();chapter()">임시 초안 보기</button></div>`);
+   modal(`<div class="ey">AFIELD FALLBACK</div><h2>Google 최적화를 끝까지 완료하지 못했어요.</h2><p class="lead">${esc(e.message||'API 연결을 확인해주세요.')}</p><div class="notice"><b>완료된 Place matching은 저장했어요.</b><div class="small">처음부터 다시 할 필요 없이 다음 실행에서 미완료 장소만 다시 확인해요. 지금 일정은 거리 최적화 결과가 아닌 임시 초안이에요.</div></div><div class="actions"><button class="btn" onclick="closeM();places()">장소 확인</button><button class="btn primary" onclick="closeM();chapter()">임시 초안 보기</button></div>`);
  }
 }
 let ri=0,decisions=[],sugg=[];
