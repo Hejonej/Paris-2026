@@ -1,1 +1,10 @@
-{"name": "Afield", "short_name": "afield", "start_url": "./", "display": "standalone", "background_color": "#f7f7f5", "theme_color": "#f7f7f5"}
+{
+  "name": "Afield",
+  "short_name": "Afield",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "description": "Afield — travel chapters, planning, routes, and memories."
+}
