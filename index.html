@@ -35,6 +35,12 @@
 .toggle{width:52px;height:30px;border:0;border-radius:999px;background:#d8d8d3;padding:3px;transition:.18s}
 .toggle:after{content:"";display:block;width:24px;height:24px;border-radius:50%;background:#fff;transition:.18s;box-shadow:0 2px 7px #0002}
 .toggle.on{background:#111}.toggle.on:after{transform:translateX(22px)}
+
+.collectionList{display:grid;gap:9px;max-height:48vh;overflow:auto;margin:18px 0}
+.collectionRow{width:100%;display:flex;align-items:center;justify-content:space-between;text-align:left;border:1px solid var(--line);background:#fff;border-radius:18px;padding:16px 18px;font:inherit}
+.collectionRow:hover{background:#f6f6f3}.collectionRow:active{transform:scale(.99)}
+.collectionRow b{font-size:16px}.collectionRow span{font-size:13px;color:#888}
+.postContext{font-size:12px;color:#888;line-height:1.45;margin-top:5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 </style></head><body><div id="app"></div><div id="modal"></div>
 <script>
 const $=s=>document.querySelector(s), app=()=>$('#app');
@@ -88,7 +94,7 @@ function saveStay(){state.draft.stays.push({name:$('#sn').value||'Stay'});save()
 function googlePlaceSearch(){let q=encodeURIComponent(($('#place')?.value||'')+' '+(state.draft?.city||''));window.open('https://www.google.com/maps/search/?api=1&query='+q,'_blank')}
 function addPlace(){let v=$('#place').value.trim(),a=$('#placeAddress').value.trim();if(!v)return;state.draft.saved.push({name:v,address:a,why:'',category:'Other',sourceType:'user'});save();onboard()}
 function renderSaved(d){return d.saved.map((p,i)=>{p=typeof p==='string'?{name:p,why:'',address:'',sourceType:'user',category:'Other'}:p;return `<div class="saved"><div style="flex:1"><b>${p.name}</b>${p.address?`<div class="why">${p.address}</div>`:''}<div><button class="softLink" onclick="this.nextElementSibling.classList.toggle('hidden')">${p.why?'왜 저장했는지 수정':'왜 저장했나요? +'}</button><input data-why="${i}" class="input ${p.why?'':'hidden'}" style="font-size:13px;padding:9px 11px;margin-top:5px" value="${p.why||''}" onchange="state.draft.saved[${i}].why=this.value;save()" placeholder="예: 여기 플랑을 꼭 먹어보고 싶어서"></div></div><button class="pill" onclick="state.draft.saved.splice(${i},1);save();onboard()">×</button></div>`}).join('')}
-let IG_IMPORT=[];
+let IG_IMPORT=[];let IG_COLLECTIONS=[];let IG_FILE_NAME='';
 function instagramInfo(){modal(`<div class="ey">IMPORT FROM INSTAGRAM</div><h2>Instagram에 모아둔 것들을 가져올까요?</h2><p class="lead">Instagram에서 내보낸 JSON을 올리면 Afield가 저장 항목을 읽고 Food · Shopping · 전시/공연 · Stay · Area · Inspiration · Other로 정리해요. 확인한 것만 이 Chapter에 저장돼요.</p><div id="igDrop" class="importDrop" onclick="$('#igFile').click()"><b>JSON 파일 선택</b><div class="small" style="margin-top:6px">또는 이곳에 파일을 놓으세요</div><input id="igFile" class="hidden" type="file" accept=".json,application/json" onchange="readIG(this.files[0])"></div><div id="igPreview"></div><div class="actions"><button class="btn" onclick="closeM()">나중에 할게요</button></div>`);
  let d=$('#igDrop');['dragenter','dragover'].forEach(e=>d.addEventListener(e,x=>{x.preventDefault();d.classList.add('drag')}));['dragleave','drop'].forEach(e=>d.addEventListener(e,x=>{x.preventDefault();d.classList.remove('drag')}));d.addEventListener('drop',e=>readIG(e.dataTransfer.files[0]));
 }
@@ -96,7 +102,7 @@ function readIG(file){
  if(!file)return;
  if(!/\.json$/i.test(file.name)){alert('JSON 파일을 선택해주세요.');return}
  let r=new FileReader();
- r.onload=()=>{try{let raw=JSON.parse(r.result);IG_IMPORT=parseInstagramJSON(raw).map(x=>({...x,category:guessCategory(x)}));renderIGPreview(file.name)}catch(e){alert('JSON을 읽지 못했어요. 다른 Instagram export JSON을 선택해주세요.')}};
+ r.onload=()=>{try{let raw=JSON.parse(r.result);IG_FILE_NAME=file.name;let exact=parseInstagramCollections(raw);if(exact.length){IG_COLLECTIONS=exact;renderIGCollections(file.name);return}IG_IMPORT=parseInstagramJSON(raw).map(x=>({...x,category:guessCategory(x)}));renderIGPreview(file.name)}catch(e){alert('JSON을 읽지 못했어요. 다른 Instagram export JSON을 선택해주세요.')}};
  r.readAsText(file);
 }
 function walkJSON(v,path='',out=[]){
@@ -105,6 +111,59 @@ function walkJSON(v,path='',out=[]){
  return out;
 }
 function cleanIGText(x){return String(x||'').replace(/\s+/g,' ').trim()}
+
+function repairIGText(v){
+ if(typeof v!=='string')return v;
+ try{
+   let bytes=Uint8Array.from([...v].map(ch=>ch.charCodeAt(0)));
+   let fixed=new TextDecoder('utf-8',{fatal:true}).decode(bytes);
+   if(fixed && !fixed.includes('�'))return fixed;
+ }catch(e){}
+ return v;
+}
+function lvLabel(x){return repairIGText(x&&x.label||'')}
+function lvValue(x){return repairIGText(x&&x.value||'')}
+function findLV(arr,label){return (arr||[]).find(x=>lvLabel(x)===label)}
+function nestedValues(node,out=[]){
+ if(!node||typeof node!=='object')return out;
+ if(Array.isArray(node)){node.forEach(x=>nestedValues(x,out));return out}
+ if(node.label||node.value||node.href)out.push({label:lvLabel(node),value:lvValue(node),href:node.href||''});
+ Object.values(node).forEach(v=>{if(v&&typeof v==='object')nestedValues(v,out)});
+ return out;
+}
+function parseInstagramPost(node){
+ let vals=nestedValues(node,[]);
+ let ig=vals.find(x=>x.label==='URL' && /instagram\.com\/(reel|p)\//i.test(x.href||x.value||''));
+ if(!ig)return null;
+ let captions=vals.filter(x=>x.label==='캡션' && x.value).map(x=>x.value);
+ let caption=captions.sort((a,b)=>b.length-a.length)[0]||'';
+ let owner=vals.find(x=>x.label==='이름' && x.value && !/^https?:/i.test(x.value));
+ let username=vals.find(x=>x.label==='사용자 이름' && x.value);
+ let first=(caption.split(/\n+/).find(Boolean)||'').replace(/\s+/g,' ').trim();
+ let title=(owner&&owner.value)||('@'+(username&&username.value||''))||first.slice(0,72)||'Instagram saved item';
+ return {name:title,why:caption,source:ig.href||ig.value,owner:owner&&owner.value||'',username:username&&username.value||'',caption,category:guessCategory({name:title,why:caption})};
+}
+function parseInstagramCollections(raw){
+ if(!Array.isArray(raw))return [];
+ let cols=[];
+ raw.forEach((col,ci)=>{
+   if(!col||!Array.isArray(col.label_values))return;
+   let nameItem=findLV(col.label_values,'이름');
+   if(!nameItem||!nameItem.value)return;
+   let bucket=col.label_values.find(x=>Array.isArray(x.dict)&&x.dict.length);
+   if(!bucket)return;
+   let posts=bucket.dict.map(parseInstagramPost).filter(Boolean);
+   if(posts.length)cols.push({name:lvValue(nameItem),posts,index:ci});
+ });
+ return cols;
+}
+function renderIGCollections(filename){
+ $('#igModalBody').innerHTML=`<div class="ey">IMPORT FROM INSTAGRAM</div><h1>어떤 Collection을 가져올까요?</h1><p class="small"><b>${escIG(filename)}</b>에서 ${IG_COLLECTIONS.length}개의 Collection을 찾았어요. 이 Chapter와 관련된 Collection을 골라주세요.</p><div class="collectionList">${IG_COLLECTIONS.map((c,i)=>`<button class="collectionRow" onclick="chooseIGCollection(${i})"><b>${escIG(c.name)}</b><span>${c.posts.length}개 저장 항목 →</span></button>`).join('')}</div><button class="btn" onclick="closeIG()">나중에 할게요</button>`;
+}
+function chooseIGCollection(i){
+ let c=IG_COLLECTIONS[i];IG_IMPORT=c.posts.map(x=>({...x,collection:c.name}));
+ renderIGPreview(`${IG_FILE_NAME} · ${c.name}`);
+}
 function parseInstagramJSON(raw){
  let nodes=walkJSON(raw), found=[];
  for(const {v,path} of nodes){
@@ -142,14 +201,14 @@ function guessCategory(x){
 }
 function catLabel(c){return c==='Culture'?'전시/공연':c}
 function renderIGPreview(filename){
- let p=$('#igPreview'); if(!IG_IMPORT.length){p.innerHTML=`<div class="notice"><b>가져올 장소를 찾지 못했어요.</b><div class="small">Instagram export 형식에 따라 저장 항목 구조가 다를 수 있어요. 다른 saved/collection JSON을 선택해보세요.</div></div>`;return}
+ let p=$('#igPreview'); if(!IG_IMPORT.length){p.innerHTML=`<div class="notice"><b>가져올 항목을 찾지 못했어요.</b><div class="small">Instagram export 형식에 따라 저장 항목 구조가 다를 수 있어요. 다른 saved/collection JSON을 선택해보세요. 이 파일이 Instagram의 saved collections export인지도 확인해주세요.</div></div>`;return}
  let fresh=IG_IMPORT.filter(x=>!x.duplicate).length, dup=IG_IMPORT.length-fresh;
- p.innerHTML=`<div class="importStats"><span class="stat">${IG_IMPORT.length}개 찾음</span><span class="stat">${fresh}개 새 장소</span>${dup?`<span class="stat">${dup}개 이미 저장됨</span>`:''}</div><div class="small">${filename} · 가져오기 전에 선택을 확인할 수 있어요.</div><div class="importPreview">${IG_IMPORT.map((x,i)=>`<label class="importRow"><input type="checkbox" ${x.selected?'checked':''} ${x.duplicate?'disabled':''} onchange="IG_IMPORT[${i}].selected=this.checked"><div style="flex:1"><b>${escIG(x.name)}</b><div class="importMeta">${x.duplicate?'이미 이 Chapter에 저장되어 있어요.':x.why?escIG(x.why).slice(0,150):'Instagram saved item'}${x.source?` · 원본 링크 있음`:''}</div><select class="input" style="font-size:13px;padding:8px 10px;margin-top:8px" onchange="IG_IMPORT[${i}].category=this.value">${['Food','Shopping','Culture','Stay','Area','Inspiration','Other'].map(c=>`<option value="${c}" ${x.category===c?'selected':''}>${catLabel(c)}</option>`).join('')}</select></div></label>`).join('')}</div><div class="actions"><button class="btn" onclick="instagramInfo()">다른 파일</button><button class="btn primary" onclick="applyIGImport()">선택한 장소 가져오기</button></div>`;
+ p.innerHTML=`<div class="importStats"><span class="stat">${IG_IMPORT.length}개 찾음</span><span class="stat">${fresh}개 새 장소</span>${dup?`<span class="stat">${dup}개 이미 저장됨</span>`:''}</div><div class="small">${filename} · 가져오기 전에 선택을 확인할 수 있어요.</div><div class="importPreview">${IG_IMPORT.map((x,i)=>`<label class="importRow"><input type="checkbox" ${x.selected?'checked':''} ${x.duplicate?'disabled':''} onchange="IG_IMPORT[${i}].selected=this.checked"><div style="flex:1"><b>${escIG(x.name)}</b><div class="importMeta">${x.duplicate?'이미 이 Chapter에 저장되어 있어요.':x.owner?`@${escIG(x.username||'')} · Instagram saved post`:x.why?escIG(x.why).slice(0,150):'Instagram saved item'}${x.source?` · 원본 링크 있음`:''}</div>${x.caption?`<div class="postContext">${escIG(x.caption)}</div>`:''}<select class="input" style="font-size:13px;padding:8px 10px;margin-top:8px" onchange="IG_IMPORT[${i}].category=this.value">${['Food','Shopping','Culture','Stay','Area','Inspiration','Other'].map(c=>`<option value="${c}" ${x.category===c?'selected':''}>${catLabel(c)}</option>`).join('')}</select></div></label>`).join('')}</div><div class="actions"><button class="btn" onclick="instagramInfo()">다른 파일</button><button class="btn primary" onclick="applyIGImport()">선택한 장소 가져오기</button></div>`;
 }
 function escIG(x){return String(x||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 function applyIGImport(){
  let d=state.draft, add=IG_IMPORT.filter(x=>x.selected&&!x.duplicate);
- add.forEach(x=>d.saved.push({name:x.name,why:x.why||'',source:x.source||'',sourceType:'instagram',category:x.category||'Other',address:''}));
+ add.forEach(x=>d.saved.push({name:x.name,why:x.why||'',source:x.source||'',sourceType:'instagram',category:x.category||'Other',address:'',collection:x.collection||'',instagramOwner:x.owner||'',instagramUsername:x.username||''}));
  save();closeM();onboard();
 }
 function finishChapter(){let d=state.draft;state.chapters.push(d);state.current=d.id;state.draft=null;save();openChapter(d.id)}
