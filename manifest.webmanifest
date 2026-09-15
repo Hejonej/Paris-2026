@@ -4,7 +4,6 @@
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff",
-  "description": "Afield — travel chapters, planning, routes, and memories."
+  "background_color": "#f7f7f4",
+  "theme_color": "#f7f7f4"
 }
