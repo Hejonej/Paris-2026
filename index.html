@@ -103,7 +103,7 @@ const GOOGLE_MAPS_BROWSER_KEY='AIzaSyBnKpZxeftRL-kmiDLpFWWlxJfRD7PjzGs';
 let GMAPS_PROMISE=null;
 function loadGoogleMaps(){
  if(window.google?.maps)return Promise.resolve(window.google.maps);
- if(!GOOGLE_MAPS_BROWSER_KEY||GOOGLE_MAPS_BROWSER_KEY==='AIzaSyBnKpZxeftRL-kmiDLpFWWlxJfRD7PjzGs')return Promise.reject(new Error('Google Maps 설정이 아직 완료되지 않았어요.'));
+ if(!GOOGLE_MAPS_BROWSER_KEY||!GOOGLE_MAPS_BROWSER_KEY.startsWith('AIza'))return Promise.reject(new Error('Google Maps 설정이 아직 완료되지 않았어요.'));
  if(GMAPS_PROMISE)return GMAPS_PROMISE;
  GMAPS_PROMISE=new Promise((resolve,reject)=>{
    window.__afieldMapsReady=()=>resolve(window.google.maps);
