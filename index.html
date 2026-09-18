@@ -99,11 +99,11 @@ const cities=[
  ['Venice','Italy',['베네치아','베니스','이탈리아']],['Madrid','Spain',['마드리드','스페인']],['Nice','France',['니스','프랑스']]
 ];
 const AFIELD_API='https://travel-ai.luckyjungheywon.workers.dev';
-const GOOGLE_MAPS_BROWSER_KEY='PASTE_YOUR_KEY_HERE';
+const GOOGLE_MAPS_BROWSER_KEY='AIzaSyBnKpZxeftRL-kmiDLpFWWlxJfRD7PjzGs';
 let GMAPS_PROMISE=null;
 function loadGoogleMaps(){
  if(window.google?.maps)return Promise.resolve(window.google.maps);
- if(!GOOGLE_MAPS_BROWSER_KEY||GOOGLE_MAPS_BROWSER_KEY==='PASTE_YOUR_KEY_HERE')return Promise.reject(new Error('Google Maps browser key를 넣어주세요.'));
+ if(!GOOGLE_MAPS_BROWSER_KEY||GOOGLE_MAPS_BROWSER_KEY==='AIzaSyBnKpZxeftRL-kmiDLpFWWlxJfRD7PjzGs')return Promise.reject(new Error('Google Maps browser key를 넣어주세요.'));
  if(GMAPS_PROMISE)return GMAPS_PROMISE;
  GMAPS_PROMISE=new Promise((resolve,reject)=>{
    window.__afieldMapsReady=()=>resolve(window.google.maps);
