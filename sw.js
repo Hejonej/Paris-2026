@@ -1,4 +1,4 @@
-const C='afield-1-7-maps-debug-20260919-0900';
+const C='afield-1-8-refine-20260919-1335';
 self.addEventListener('install',e=>{self.skipWaiting()});
 self.addEventListener('activate',e=>{e.waitUntil(Promise.all([self.clients.claim(),caches.keys().then(k=>Promise.all(k.map(x=>caches.delete(x))))]))});
 const MAPS_DEBUG=`<script>(function(){
@@ -18,6 +18,7 @@ const MAPS_DEBUG=`<script>(function(){
   window.addEventListener('error',e=>{const t=String(e.message||e.error||'');if(/Google Maps|maps\.googleapis|RefererNotAllowed|ApiNotActivated|InvalidKey|ProjectDenied|Billing/i.test(t))show('window.error',t)});
   let n=0;const timer=setInterval(()=>{n++;const el=document.querySelector('.gm-err-message,.gm-err-container');if(el){show('Google map overlay',(el.innerText||el.textContent||'').trim()||'Google rendered an error overlay');clearInterval(timer)}else if(n>20)clearInterval(timer)},500);
 })();</script>`;
+const REFINE=`<script src="./refine.js?v=20260919-1335"></script>`;
 self.addEventListener('fetch',e=>{
   if(e.request.method==='GET'&&e.request.mode==='navigate'){
     e.respondWith((async()=>{
@@ -26,6 +27,7 @@ self.addEventListener('fetch',e=>{
       if(!ct.includes('text/html'))return r;
       let html=await r.text();
       if(!html.includes('__afieldMapsDebug'))html=html.replace('</body>',MAPS_DEBUG+'</body>');
+      if(!html.includes('refine.js'))html=html.replace('</body>',REFINE+'</body>');
       const h=new Headers(r.headers);h.delete('content-length');
       return new Response(html,{status:r.status,statusText:r.statusText,headers:h});
     })().catch(()=>fetch(e.request,{cache:'reload'})));
