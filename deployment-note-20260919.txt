@@ -1,0 +1,1 @@
+Afield 1.9 deployment payload: Refine with Afield v2 + Instagram source-post rematching. This marker confirms the deployment bundle was prepared on 2026-09-19.
