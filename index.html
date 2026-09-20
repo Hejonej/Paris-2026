@@ -16,8 +16,8 @@
       const regs=await navigator.serviceWorker.getRegistrations().catch(()=>[]);
       await Promise.all(regs.map(r=>r.unregister().catch(()=>false)));
     }
-    let html=await fetch('./app-core.html?v=20260920-0605',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('Afield core '+r.status);return r.text()});
-    const direct=`<script src="./instagram-source-rematch.js?v=20260920-0605"><\/script><script src="./refine-v2.js?v=20260920-0605"><\/script><script src="./refine-ui-fix.js?v=20260920-0605"><\/script><script src="./refine-apply-fix.js?v=20260920-0605"><\/script>`;
+    let html=await fetch('./app-core.html?v=20260920-0612',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('Afield core '+r.status);return r.text()});
+    const direct=`<script src="./instagram-source-rematch.js?v=20260920-0612"><\/script><script src="./refine-v2.js?v=20260920-0612"><\/script><script src="./refine-ui-fix.js?v=20260920-0612"><\/script><script src="./refine-apply-fix.js?v=20260920-0612"><\/script><script src="./refine-result-fix.js?v=20260920-0612"><\/script>`;
     html=html.replace('</body>',direct+'</body>');
     document.open();document.write(html);document.close();
   }catch(e){
