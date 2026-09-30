@@ -70,6 +70,7 @@ const D2=[
 ['21:20','East Side Gallery','Berlin Wall','장벽 구간을 짧게 실제로 걷는다.','East Side Gallery Berlin','15~20분'],
 ['19:20','Carhartt WIP Berlin Mitte · 남편 맨투맨','Shopping · MUST','Rosenthaler Str. 48. 남편 맨투맨 구매 목적. 공식 수요일 20:00 마감이라 Mitte 회수 블록에서 Nude Project와 연속 방문.','Carhartt WIP Rosenthaler Str. 48 Berlin','20:00 마감|남편 맨투맨 우선|사이즈 빠르게 확인'],
 ['19:40','Nude Project Berlin','Fashion','Alte Schönhauser Str. 28. Carhartt WIP과 같은 Mitte 권역에서 20시 전에 빠르게 회수.','Nude Project Alte Schönhauser Str. 28 Berlin','20:00 마감|10~15분 상한'],
+['19:05','STILSPIEL · Design Stop','Design / Objects','오늘 남은 쇼핑 동선에 추가. Artemide가 최우선이므로 그 일정은 건드리지 않고, 이후 이동 중 빠르게 보는 디자인 스톱.','STILSPIEL Berlin','Artemide 이후|10~15분 상한|시간 밀리면 체류시간만 축소'],
 ['22:00','Material','Natural Wine / Cafe','베를린 마지막 밤 엔딩. 늦게까지 열어 마지막으로 보내는 게 가장 안전.','Material Schönhauser Allee 156 Berlin','natural wine + sourdough + whipped ricotta 가능 여부|“dry and fresh, not too funky”']
 ];
 const D3=[['08:00','Studio Natura · OPEN RUN','Breakfast / Cafe','숙소를 잡은 이유였던 곳. 오픈하자마자 들어가 30~35분만 즐기고 공항 일정은 지킨다.','Studio Natura Ackerstraße 165 Berlin','08:00 오픈|08:35 전후 출발|커피 + 아침 빠르게'],['08:40','숙소 · 짐 픽업','Hotel','Studio Natura에서 바로 숙소로 돌아와 체크아웃 및 짐 픽업.','Lottumstraße 28 Berlin','짐 최종 체크|바로 공항 이동'],['09:00','숙소 → BER','Airport','11:45 출발. 09:00 전후 숙소에서 출발해 공항에 충분한 여유를 두고 도착 목표.','Lottumstraße 28 Berlin to Berlin Brandenburg Airport','Berlin ABC 티켓|지체 없이 이동|공항 여유 확보']];
@@ -77,7 +78,7 @@ const B=[['16:10','Highsnobiety UDL','Fashion / Media','Google Maps상 임시 �
 function render(id,data,prefix,bk=false){document.getElementById(id).innerHTML=data.map((x,i)=>x[7]==='hidden'?'':`<div class="card ${bk?'backup':''} ${x[6]?'done':''}" data-k="${prefix}${i}"><div class="row"><div class="time">${x[0]}</div><div><div class="place">${x[1]}${bk?' <span class="sub">(backup)</span>':''}</div><div class="type">${x[2]}</div><div class="desc">${x[3]}</div>${x[5]?`<ul class="todo">${x[5].split('|').map(t=>`<li>${t}</li>`).join('')}</ul>`:''}<div class="actions"><a class="btn map" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(x[4])}">Google Maps</a>${bk?'':`<button class="btn check">✓ Done</button>`}</div></div></div></div>`).join('')}
 render('t1',D1,'d1_');render('tr',R,'r_');render('t2',D2,'d2_');
 // Live D2 route order while preserving original array indices/localStorage keys.
-const liveOrder=[0,1,2,3,4,5,6,7,8,9,10,11,12,20,21,22,15,16,17,23,24,31,32,25,26,27,28,29,30];
+const liveOrder=[0,1,2,3,4,5,6,7,8,9,10,11,12,20,21,22,15,16,17,23,24,33,31,32,25,26,27,28,29,30];
 [...document.querySelectorAll('#t2 .card')].forEach(card=>{const idx=parseInt(card.dataset.k.replace('d2_',''),10);const pos=liveOrder.indexOf(idx);card.style.order=pos<0?999:pos;});render('t3',D3,'d3_');render('tb',B,'b_',true);
 document.querySelectorAll('.card').forEach(c=>{const b=c.querySelector('.check');if(!b)return;const k='berlin_'+c.dataset.k;try{if(localStorage.getItem(k)==='1')c.classList.add('done')}catch(e){}b.onclick=()=>{c.classList.toggle('done');try{localStorage.setItem(k,c.classList.contains('done')?'1':'0')}catch(e){}}});
 </script></body></html>
