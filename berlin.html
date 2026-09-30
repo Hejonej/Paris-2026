@@ -257,13 +257,13 @@ const D2=[
     false
   ],
   [
-    "미확인 / 미완료",
-    "Motto Berlin",
+    "방문 완료",
+    "Motto Berlin ✓",
     "Independent Publishing",
-    "방문 완료 보고가 없어 미완료 상태로 보존.",
+    "독립출판·책 구경 방문 완료.",
     "Motto Berlin Skalitzer Straße 68 Berlin",
-    "10분 상한",
-    false
+    "방문 완료",
+    true
   ],
   [
     "17:55–18:21",
@@ -509,5 +509,6 @@ render('tb',B,'b_',true);
 // Apply confirmed visit status once while preserving card indices and future toggles.
 try{const stamp='berlin_actual_20260930_v1';if(!localStorage.getItem(stamp)){[8,16,17,25,34,38,39,40,41,42].forEach(i=>localStorage.setItem('berlin_d2_'+i,'1'));localStorage.setItem(stamp,'1');}}catch(e){}
 try{const stamp='berlin_stilspiel_closed_20260930_v1';if(!localStorage.getItem(stamp)){localStorage.setItem('berlin_d2_37','1');localStorage.setItem(stamp,'1');}}catch(e){}
+try{const stamp='berlin_motto_visited_20260930_v1';if(!localStorage.getItem(stamp)){localStorage.setItem('berlin_d2_24','1');localStorage.setItem(stamp,'1');}}catch(e){}
 document.querySelectorAll('.card').forEach(c=>{const b=c.querySelector('.check');if(!b)return;const k='berlin_'+c.dataset.k;try{const saved=localStorage.getItem(k);if(saved==='1')c.classList.add('done');else if(saved==='0')c.classList.remove('done')}catch(e){}b.onclick=()=>{c.classList.toggle('done');try{localStorage.setItem(k,c.classList.contains('done')?'1':'0')}catch(e){}}});
 </script></body></html>
