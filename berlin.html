@@ -4,8 +4,8 @@
 <main class="wrap">
 <section id="d1"><div class="hero"><h2>DAY 1 · Actual Day</h2><div class="sub">오후 인터넷 장애로 계획이 틀어졌지만, ACUD 포토오토마트와 Yam Yam 저녁까지 완료. 야외 핵심은 오늘 밤 회수하고, Pulcina·Ritter Sport·Weems는 내일로 이동.</div><div class="meta"><span class="pill">ACUD 완료 ✓</span><span class="pill">Yam Yam 저녁 ✓</span><span class="pill">Tonight recovery</span></div></div><div class="timeline" id="t1"></div></section>
 <section id="recovery"><div class="hero"><h2>TONIGHT · Berlin Recovery Walk</h2><div class="sub">이미 저녁은 Yam Yam에서 먹었으니, 30분 쉬고 출발. 숙소 근처 Round & Edgy에서 밤에 먹을 쿠키를 먼저 챙긴 뒤 오늘은 체력 회복 우선. Round & Edgy에서 쿠키를 사고 REWE만 들른 뒤 바로 숙소로 돌아온다.</div><div class="meta"><span class="pill">No rush</span><span class="pill">Cookie + REWE only</span><span class="pill">REWE 23:30까지</span></div></div><div class="timeline" id="tr"></div></section>
-<section id="d2"><div class="hero"><h2>DAY 2 · Live Route</h2><div class="sub">alte Zeiten는 현장 도착했지만 닫혀 있었음. 지금은 근처 STILSPIEL부터 보고, 가장 가까운 Voo Store → Motto → Trendy Army 순으로 Kreuzberg를 정리한다. 이후 19:00 마감인 Sander22 → Joo → Off Catalog를 한 덩어리로 압축하고, 20:00 마감 블록은 Modulor → Schönhauser Design → Carhartt WIP → Nude Project 순으로 회수.</div><div class="meta"><span class="pill">STILSPIEL NEXT</span><span class="pill">Voo before Trendy</span><span class="pill">FIELD JACKET</span><span class="pill">19:00 vintage cutoff</span><span class="pill">Carhartt + Nude by 20:00</span><span class="pill">Material late</span></div></div><div class="timeline" id="t2"></div></section>
-<section id="d3"><div class="hero"><h2>DAY 3 · Berlin → Frankfurt</h2><div class="sub">11:45 BER 출발. 08:00 Studio Natura 오픈런은 살리고 08:35 전후 숙소로 돌아와 짐을 픽업한 뒤 공항으로 이동. 가로 Photoautomat는 오늘 밤 Warschauer Brücke 1로 넣어 공항 아침에는 추가하지 않는다.</div><div class="meta"><span class="pill">08:00 Studio Natura</span><span class="pill">08:35 leave</span><span class="pill">09:00 hotel → BER</span></div></div><div class="timeline" id="t3"></div></section>
+<section id="d2"><div class="hero"><h2>DAY 2 · Actual Day</h2><div class="sub">요가와 Five Elephant부터 시작해 Trendy Army 피팅, Sander22 · Sing Blackbird · Joo, Joo 맞은편 Photoautomat, Schönhauser Design까지 방문. 숙소 충전·휴식 후 Material에서 저녁, 택시 귀가와 따뜻한 샤워로 마무리. 못 간 곳과 방문 여부 미확인 카드는 삭제하지 않고 미완료로 유지.</div><div class="meta"><span class="pill">방문 기록 업데이트</span><span class="pill">Material 완료</span><span class="pill">미방문 카드 유지</span></div></div><div class="timeline" id="t2"></div></section>
+<section id="d3"><div class="hero"><h2>DAY 3 · Two Cafes → Frankfurt</h2><div class="sub">07:00 Zeit für Brot에서 빵 포장 → Studio Natura까지 도보 → 08:00 오픈런 → 08:35 출발 → 숙소 짐 픽업 → 09:00 공항 이동. BER 11:45 → FRA 12:55. 프푸 숙소는 THE FLAG West M, 오후에는 Carhartt WIP와 조명 탐색 후보를 이어간다.</div><div class="meta"><span class="pill">07:00 Zeit für Brot</span><span class="pill">08:00 Studio Natura</span><span class="pill">09:00 hotel → BER</span><span class="pill">11:45 BER → FRA</span></div></div><div class="timeline" id="t3"></div></section>
 <section id="backup"><div class="hero"><h2>Backup Cards</h2><div class="sub">이미 동선 가까이에 있는 후보만. 시간이 밀리면 backup부터 삭제.</div></div><div class="timeline" id="tb"></div></section>
 </main><footer>Berlin 2026 · mobile itinerary</footer>
 <script>
@@ -34,52 +34,476 @@ const R=[
 ['18:50','REWE · 숙소 근처','Shopping','쿠키 사고 바로 숙소 쪽 REWE로 가서 필요한 것만 장본다. 오늘 일정은 여기서 종료.','REWE Schönhauser Allee 10-11 Berlin','23:30까지 영업|물·과일·아침거리·간식만|장보고 곧바로 숙소 귀가']
 ];
 const D2=[
-['09:10','숙소 출발 → Original Feelings','Morning','아침 식사는 건너뛰고 더 잔 뒤 바로 요가하러 출발. 실제 오늘 루틴으로 업데이트.','Lottumstraße 28 Berlin','요가복으로 바로 출발|아침 일정 단순화',true],
-['09:20','Original Feelings Prenzlauer Berg ✓','Yoga','09:30–10:30 JOYFUL 완료.','Original Feelings Straßburger Straße 18 Berlin','요가 완료 ✓',true],
-['10:35','Five Elephant Mitte ✓','Cheesecake + Coffee','요가 끝나고 Five Elephant로 이동. 치즈케이크가 존맛이었고 커피까지 마심 ㅋㅋ','Five Elephant Mitte Alte Schönhauser Straße 14 Berlin','치즈케이크 성공 ✓|커피 완료 ✓',true],
-['11:30','숙소 복귀 ✓','Reset','Five Elephant에서 쉬다가 Macchina를 깜빡한 채 숙소로 돌아옴.','Lottumstraße 28 Berlin','숙소 복귀 완료',true],
-['11:50','Macchina-Caffè · Pulcina','Coffee Gear','일반형 검정 3컵 €80 후보. 아직 완료 여부가 명확하지 않아 카드 유지.','Macchina Caffe Alte Schönhauser Straße 26 Berlin','일반형 검정 3컵 재고 확인|€80인지 확인|상태 확인 후 구매'],
-['12:30','HARDT Mitte','Designer Vintage','디자이너 빈티지. 필드/유틸리티 느낌 아우터 우선. 아직 완료 여부가 명확하지 않아 카드 유지.','HARDT Rosa-Luxemburg-Straße 15 Berlin','아우터부터|필드/유틸리티 느낌 있으면 피팅'],
-['12:45','Sephora Corner · Alexanderplatz ✓','Beauty · Rhode','실제 방문 완료. Rhode 확인.','Sephora Alexanderplatz 9 Berlin','완료 ✓',true],
-['13:00','UNIQLO Alexanderplatz ✓','Shopping · Pants','결국 실제로 들른 곳. 기존에 숨겼던 카드도 실제 기록으로 복구.','UNIQLO Alexanderplatz 2 Berlin','방문 완료 ✓',true],
-['14:25','House of Small Wonder · 점심','Lunch · Current','Baret 대신 선택한 오늘 점심. 현재 여기서 식사 중.','House of Small Wonder Auguststraße 11-13 Berlin','점심 먹고 14:50~15:00 출발 목표'],
-['15:00','CANAL · 에끌레어','Dessert','House of Small Wonder 다음 디저트 스톱. 에끌레어 하나만 빠르게 먹고 Photobook으로 이어간다.','CANAL Berlin','에끌레어 우선|10~15분'],
-['15:20','Berlin Photobook Distribution ✓','Photobooks','방문 완료.','Berlin Photobook Distribution Linienstraße 153 Berlin','완료 ✓',true],
-['15:40','Photoautomat · Schönhauser Allee 63 → 나중','Moved','지금은 쇼핑 마감시간 우선. 여유가 생기면 야간 또는 다른 동선에서 회수.','Schönhauser Allee 63, 10437 Berlin, Germany','쇼핑 이후 여유 있을 때',false,'hidden'],
-['15:50','숙소 긴급 복귀 ✓ → Uber','Battery / Transit','Photobook에서 배터리 때문에 숙소로 급히 복귀. 충전 후 Uber로 alte Zeiten / Arslantas 직행.','Lottumstraße 28 Berlin','숙소 복귀 완료 ✓|충전|Uber → Pücklerstraße 32',true],
-['15:45','Baret → House of Small Wonder로 대체','Replaced','오늘은 Baret 대신 House of Small Wonder에서 점심을 먹기로 변경. 기록용으로만 유지하고 실제 방문 일정에서는 제외.','Baret Humboldt Forum Berlin','House of Small Wonder로 대체 완료',false,'hidden'],
-['16:20','Wsiura · 오늘 제외','Vintage','빈티지 수를 줄이기 위해 오늘 메인 동선에서는 제외.','Wsiura Sanderstraße 2 Berlin','기록용',false,'hidden'],
-['16:35','Spatz Vintage · 오늘 제외','Vintage','Sander22에 집중하기 위해 오늘 메인 동선에서는 제외.','Spatz Vintage Sanderstraße 22 Berlin','기록용',false,'hidden'],
-['18:10','Sander22 Vintage · 19:00 RUSH','Curated Vintage','핵심 빈티지. 필드/워크/아카이브 자켓 위주로 빠르게 본다.','Sander22 Vintage Sanderstraße 22 Berlin','19:00 마감|필드/워크/아카이브 자켓|CORE'],
-['18:25','Joo Vintage · 19:00 RUSH','Vintage','Sander22 다음 Hobrechtstraße 라인으로 이동. 아우터부터 빠르게 스캔.','Joo Vintage Hobrechtstraße 28 Berlin','19:00 마감|FIELD JACKET 먼저|CORE'],
-['18:35','Off Catalog · 19:00 RUSH','Curated Vintage','Joo와 같은 Hobrechtstraße라 바로 이어서 본다. 디자이너/유틸리티 아우터 체크.','Off Catalog Hobrechtstraße 47 Berlin','19:00 마감|아우터부터|CORE'],
-['17:30','YUMMY Vintage · 오늘 제외','Vintage','핵심 빈티지에 집중하기 위해 오늘 메인 동선에서는 제외.','YUMMY Vintage Bürknerstraße 12 Berlin','기록용',false,'hidden'],
-['17:45','Not Too Sweet · 오늘 제외','Vintage','핵심 빈티지에 집중하기 위해 오늘 메인 동선에서는 제외.','Not Too Sweet Bürknerstraße 6 Berlin','기록용',false,'hidden'],
-['17:10','CHROME STORE · 오늘 제외','Curated Vintage','수요일 영업이 확실하지 않아 오늘 빡센 동선에서는 제외. 기록은 유지.','CHROME STORE Lenaustraße 10 Berlin','수요일 영업 미확인|기록용',false,'hidden'],
-['16:55','alte Zeiten / Arslantas · CLOSED ✓','Vintage Objects','Pücklerstraße 32까지 갔지만 현장에서 문이 닫혀 있었음. Artemide 목표였으나 오늘은 실패.','alte Zeiten Arslantas Pücklerstraße 32 Berlin','현장 방문 완료|CLOSED',true],
-['17:15','Voo Store · MUST','Concept Store','STILSPIEL 다음 가장 가까운 필수 스톱. Trendy Army보다 먼저 간다.','Voo Store Oranienstraße 24 Berlin','MUST|패션·책·오브제|빠르게'],
-['17:35','Motto Berlin','Independent Publishing','Voo 다음 Skalitzer Straße 라인으로 이동. Trendy Army와 거의 붙어 있어 연속 처리.','Motto Berlin Skalitzer Straße 68 Berlin','10분 상한'],
-['17:45','Trendy Army Store · FIELD JACKET 1순위','Military Vintage','Motto 바로 근처. 필드자켓을 가장 집중해서 본다.','Trendy Army Store Skalitzer Straße 62 Berlin','M-65 / field jacket 바로 묻기|올리브·세이지 우선|CORE'],
-['18:35','Annelies · 오늘 제외','Original Stop','영업시간 안에 도착하기 어려워 오늘 메인 동선에서는 제외. 기록은 유지.','Annelies Görlitzer Straße 68 Berlin','영업시간상 오늘 방문 어려움',false,'hidden'],
-['19:00','Modulor','Creative Materials','20시 마감. Neukölln 빈티지 블록 뒤 Moritzplatz로 이동해 10~15분 빠르게.','Modulor Prinzenstraße 85 Berlin','20:00 마감|종이·포장·툴 위주|15분 상한'],
-['20:15','C/O Berlin · 잠깐 들르기','Quick Stop','전시는 보지 않음. 늦어서 내부가 닫혀 있으면 외관/공간만 짧게 보고 이동.','C/O Berlin Hardenbergstraße 22 Berlin','전시 관람 X|짧게 들르기'],
-['20:25','Photoautomat #2 · C/O Berlin','Analog Photo','가능하면 C/O 포토오토마트 확인. 접근이 안 되면 바로 야간 코스로 이동.','C/O Berlin Hardenbergstraße 22 Berlin','가능하면 즉시 촬영'],
-['20:25','Bernauer Str. 53 Photoautomat · 제외','Skipped','오늘 동선에서는 제외.','Bernauer Str. 53, 10437 Berlin, Germany','제외',false,'hidden'],
-['20:45','Oberbaumbrücke','Walk / Spree','Kreuzberg에서 Friedrichshain으로 이동하며 다리를 건넌다.','Oberbaumbrücke Berlin','다리 위 사진|강변 짧게'],
-['21:05','Photoautomat · Warschauer Brücke 1 · 가로','Analog B&W · Horizontal','가로 흑백 스트립 부스. Revalerstraße 99. 세로가 아니라 Warschauer Brücke 1을 찾는다.','Warschauer Brücke 1 Revalerstraße 99 Berlin','HORIZONTAL photostrip|24/7|Warschauer Brücke 1 확인'],
-['21:20','East Side Gallery','Berlin Wall','장벽 구간을 짧게 실제로 걷는다.','East Side Gallery Berlin','15~20분'],
-['19:20','Schönhauser Design · Vintage Lighting','Vintage Furniture / Lighting','Mitte 복귀 구간. 빈티지 조명·가구를 빠르게 보고 Carhartt WIP → Nude Project로 이어간다.','Schönhauser Design Rosenthaler Straße 19 Berlin','20:00 마감|빈티지 조명 우선|10분 상한'],
-['19:35','Carhartt WIP Berlin Mitte · 남편 맨투맨','Shopping · MUST','Rosenthaler Str. 48. 남편 맨투맨 구매 목적.','Carhartt WIP Rosenthaler Str. 48 Berlin','20:00 마감|남편 맨투맨 우선|사이즈 빠르게 확인'],
-['19:50','Nude Project Berlin','Fashion','Alte Schönhauser Str. 28. Carhartt WIP 다음 20시 전에 빠르게 회수.','Nude Project Alte Schönhauser Str. 28 Berlin','20:00 마감|5~10분 상한'],
-['17:05','STILSPIEL · NEXT','Design / Objects','alte Zeiten가 닫혀 있어 바로 다음 스톱. Voo Store보다 먼저 보고, 이후 Voo → Motto → Trendy Army로 이어간다.','STILSPIEL Audre-Lorde-Straße 59 Berlin','지금 NEXT|10~15분 상한'],
-['22:00','Material','Natural Wine / Cafe','베를린 마지막 밤 엔딩. 늦게까지 열어 마지막으로 보내는 게 가장 안전.','Material Schönhauser Allee 156 Berlin','natural wine + sourdough + whipped ricotta 가능 여부|“dry and fresh, not too funky”']
+  [
+    "09:10",
+    "숙소 출발 → Original Feelings",
+    "Morning",
+    "아침 식사는 건너뛰고 더 잔 뒤 바로 요가하러 출발. 실제 오늘 루틴으로 업데이트.",
+    "Lottumstraße 28 Berlin",
+    "요가복으로 바로 출발|아침 일정 단순화",
+    true
+  ],
+  [
+    "09:20",
+    "Original Feelings Prenzlauer Berg ✓",
+    "Yoga",
+    "09:30–10:30 JOYFUL 완료.",
+    "Original Feelings Straßburger Straße 18 Berlin",
+    "요가 완료 ✓",
+    true
+  ],
+  [
+    "10:35",
+    "Five Elephant Mitte ✓",
+    "Cheesecake + Coffee",
+    "요가 끝나고 Five Elephant로 이동. 치즈케이크가 존맛이었고 커피까지 마심 ㅋㅋ",
+    "Five Elephant Mitte Alte Schönhauser Straße 14 Berlin",
+    "치즈케이크 성공 ✓|커피 완료 ✓",
+    true
+  ],
+  [
+    "11:30",
+    "숙소 복귀 ✓",
+    "Reset",
+    "Five Elephant에서 쉬다가 Macchina를 깜빡한 채 숙소로 돌아옴.",
+    "Lottumstraße 28 Berlin",
+    "숙소 복귀 완료",
+    true
+  ],
+  [
+    "11:50",
+    "Macchina-Caffè · Pulcina",
+    "Coffee Gear",
+    "일반형 검정 3컵 €80 후보. 아직 완료 여부가 명확하지 않아 카드 유지.",
+    "Macchina Caffe Alte Schönhauser Straße 26 Berlin",
+    "일반형 검정 3컵 재고 확인|€80인지 확인|상태 확인 후 구매"
+  ],
+  [
+    "12:30",
+    "HARDT Mitte",
+    "Designer Vintage",
+    "디자이너 빈티지. 필드/유틸리티 느낌 아우터 우선. 아직 완료 여부가 명확하지 않아 카드 유지.",
+    "HARDT Rosa-Luxemburg-Straße 15 Berlin",
+    "아우터부터|필드/유틸리티 느낌 있으면 피팅"
+  ],
+  [
+    "12:45",
+    "Sephora Corner · Alexanderplatz ✓",
+    "Beauty · Rhode",
+    "실제 방문 완료. Rhode 확인.",
+    "Sephora Alexanderplatz 9 Berlin",
+    "완료 ✓",
+    true
+  ],
+  [
+    "13:00",
+    "UNIQLO Alexanderplatz ✓",
+    "Shopping · Pants",
+    "결국 실제로 들른 곳. 기존에 숨겼던 카드도 실제 기록으로 복구.",
+    "UNIQLO Alexanderplatz 2 Berlin",
+    "방문 완료 ✓",
+    true
+  ],
+  [
+    "14:25",
+    "House of Small Wonder · 점심 ✓",
+    "Lunch",
+    "Baret 대신 방문해 점심 식사 완료.",
+    "House of Small Wonder Auguststraße 11-13 Berlin",
+    "점심 완료",
+    true
+  ],
+  [
+    "15:00",
+    "CANAL · 에끌레어",
+    "Dessert",
+    "House of Small Wonder 다음 디저트 스톱. 에끌레어 하나만 빠르게 먹고 Photobook으로 이어간다.",
+    "CANAL Berlin",
+    "에끌레어 우선|10~15분"
+  ],
+  [
+    "15:20",
+    "Berlin Photobook Distribution ✓",
+    "Photobooks",
+    "방문 완료.",
+    "Berlin Photobook Distribution Linienstraße 153 Berlin",
+    "완료 ✓",
+    true
+  ],
+  [
+    "15:40",
+    "Photoautomat · Schönhauser Allee 63 → 나중",
+    "Moved",
+    "지금은 쇼핑 마감시간 우선. 여유가 생기면 야간 또는 다른 동선에서 회수.",
+    "Schönhauser Allee 63, 10437 Berlin, Germany",
+    "쇼핑 이후 여유 있을 때",
+    false,
+    "hidden"
+  ],
+  [
+    "15:50",
+    "숙소 긴급 복귀 ✓ → Uber",
+    "Battery / Transit",
+    "Photobook에서 배터리 때문에 숙소로 급히 복귀. 충전 후 Uber로 alte Zeiten / Arslantas 직행.",
+    "Lottumstraße 28 Berlin",
+    "숙소 복귀 완료 ✓|충전|Uber → Pücklerstraße 32",
+    true
+  ],
+  [
+    "15:45",
+    "Baret → House of Small Wonder로 대체",
+    "Replaced",
+    "오늘은 Baret 대신 House of Small Wonder에서 점심을 먹기로 변경. 기록용으로만 유지하고 실제 방문 일정에서는 제외.",
+    "Baret Humboldt Forum Berlin",
+    "House of Small Wonder로 대체 완료",
+    false,
+    "hidden"
+  ],
+  [
+    "16:20",
+    "Wsiura · 오늘 제외",
+    "Vintage",
+    "빈티지 수를 줄이기 위해 오늘 메인 동선에서는 제외.",
+    "Wsiura Sanderstraße 2 Berlin",
+    "기록용",
+    false,
+    "hidden"
+  ],
+  [
+    "16:35",
+    "Spatz Vintage · 오늘 제외",
+    "Vintage",
+    "Sander22에 집중하기 위해 오늘 메인 동선에서는 제외.",
+    "Spatz Vintage Sanderstraße 22 Berlin",
+    "기록용",
+    false,
+    "hidden"
+  ],
+  [
+    "18:25–18:44",
+    "Sander22 Vintage ✓",
+    "Curated Vintage",
+    "방문 완료. 근처 Sing Blackbird도 함께 둘러봄.",
+    "Sander22 Vintage Sanderstraße 22 Berlin",
+    "방문 완료",
+    true
+  ],
+  [
+    "18:44–19:04",
+    "Joo Vintage ✓",
+    "Vintage",
+    "Sander22와 Sing Blackbird 다음 방문 완료.",
+    "Joo Vintage Hobrechtstraße 28 Berlin",
+    "방문 완료",
+    true
+  ],
+  [
+    "미확인 / 미완료",
+    "Off Catalog · 19:00 RUSH",
+    "Curated Vintage",
+    "유지 요청한 빈티지숍. 방문 보고가 없어 미완료로 보존.",
+    "Off Catalog Hobrechtstraße 47 Berlin",
+    "미완료 유지",
+    false
+  ],
+  [
+    "17:30",
+    "YUMMY Vintage · 오늘 제외",
+    "Vintage",
+    "핵심 빈티지에 집중하기 위해 오늘 메인 동선에서는 제외.",
+    "YUMMY Vintage Bürknerstraße 12 Berlin",
+    "기록용",
+    false,
+    "hidden"
+  ],
+  [
+    "17:45",
+    "Not Too Sweet · 오늘 제외",
+    "Vintage",
+    "핵심 빈티지에 집중하기 위해 오늘 메인 동선에서는 제외.",
+    "Not Too Sweet Bürknerstraße 6 Berlin",
+    "기록용",
+    false,
+    "hidden"
+  ],
+  [
+    "17:10",
+    "CHROME STORE · 오늘 제외",
+    "Curated Vintage",
+    "수요일 영업이 확실하지 않아 오늘 빡센 동선에서는 제외. 기록은 유지.",
+    "CHROME STORE Lenaustraße 10 Berlin",
+    "수요일 영업 미확인|기록용",
+    false,
+    "hidden"
+  ],
+  [
+    "16:55",
+    "alte Zeiten / Arslantas · CLOSED ✓",
+    "Vintage Objects",
+    "Pücklerstraße 32까지 갔지만 현장에서 문이 닫혀 있었음. Artemide 목표였으나 오늘은 실패.",
+    "alte Zeiten Arslantas Pücklerstraße 32 Berlin",
+    "현장 방문 완료|CLOSED",
+    true
+  ],
+  [
+    "미확인 / 미완료",
+    "Voo Store · MUST",
+    "Concept Store",
+    "필수로 유지한 곳. 방문 완료 보고가 없어 미완료 상태로 보존.",
+    "Voo Store Oranienstraße 24 Berlin",
+    "MUST|패션·책·오브제|빠르게",
+    false
+  ],
+  [
+    "미확인 / 미완료",
+    "Motto Berlin",
+    "Independent Publishing",
+    "방문 완료 보고가 없어 미완료 상태로 보존.",
+    "Motto Berlin Skalitzer Straße 68 Berlin",
+    "10분 상한",
+    false
+  ],
+  [
+    "17:55–18:21",
+    "Trendy Army Store ✓",
+    "Military Vintage",
+    "필드자켓 피팅 완료. 짙은 색 자켓 €75, 패딩 내피를 빼니 핏이 마음에 들었음. 구매 여부는 미확인.",
+    "Trendy Army Store Skalitzer Straße 62 Berlin",
+    "피팅 완료|구매 여부 미확인",
+    true
+  ],
+  [
+    "18:35",
+    "Annelies · 오늘 제외",
+    "Original Stop",
+    "영업시간 안에 도착하기 어려워 오늘 메인 동선에서는 제외. 기록은 유지.",
+    "Annelies Görlitzer Straße 68 Berlin",
+    "영업시간상 오늘 방문 어려움",
+    false,
+    "hidden"
+  ],
+  [
+    "미확인 / 미완료",
+    "Modulor",
+    "Creative Materials",
+    "오늘 방문 보고 없음. 기존 카드 유지.",
+    "Modulor Prinzenstraße 85 Berlin",
+    "미완료 유지",
+    false
+  ],
+  [
+    "미확인 / 미완료",
+    "C/O Berlin · 잠깐 들르기",
+    "Quick Stop",
+    "전시는 보지 않음. 늦어서 내부가 닫혀 있으면 외관/공간만 짧게 보고 이동.",
+    "C/O Berlin Hardenbergstraße 22 Berlin",
+    "전시 관람 X|짧게 들르기",
+    false
+  ],
+  [
+    "미확인 / 미완료",
+    "Photoautomat #2 · C/O Berlin",
+    "Analog Photo",
+    "가능하면 C/O 포토오토마트 확인. 접근이 안 되면 바로 야간 코스로 이동.",
+    "C/O Berlin Hardenbergstraße 22 Berlin",
+    "가능하면 즉시 촬영",
+    false
+  ],
+  [
+    "20:25",
+    "Bernauer Str. 53 Photoautomat · 제외",
+    "Skipped",
+    "오늘 동선에서는 제외.",
+    "Bernauer Str. 53, 10437 Berlin, Germany",
+    "제외",
+    false,
+    "hidden"
+  ],
+  [
+    "미확인 / 미완료",
+    "Oberbaumbrücke",
+    "Walk / Spree",
+    "Kreuzberg에서 Friedrichshain으로 이동하며 다리를 건넌다.",
+    "Oberbaumbrücke Berlin",
+    "다리 위 사진|강변 짧게",
+    false
+  ],
+  [
+    "미확인 / 미완료",
+    "Photoautomat · Warschauer Brücke 1 · 가로",
+    "Analog B&W · Horizontal",
+    "가로 흑백 스트립 부스. Revalerstraße 99. 세로가 아니라 Warschauer Brücke 1을 찾는다.",
+    "Warschauer Brücke 1 Revalerstraße 99 Berlin",
+    "HORIZONTAL photostrip|24/7|Warschauer Brücke 1 확인",
+    false
+  ],
+  [
+    "미확인 / 미완료",
+    "East Side Gallery",
+    "Berlin Wall",
+    "장벽 구간을 짧게 실제로 걷는다.",
+    "East Side Gallery Berlin",
+    "15~20분",
+    false
+  ],
+  [
+    "19:20–19:40",
+    "Schönhauser Design ✓",
+    "Vintage Furniture / Lighting",
+    "Joo 맞은편 포토오토마트 촬영 후 방문 완료. 이후 숙소로 충전하러 복귀.",
+    "Schönhauser Design Rosenthaler Straße 19 Berlin",
+    "방문 완료",
+    true
+  ],
+  [
+    "미방문",
+    "Carhartt WIP Berlin Mitte · 남편 맨투맨",
+    "Shopping · MUST",
+    "오늘 미방문. 남편 맨투맨은 내일 프랑크푸르트 공식 WIP 매장에서 구매 예정.",
+    "Carhartt WIP Rosenthaler Str. 48 Berlin",
+    "오늘 미완료|프푸 Neue Kräme 26에서 이어가기",
+    false
+  ],
+  [
+    "미방문",
+    "Nude Project Berlin",
+    "Fashion",
+    "오늘 방문 확인 없음. 프랑크푸르트 공식 매장은 확인되지 않음. 베를린 마감 안내는 19:30 / 20:00으로 상충.",
+    "Nude Project Alte Schönhauser Str. 28 Berlin",
+    "미완료 유지",
+    false
+  ],
+  [
+    "미확인 / 미완료",
+    "STILSPIEL",
+    "Design / Objects",
+    "alte Zeiten 다음 후보였으나 방문 완료 보고가 없어 미완료 상태로 보존.",
+    "STILSPIEL Audre-Lorde-Straße 59 Berlin",
+    "미완료 유지",
+    false
+  ],
+  [
+    "20:40–21:35",
+    "Material · 저녁 ✓",
+    "Dinner / Natural Wine",
+    "충전·휴식 후 방문해 저녁 식사 완료. 가는 길이 매우 어두웠고 바람이 세고 추워 천천히 먹기 어려웠음. 맛은 무난했고, 이후 택시로 숙소 귀가.",
+    "Material Schönhauser Allee 156 Berlin",
+    "저녁 완료|다음 야간 이동은 택시 고려",
+    true
+  ],
+  [
+    "18:25–18:44",
+    "Sing Blackbird ✓",
+    "Vintage",
+    "Sander22를 보는 김에 함께 방문 완료.",
+    "Sing Blackbird Berlin",
+    "방문 완료",
+    true
+  ],
+  [
+    "19:04 이후",
+    "Photoautomat · Joo 맞은편 ✓",
+    "Analog Photo",
+    "Joo 맞은편 부스에서 촬영 완료. 정확한 부스명과 가로/세로 형식은 미확인. 기존 Revalerstraße 가로 부스는 완료 처리하지 않음.",
+    "Joo Vintage Hobrechtstraße 28 Berlin",
+    "촬영 완료",
+    true
+  ],
+  [
+    "19:40–20:40",
+    "숙소 · 충전 & 휴식 ✓",
+    "Battery / Rest",
+    "Schönhauser Design 다음 숙소로 돌아와 배터리 충전과 휴식. 피곤했지만 이후 Material로 출발.",
+    "Lottumstraße 28 Berlin",
+    "충전·휴식 완료",
+    true
+  ],
+  [
+    "21:35 이후",
+    "택시 귀가 → 따뜻한 샤워 ✓",
+    "Hotel / Rest",
+    "Material에서 저녁 후 택시로 숙소 복귀. 따뜻한 샤워 완료. 오늘 일정 종료.",
+    "Lottumstraße 28 Berlin",
+    "귀가 완료|샤워 완료",
+    true
+  ]
 ];
-const D3=[['08:00','Studio Natura · OPEN RUN','Breakfast / Cafe','숙소를 잡은 이유였던 곳. 오픈하자마자 들어가 30~35분만 즐기고 공항 일정은 지킨다.','Studio Natura Ackerstraße 165 Berlin','08:00 오픈|08:35 전후 출발|커피 + 아침 빠르게'],['08:40','숙소 · 짐 픽업','Hotel','Studio Natura에서 바로 숙소로 돌아와 체크아웃 및 짐 픽업.','Lottumstraße 28 Berlin','짐 최종 체크|바로 공항 이동'],['09:00','숙소 → BER','Airport','11:45 출발. 09:00 전후 숙소에서 출발해 공항에 충분한 여유를 두고 도착 목표.','Lottumstraße 28 Berlin to Berlin Brandenburg Airport','Berlin ABC 티켓|지체 없이 이동|공항 여유 확보']];
+const D3=[
+  [
+    "08:00–08:35",
+    "Studio Natura · OPEN RUN",
+    "Breakfast / Cafe",
+    "숙소를 잡은 이유였던 최우선 카페. Zeit für Brot에서 빵을 산 뒤 걸어서 이동해 오픈런. 외부 빵은 매장 반입·취식 가능 여부를 먼저 물어보고, 불가하면 포장 유지.",
+    "Studio Natura Ackerstraße 165 Berlin",
+    "08:00 도착 목표|커피 주문|08:35 출발"
+  ],
+  [
+    "08:45–08:55",
+    "숙소 · 짐 픽업",
+    "Hotel",
+    "Studio Natura에서 숙소로 돌아와 체크아웃과 짐 픽업. 짐은 오늘 밤 미리 정리.",
+    "Lottumstraße 28 Berlin",
+    "짐 최종 체크|바로 공항 이동"
+  ],
+  [
+    "09:00",
+    "숙소 → BER",
+    "Airport",
+    "11:45 BER 출발. 09:00 전후 숙소 출발, 09:45–10:00 공항 도착 목표. 당일 경로 확인 후 대중교통 또는 택시 선택.",
+    "Lottumstraße 28 Berlin to Berlin Brandenburg Airport",
+    "Berlin ABC 티켓|지체 없이 이동|공항 여유 확보"
+  ],
+  [
+    "07:00–07:20",
+    "Zeit für Brot · 빵 포장",
+    "Bakery / Takeaway",
+    "숙소 근처에서 07:00 오픈에 맞춰 빵을 포장 구매. 이후 Studio Natura로 걸어서 이동. 영업 시작 시각은 사용자 현장 확인 기준.",
+    "Zeit für Brot Alte Schönhauser Straße 4 Berlin",
+    "빵 포장|따뜻한 옷 챙기기|Studio Natura로 도보 이동"
+  ],
+  [
+    "11:45 → 12:55",
+    "BER → FRA",
+    "Flight",
+    "베를린에서 프랑크푸르트로 이동. 항공편 시각은 예약 정보 기준.",
+    "Berlin Brandenburg Airport",
+    "탑승권·여권 준비|출발 전 터미널·게이트 확인"
+  ],
+  [
+    "도착 후",
+    "THE FLAG West M · 짐 맡기기 / 체크인",
+    "Hotel",
+    "프랑크푸르트 숙소는 그대로 THE FLAG West M. 공항에서 숙소로 이동해 짐을 내려놓고 오후 일정을 시작.",
+    "THE FLAG West M Bockenheimer Landstraße 38-40 Frankfurt",
+    "짐 맡기기 / 체크인|잠깐 휴식"
+  ],
+  [
+    "오후 · 20:00 전",
+    "Carhartt WIP Frankfurt · 남편 맨투맨",
+    "Shopping · MUST",
+    "베를린에서 못 간 쇼핑을 프푸에서 이어가기. 공식 매장 Neue Kräme 26, 목요일 11:00–20:00 안내. 원하는 색·사이즈 재고는 현장 확인.",
+    "Carhartt WIP Neue Kräme 26 Frankfurt",
+    "남편 맨투맨|색·사이즈 확인"
+  ],
+  [
+    "오후 · 선택",
+    "Artemide 조명 찾기 · 프푸",
+    "Vintage Lighting",
+    "전문 빈티지숍과 집 정리·중고 매장을 함께 탐색. 후보: tidløs-design(예약·Tolomeo 재고 문의), sumsum(Lindleystraße 7, 평일 10–17), Edeltrödel(Luisenstraße 5, 목요일 11–18), Raus aus dem Keller(Schloßstraße 7–9, 12–19). Artemide 현장 재고는 미확인. 모두 갈 필요 없이 재고·체력에 따라 선택.",
+    "Edeltrödel Luisenstraße 5 Frankfurt",
+    "전문숍 재고·방문 가능 시간 먼저 확인|중고 살림숍 직접 탐색"
+  ]
+];
 const B=[['16:10','Highsnobiety UDL','Fashion / Media','Google Maps상 임시 휴업 표시가 있어 메인에서 제외.','Highsnobiety Unter den Linden 40 Berlin','현장 영업 확인 시 10~20분'],['11:45','Schönhauser Design','Vintage Furniture','Another June보다 조명·가구가 더 당길 때 대체/추가.','Schönhauser Design Berlin',''],['12:30','House of Small Wonder','Brunch','오늘 실제 점심으로 방문.','House of Small Wonder Auguststraße 11-13 Berlin',''],['13:45','Schee','Poster / Prints','포스터가 꼭 사고 싶을 때만 10분.','Schee Rosenthaler Straße 15 Berlin',''],['13:45','PICKNWEIGHT Mitte','Vintage','첫날 빈티지를 더 보고 싶을 때.','PICKNWEIGHT Mitte Berlin',''],['16:30','AMPELMANN','Souvenir','Unter den Linden에서 보이면 5분 정도.','AMPELMANN Unter den Linden Berlin',''],['12:10','Garten Mitte','Cafe','Baret 대신 야외 정원이 더 당길 때.','Garten Mitte Berlin',''],['15:00','Mustafa’s Gemüse Kebap','Food','줄 15분 이하면 먹고, 길면 바로 패스.','Mustafa Gemüse Kebap Berlin',''],['20:25','Holzmarkt','Riverside','East Side 뒤 강변 분위기가 너무 좋으면 15~20분.','Holzmarkt 25 Berlin',''],['20:00+','Sanku Maots’ai','Dinner Backup','첫날 Wen Cheng이 안 당길 때 매콤한 중국 음식 대안.','Sanku Maotsai Berlin','']];
 function render(id,data,prefix,bk=false){document.getElementById(id).innerHTML=data.map((x,i)=>x[7]==='hidden'?'':`<div class="card ${bk?'backup':''} ${x[6]?'done':''}" data-k="${prefix}${i}"><div class="row"><div class="time">${x[0]}</div><div><div class="place">${x[1]}${bk?' <span class="sub">(backup)</span>':''}</div><div class="type">${x[2]}</div><div class="desc">${x[3]}</div>${x[5]?`<ul class="todo">${x[5].split('|').map(t=>`<li>${t}</li>`).join('')}</ul>`:''}<div class="actions"><a class="btn map" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(x[4])}">Google Maps</a>${bk?'':`<button class="btn check">✓ Done</button>`}</div></div></div></div>`).join('')}
 render('t1',D1,'d1_');render('tr',R,'r_');render('t2',D2,'d2_');
 // Correct live route; preserve array indices/localStorage keys.
-const liveOrder=[0,1,2,3,4,5,6,7,8,9,10,11,12,22,37,23,24,25,16,17,18,27,34,35,36,28,29,31,32,33,38];
-[...document.querySelectorAll('#t2 .card')].forEach(card=>{const idx=parseInt(card.dataset.k.replace('d2_',''),10);const pos=liveOrder.indexOf(idx);card.style.order=pos<0?999:pos;});render('t3',D3,'d3_');render('tb',B,'b_',true);
-document.querySelectorAll('.card').forEach(c=>{const b=c.querySelector('.check');if(!b)return;const k='berlin_'+c.dataset.k;try{if(localStorage.getItem(k)==='1')c.classList.add('done')}catch(e){}b.onclick=()=>{c.classList.toggle('done');try{localStorage.setItem(k,c.classList.contains('done')?'1':'0')}catch(e){}}});
+const liveOrder=[0,1,2,3,4,5,6,7,8,9,10,12,22,37,23,24,25,16,39,17,40,18,27,34,41,35,36,28,29,31,32,33,38,42];
+[...document.querySelectorAll('#t2 .card')].forEach(card=>{const idx=parseInt(card.dataset.k.replace('d2_',''),10);const pos=liveOrder.indexOf(idx);card.style.order=pos<0?999:pos;});render('t3',D3,'d3_');
+const day3Order=[3,0,1,2,4,5,6,7];
+document.querySelectorAll('#t3 .card').forEach(card=>{card.style.order=day3Order.indexOf(Number(card.dataset.k.slice(3)));});
+render('tb',B,'b_',true);
+// Apply confirmed visit status once while preserving card indices and future toggles.
+try{const stamp='berlin_actual_20260930_v1';if(!localStorage.getItem(stamp)){[8,16,17,25,34,38,39,40,41,42].forEach(i=>localStorage.setItem('berlin_d2_'+i,'1'));localStorage.setItem(stamp,'1');}}catch(e){}
+document.querySelectorAll('.card').forEach(c=>{const b=c.querySelector('.check');if(!b)return;const k='berlin_'+c.dataset.k;try{const saved=localStorage.getItem(k);if(saved==='1')c.classList.add('done');else if(saved==='0')c.classList.remove('done')}catch(e){}b.onclick=()=>{c.classList.toggle('done');try{localStorage.setItem(k,c.classList.contains('done')?'1':'0')}catch(e){}}});
 </script></body></html>
