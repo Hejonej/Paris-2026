@@ -376,13 +376,13 @@ const D2=[
     false
   ],
   [
-    "미확인 / 미완료",
-    "STILSPIEL",
+    "방문 · 문 닫힘",
+    "STILSPIEL · 닫힘 ✓",
     "Design / Objects",
-    "alte Zeiten 다음 후보였으나 방문 완료 보고가 없어 미완료 상태로 보존.",
+    "현장 방문했으나 문이 닫혀 있어 내부 구경은 하지 못함.",
     "STILSPIEL Audre-Lorde-Straße 59 Berlin",
-    "미완료 유지",
-    false
+    "방문 완료|문 닫힘",
+    true
   ],
   [
     "20:40–21:35",
@@ -508,5 +508,6 @@ document.querySelectorAll('#t3 .card').forEach(card=>{card.style.order=day3Order
 render('tb',B,'b_',true);
 // Apply confirmed visit status once while preserving card indices and future toggles.
 try{const stamp='berlin_actual_20260930_v1';if(!localStorage.getItem(stamp)){[8,16,17,25,34,38,39,40,41,42].forEach(i=>localStorage.setItem('berlin_d2_'+i,'1'));localStorage.setItem(stamp,'1');}}catch(e){}
+try{const stamp='berlin_stilspiel_closed_20260930_v1';if(!localStorage.getItem(stamp)){localStorage.setItem('berlin_d2_37','1');localStorage.setItem(stamp,'1');}}catch(e){}
 document.querySelectorAll('.card').forEach(c=>{const b=c.querySelector('.check');if(!b)return;const k='berlin_'+c.dataset.k;try{const saved=localStorage.getItem(k);if(saved==='1')c.classList.add('done');else if(saved==='0')c.classList.remove('done')}catch(e){}b.onclick=()=>{c.classList.toggle('done');try{localStorage.setItem(k,c.classList.contains('done')?'1':'0')}catch(e){}}});
 </script></body></html>
