@@ -3,6 +3,7 @@
 .city-tabs{display:flex;gap:8px;margin-top:12px}.city-tabs a{flex:1;text-align:center;padding:10px 14px;border:1px solid var(--line);border-radius:12px;text-decoration:none;font-weight:800;color:var(--muted);background:#fff}.city-tabs a[aria-current="page"]{background:var(--green);border-color:var(--green);color:white}.city-tabs .frankfurt-link{border-color:#c7aa96;color:#8b4e32}.city-label{font-size:11px;font-weight:800;letter-spacing:1.8px;color:var(--green);margin-bottom:3px}.city-next{display:block;margin-top:12px;padding:14px;border-radius:14px;background:#f3e5d9;color:#75452e;text-decoration:none;border:1px solid #d5b59e;font-weight:800}
 
 .card.missed{background:#fff2e8;border-color:#c58b66}.card.missed .place{color:#925537}.status-label{display:none;margin-top:6px;font-size:12px;font-weight:800;color:#925537}.card.missed .status-label{display:block}.miss-check[aria-pressed="true"]{background:#925537;color:#fff;border-color:#925537}.check[aria-pressed="true"]{background:var(--soft)}
+.closed-label{display:inline-block;margin-top:6px;padding:4px 8px;border:1px solid #bfa68e;border-radius:7px;background:#f2e8dc;color:#71523a;font-size:12px;font-weight:800}
 </style></head><body>
 <header><div class="wrap"><div class="city-label">GERMANY · 29 SEP – 1 OCT</div><div class="title">Berlin 2026</div><div class="sub">Coffee · Books · Objects · Vintage · Analog</div><div class="city-tabs" aria-label="도시 선택"><a href="berlin.html" aria-current="page">Berlin · 베를린</a><a class="frankfurt-link" href="frankfurt.html">Frankfurt · 프푸 →</a></div><nav aria-label="베를린 날짜"><a href="#d1">9/29 Tue</a><a href="#recovery">Tonight</a><a href="#d2">9/30 Wed</a><a href="#d3">10/1 Thu</a><a href="#backup">Backups</a></nav></div></header>
 <main class="wrap">
@@ -14,24 +15,167 @@
 </main><footer>Berlin 2026 · mobile itinerary</footer>
 <script>
 const D1=[
-['09:05','BER 도착 → Mitte','Transit','배낭만 있으니 숙소에 먼저 들르지 않고 바로 Mitte로 들어간다. 도착일의 귀한 오전을 이동에 쓰지 않는 선택.','Hackescher Markt Berlin','Berlin ABC 티켓 준비|공항역에서 그날 가장 빠른 시내행 확인|목표: 10:20~10:30 Mitte 도착'],
-['10:25','SOFI','Bakery','첫날 베이커리는 SOFI. 사워도우·발효 중심의 빵과 Sophienhöfe 안뜰 분위기를 가볍게 즐긴다.','SOFI Sophienstraße 21 Berlin','페이스트리 또는 빵 1개|안뜰과 진열 사진|배부르게 먹지 않기, 바로 근처 BEN RAHIM으로'],
-['10:55','BEN RAHIM','Coffee','커피는 첫날 여기서 해결. SOFI와 매우 가까워 동선 손실이 거의 없고, 둘째 날 카페 몰림도 피할 수 있다.','BEN RAHIM Sophienstraße 7A Berlin','필터 또는 플랫화이트|15~20분만|음식은 생략하고 커피에 집중'],
-['11:25','Optimistic Runners','Fashion','베를린의 clean-athletic / running culture를 보는 짧은 스톱. 의류보다 도시의 현재 취향을 읽는 느낌.','Optimistic Runners Torstraße 62 Berlin','캡·티셔츠·양말 위주|서울에서 실제로 쓸 것만|20분 제한'],
-['11:55','Another June Vintage','Vintage Objects','옷보다 램프·세라믹·유리·생활 오브제에 집중. 이번 여행의 “Berlin object” 후보를 찾는다.','Another June Vintage Berlin','작고 휴대 가능한 것만|집에서 둘 장소가 바로 떠오를 때만 구매|억지 구매 금지'],
-['12:30','do you read me?!','Bookstore','사진·패션·디자인·건축·독립잡지에 강한 서점. 이번 여행의 종이 기록물을 고르는 핵심 장소.','do you read me Auguststraße 28 Berlin','책/잡지 1권 후보|표지보다 내용 우선|사진·디자인·라이프스타일 섹션 집중'],
-['13:05','R.S.V.P. Papier','Stationery','완성도 높은 작은 문구를 보는 곳. 다음날 Modulor와 성격이 달라 둘 다 가도 겹침이 적다.','R.S.V.P. Papier Berlin','노트·카드·클립 중 1개|작고 가벼운 것 위주|Modulor와 품목 중복 피하기'],
-['13:30','FORMOST · Hackesche Höfe','German Design','독일·유럽의 생활 디자인과 Bauhaus 계열 오브제를 본다. Hackesche Höfe의 안뜰 자체도 같이 경험.','FORMOST Hackesche Höfe Berlin','Hof 안쪽까지 걷기|주방·유리·생활 오브제 체크|Another June와 겹치면 한 곳에서만 구매'],
-['13:50','Museum Island + Spree','Walk','쇼핑을 멈추고 도시 자체를 보는 구간. Bode Museum과 Spree를 따라 걸으며 베를린의 수변 감각을 느낀다.','Museum Island Berlin','Bode Museum 외관|Spree 강변 사진·영상|실내 관람 없이 산책에 집중',false,'hidden'],
-['15:00','Schoenhouse City Street 체크인','Hotel','Lottumstraße 28. 오전 내내 들고 다닌 배낭을 내려놓고 서베를린으로 나가기 전 짧게 리셋.','Lottumstraße 28 Berlin','충전·화장실·겉옷 정리|20~25분만|침대에 눕지 않기 ㅋㅋ'],
-['15:30','Photoautomat #1 · ACUD ✓','Analog Photo','완료. 인터넷 문제 생기기 전 오늘 확실히 건진 첫 베를린 스트립.','ACUD Veteranenstraße 21 Berlin','촬영 완료|첫날 기록 성공',true],
-['15:55','Ritter Sport → 내일로 이동','Moved','인터넷 장애로 오늘 못 감. 내일 Macchina-Caffè 직후 Mitte 동선에 넣어 회수.','Ritter Sport Bunte Schokowelt Friedrichstraße 83 Berlin','내일 11:55 목표|매장 전용·리미티드 우선',false,'hidden'],
-['16:20','Brandenburg Gate → Reichstag → 오늘 밤 회수','Moved','낮 일정에서 놓쳤지만 야외라 저녁에 충분히 가능. 아래 Tonight 섹션의 순서대로 천천히 본다.','Brandenburg Gate Berlin','오늘 밤 회수|시간 압박 없이 야경 보기',false,'hidden'],
-['17:00','KaDeWe','Department Store','파리 Le Bon Marché와 비교하며 서베를린의 클래식 백화점 감각을 보는 짧은 탐색.','KaDeWe Berlin','리빙/주방 → 디자인 → 식품관|패션층은 눈에 띄는 것만|40분 안쪽'],
-['17:45','Pulcina shopping → Macchina-Caffè 내일','Moved','Moka Consorten 대신 오늘 우연히 발견한 Macchina-Caffè에서 일반형 검정 3컵 €80을 직접 확인. 내일 오픈 후 다시 가는 것이 최우선.','Macchina Caffe Alte Schönhauser Straße 26 Berlin','내일 11:25 목표|Alessi Pulcina 일반형 검정 3컵 우선|€80 기준 비교',false,'hidden'],
-['18:30','C/O Berlin · Carrie Mae Weems → 내일','Moved','오늘 못 간 Weems 전시는 내일 반드시 회수. 빈티지 숍 몇 곳보다 우선순위를 높인다.','C/O Berlin Hardenbergstraße 22 Berlin','내일 13:10 전후|Kitchen Table Series 최우선|45~50분 집중 관람',false,'hidden'],
-['19:20','Photoautomat #2 · C/O Berlin','Analog Photo','전시 직후 찍는 두 번째 스트립. C/O 부스는 지하에 있고 전시 티켓이 있어야 접근 가능.','C/O Berlin Hardenbergstraße 22 Berlin','지하 부스 찾기|Day 1 두 번째 스트립|전시 보고 난 표정 그대로',false,'hidden'],
-['18:00','Yam Yam Korean Restaurant ✓','Dinner · Korean','인터넷 문제로 숙소 근처에서 저녁 해결. 이미 식사 완료했으니 오늘 밤은 먹는 일정 없이 산책만 하면 된다.','Yam Yam Berlin','저녁 완료|이후 야외 산책만',true]
+  [
+    "09:05",
+    "BER 도착 → Mitte",
+    "Transit",
+    "배낭만 있으니 숙소에 먼저 들르지 않고 바로 Mitte로 들어간다. 도착일의 귀한 오전을 이동에 쓰지 않는 선택.",
+    "Hackescher Markt Berlin",
+    "Berlin ABC 티켓 준비|공항역에서 그날 가장 빠른 시내행 확인|목표: 10:20~10:30 Mitte 도착"
+  ],
+  [
+    "10:25",
+    "SOFI",
+    "Bakery",
+    "첫날 베이커리는 SOFI. 사워도우·발효 중심의 빵과 Sophienhöfe 안뜰 분위기를 가볍게 즐긴다.",
+    "SOFI Sophienstraße 21 Berlin",
+    "페이스트리 또는 빵 1개|안뜰과 진열 사진|배부르게 먹지 않기, 바로 근처 BEN RAHIM으로"
+  ],
+  [
+    "10:55",
+    "BEN RAHIM",
+    "Coffee",
+    "커피는 첫날 여기서 해결. SOFI와 매우 가까워 동선 손실이 거의 없고, 둘째 날 카페 몰림도 피할 수 있다.",
+    "BEN RAHIM Sophienstraße 7A Berlin",
+    "필터 또는 플랫화이트|15~20분만|음식은 생략하고 커피에 집중"
+  ],
+  [
+    "11:25",
+    "Optimistic Runners",
+    "Fashion",
+    "베를린의 clean-athletic / running culture를 보는 짧은 스톱. 의류보다 도시의 현재 취향을 읽는 느낌.",
+    "Optimistic Runners Torstraße 62 Berlin",
+    "캡·티셔츠·양말 위주|서울에서 실제로 쓸 것만|20분 제한"
+  ],
+  [
+    "방문 · Closed",
+    "Another June Vintage ✓",
+    "Vintage Objects",
+    "현장 방문했으나 문이 닫혀 있어 내부 구경은 하지 못함.",
+    "Another June Vintage Berlin",
+    "방문 완료|Closed · 문 닫힘",
+    true,
+    null,
+    "closed"
+  ],
+  [
+    "12:30",
+    "do you read me?!",
+    "Bookstore",
+    "사진·패션·디자인·건축·독립잡지에 강한 서점. 이번 여행의 종이 기록물을 고르는 핵심 장소.",
+    "do you read me Auguststraße 28 Berlin",
+    "책/잡지 1권 후보|표지보다 내용 우선|사진·디자인·라이프스타일 섹션 집중"
+  ],
+  [
+    "13:05",
+    "R.S.V.P. Papier",
+    "Stationery",
+    "완성도 높은 작은 문구를 보는 곳. 다음날 Modulor와 성격이 달라 둘 다 가도 겹침이 적다.",
+    "R.S.V.P. Papier Berlin",
+    "노트·카드·클립 중 1개|작고 가벼운 것 위주|Modulor와 품목 중복 피하기"
+  ],
+  [
+    "13:30",
+    "FORMOST · Hackesche Höfe",
+    "German Design",
+    "독일·유럽의 생활 디자인과 Bauhaus 계열 오브제를 본다. Hackesche Höfe의 안뜰 자체도 같이 경험.",
+    "FORMOST Hackesche Höfe Berlin",
+    "Hof 안쪽까지 걷기|주방·유리·생활 오브제 체크|Another June와 겹치면 한 곳에서만 구매"
+  ],
+  [
+    "13:50",
+    "Museum Island + Spree",
+    "Walk",
+    "쇼핑을 멈추고 도시 자체를 보는 구간. Bode Museum과 Spree를 따라 걸으며 베를린의 수변 감각을 느낀다.",
+    "Museum Island Berlin",
+    "Bode Museum 외관|Spree 강변 사진·영상|실내 관람 없이 산책에 집중",
+    false,
+    "hidden"
+  ],
+  [
+    "15:00",
+    "Schoenhouse City Street 체크인",
+    "Hotel",
+    "Lottumstraße 28. 오전 내내 들고 다닌 배낭을 내려놓고 서베를린으로 나가기 전 짧게 리셋.",
+    "Lottumstraße 28 Berlin",
+    "충전·화장실·겉옷 정리|20~25분만|침대에 눕지 않기 ㅋㅋ"
+  ],
+  [
+    "15:30",
+    "Photoautomat #1 · ACUD ✓",
+    "Analog Photo",
+    "완료. 인터넷 문제 생기기 전 오늘 확실히 건진 첫 베를린 스트립.",
+    "ACUD Veteranenstraße 21 Berlin",
+    "촬영 완료|첫날 기록 성공",
+    true
+  ],
+  [
+    "15:55",
+    "Ritter Sport → 내일로 이동",
+    "Moved",
+    "인터넷 장애로 오늘 못 감. 내일 Macchina-Caffè 직후 Mitte 동선에 넣어 회수.",
+    "Ritter Sport Bunte Schokowelt Friedrichstraße 83 Berlin",
+    "내일 11:55 목표|매장 전용·리미티드 우선",
+    false,
+    "hidden"
+  ],
+  [
+    "16:20",
+    "Brandenburg Gate → Reichstag → 오늘 밤 회수",
+    "Moved",
+    "낮 일정에서 놓쳤지만 야외라 저녁에 충분히 가능. 아래 Tonight 섹션의 순서대로 천천히 본다.",
+    "Brandenburg Gate Berlin",
+    "오늘 밤 회수|시간 압박 없이 야경 보기",
+    false,
+    "hidden"
+  ],
+  [
+    "17:00",
+    "KaDeWe",
+    "Department Store",
+    "파리 Le Bon Marché와 비교하며 서베를린의 클래식 백화점 감각을 보는 짧은 탐색.",
+    "KaDeWe Berlin",
+    "리빙/주방 → 디자인 → 식품관|패션층은 눈에 띄는 것만|40분 안쪽"
+  ],
+  [
+    "17:45",
+    "Pulcina shopping → Macchina-Caffè 내일",
+    "Moved",
+    "Moka Consorten 대신 오늘 우연히 발견한 Macchina-Caffè에서 일반형 검정 3컵 €80을 직접 확인. 내일 오픈 후 다시 가는 것이 최우선.",
+    "Macchina Caffe Alte Schönhauser Straße 26 Berlin",
+    "내일 11:25 목표|Alessi Pulcina 일반형 검정 3컵 우선|€80 기준 비교",
+    false,
+    "hidden"
+  ],
+  [
+    "18:30",
+    "C/O Berlin · Carrie Mae Weems → 내일",
+    "Moved",
+    "오늘 못 간 Weems 전시는 내일 반드시 회수. 빈티지 숍 몇 곳보다 우선순위를 높인다.",
+    "C/O Berlin Hardenbergstraße 22 Berlin",
+    "내일 13:10 전후|Kitchen Table Series 최우선|45~50분 집중 관람",
+    false,
+    "hidden"
+  ],
+  [
+    "19:20",
+    "Photoautomat #2 · C/O Berlin",
+    "Analog Photo",
+    "전시 직후 찍는 두 번째 스트립. C/O 부스는 지하에 있고 전시 티켓이 있어야 접근 가능.",
+    "C/O Berlin Hardenbergstraße 22 Berlin",
+    "지하 부스 찾기|Day 1 두 번째 스트립|전시 보고 난 표정 그대로",
+    false,
+    "hidden"
+  ],
+  [
+    "18:00",
+    "Yam Yam Korean Restaurant ✓",
+    "Dinner · Korean",
+    "인터넷 문제로 숙소 근처에서 저녁 해결. 이미 식사 완료했으니 오늘 밤은 먹는 일정 없이 산책만 하면 된다.",
+    "Yam Yam Berlin",
+    "저녁 완료|이후 야외 산책만",
+    true
+  ]
 ];
 const R=[
 ['18:35','Round & Edgy · Torstraße ✓','Cookie Pick-up','완료. Dark Chocolate Sea Salt와 Granny’s Blueberry 계열 케이크까지 성공적으로 포장.','Round & Edgy Torstraße 94 Berlin','쿠키 구매 완료|오늘 밤 디저트 확보',true],
@@ -242,12 +386,14 @@ const D2=[
   ],
   [
     "16:55",
-    "alte Zeiten / Arslantas · CLOSED ✓",
+    "alte Zeiten / Arslantas ✓",
     "Vintage Objects",
     "Pücklerstraße 32까지 갔지만 현장에서 문이 닫혀 있었음. Artemide 목표였으나 오늘은 실패.",
     "alte Zeiten Arslantas Pücklerstraße 32 Berlin",
-    "현장 방문 완료|CLOSED",
-    true
+    "방문 완료|Closed · 문 닫힘",
+    true,
+    null,
+    "closed"
   ],
   [
     "방문 완료",
@@ -378,13 +524,15 @@ const D2=[
     false
   ],
   [
-    "방문 · 문 닫힘",
-    "STILSPIEL · 닫힘 ✓",
+    "방문 · Closed",
+    "STILSPIEL ✓",
     "Design / Objects",
     "현장 방문했으나 문이 닫혀 있어 내부 구경은 하지 못함.",
     "STILSPIEL Audre-Lorde-Straße 59 Berlin",
-    "방문 완료|문 닫힘",
-    true
+    "방문 완료|Closed · 문 닫힘",
+    true,
+    null,
+    "closed"
   ],
   [
     "20:40–21:35",
@@ -500,7 +648,7 @@ const D3=[
 ];
 D3.slice(5).forEach(x=>{x[7]='hidden';});
 const B=[['16:10','Highsnobiety UDL','Fashion / Media','Google Maps상 임시 휴업 표시가 있어 메인에서 제외.','Highsnobiety Unter den Linden 40 Berlin','현장 영업 확인 시 10~20분'],['11:45','Schönhauser Design','Vintage Furniture','Another June보다 조명·가구가 더 당길 때 대체/추가.','Schönhauser Design Berlin',''],['12:30','House of Small Wonder','Brunch','오늘 실제 점심으로 방문.','House of Small Wonder Auguststraße 11-13 Berlin',''],['13:45','Schee','Poster / Prints','포스터가 꼭 사고 싶을 때만 10분.','Schee Rosenthaler Straße 15 Berlin',''],['13:45','PICKNWEIGHT Mitte','Vintage','첫날 빈티지를 더 보고 싶을 때.','PICKNWEIGHT Mitte Berlin',''],['16:30','AMPELMANN','Souvenir','Unter den Linden에서 보이면 5분 정도.','AMPELMANN Unter den Linden Berlin',''],['12:10','Garten Mitte','Cafe','Baret 대신 야외 정원이 더 당길 때.','Garten Mitte Berlin',''],['15:00','Mustafa’s Gemüse Kebap','Food','줄 15분 이하면 먹고, 길면 바로 패스.','Mustafa Gemüse Kebap Berlin',''],['20:25','Holzmarkt','Riverside','East Side 뒤 강변 분위기가 너무 좋으면 15~20분.','Holzmarkt 25 Berlin',''],['20:00+','Sanku Maots’ai','Dinner Backup','첫날 Wen Cheng이 안 당길 때 매콤한 중국 음식 대안.','Sanku Maotsai Berlin','']];
-function render(id,data,prefix,bk=false){document.getElementById(id).innerHTML=data.map((x,i)=>x[7]==='hidden'?'':`<div class="card ${bk?'backup':''} ${x[6]?'done':''}" data-k="${prefix}${i}"><div class="row"><div class="time">${x[0]}</div><div><div class="place">${x[1]}${bk?' <span class="sub">(backup)</span>':''}</div><div class="type">${x[2]}</div><div class="desc">${x[3]}</div>${x[5]?`<ul class="todo">${x[5].split('|').map(t=>`<li>${t}</li>`).join('')}</ul>`:''}<div class="actions"><a class="btn map" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(x[4])}">Google Maps</a><button class="btn check" aria-pressed="false">✓ Done</button><button class="btn miss-check" aria-pressed="false">Missed!</button><span class="status-label" role="status">Missed! · 못 감</span></div></div></div></div>`).join('')}
+function render(id,data,prefix,bk=false){document.getElementById(id).innerHTML=data.map((x,i)=>x[7]==='hidden'?'':`<div class="card ${bk?'backup':''} ${x[6]?'done':''}" data-k="${prefix}${i}"><div class="row"><div class="time">${x[0]}</div><div><div class="place">${x[1]}${bk?' <span class="sub">(backup)</span>':''}</div><div class="type">${x[2]}</div>${x[8]==='closed'?'<span class="closed-label">Closed · 문 닫힘</span>':''}<div class="desc">${x[3]}</div>${x[5]?`<ul class="todo">${x[5].split('|').map(t=>`<li>${t}</li>`).join('')}</ul>`:''}<div class="actions"><a class="btn map" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(x[4])}">Google Maps</a><button class="btn check" aria-pressed="false">✓ Done</button><button class="btn miss-check" aria-pressed="false">Missed!</button><span class="status-label" role="status">Missed! · 못 감</span></div></div></div></div>`).join('')}
 render('t1',D1,'d1_');render('tr',R,'r_');render('t2',D2,'d2_');
 // Correct live route; preserve array indices/localStorage keys.
 const liveOrder=[0,1,2,3,4,5,6,7,8,9,10,12,22,37,23,24,25,16,39,17,40,18,27,34,41,35,36,28,29,31,32,33,38,42];
@@ -513,6 +661,7 @@ try{const stamp='berlin_actual_20260930_v1';if(!localStorage.getItem(stamp)){[8,
 try{const stamp='berlin_stilspiel_closed_20260930_v1';if(!localStorage.getItem(stamp)){localStorage.setItem('berlin_d2_37','1');localStorage.setItem(stamp,'1');}}catch(e){}
 try{const stamp='berlin_motto_visited_20260930_v1';if(!localStorage.getItem(stamp)){localStorage.setItem('berlin_d2_24','1');localStorage.setItem(stamp,'1');}}catch(e){}
 try{const stamp='berlin_voo_visited_20260930_v1';if(!localStorage.getItem(stamp)){localStorage.setItem('berlin_d2_23','1');localStorage.setItem(stamp,'1');}}catch(e){}
+try{const stamp='berlin_another_june_closed_20260929_v1';if(!localStorage.getItem(stamp)){localStorage.setItem('berlin_d1_4','1');localStorage.setItem(stamp,'1');}}catch(e){}
 document.querySelectorAll('.card').forEach(c=>{const b=c.querySelector('.check');if(!b)return;const k='berlin_'+c.dataset.k;try{const saved=localStorage.getItem(k);if(saved==='1')c.classList.add('done');else if(saved==='0')c.classList.remove('done')}catch(e){}b.onclick=()=>{c.classList.toggle('done');try{localStorage.setItem(k,c.classList.contains('done')?'1':'0')}catch(e){}}});
 
 // Done and Missed are exclusive; existing completion keys stay unchanged.
