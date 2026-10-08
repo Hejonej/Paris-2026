@@ -15,12 +15,7 @@ function findPlace(name){
   const n=norm(name), list=allPlaces(c);
   return list.find(x=>norm(x.name)===n)||list.find(x=>norm(x.name).includes(n)||n.includes(norm(x.name)))||null;
 }
-function searchUrl(x,name){
-  const q=encodeURIComponent(x?.name||name||'');
-  if(x?.placeId)return 'https://www.google.com/maps/search/?api=1&query='+q+'&query_place_id='+encodeURIComponent(x.placeId);
-  if(Number.isFinite(Number(x?.lat))&&Number.isFinite(Number(x?.lng)))return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(x.lat+','+x.lng);
-  return 'https://www.google.com/maps/search/?api=1&query='+q;
-}
+
 function dirUrl(x,name){
   let dest='';
   if(Number.isFinite(Number(x?.lat))&&Number.isFinite(Number(x?.lng)))dest=x.lat+','+x.lng;
@@ -45,8 +40,7 @@ function injectCard(card){
   const x=findPlace(name)||{name};
   const wrap=document.createElement('div');wrap.className='afMapActions';
   const dir=document.createElement('a');dir.className='afMapBtn primary';dir.target='_blank';dir.rel='noopener';dir.href=dirUrl(x,name);dir.textContent='↗ 길찾기';
-  const map=document.createElement('a');map.className='afMapBtn';map.target='_blank';map.rel='noopener';map.href=searchUrl(x,name);map.textContent='⌖ Google Maps';
-  wrap.append(dir,map);card.appendChild(wrap);
+  wrap.append(dir);card.appendChild(wrap);
 }
 function inject(){
   styles();
