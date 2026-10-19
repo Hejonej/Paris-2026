@@ -2,7 +2,7 @@
   'use strict';
   // Afield Recommendation Actions v1: independent draft-only library.
   // This module deliberately never writes localStorage or modifies Afield state.
-  const norm = v => String(v == null ? '' : v).normalize('NFKC').toLocaleLowerCase().replace(/[^\\p{L}\\p{N}]+/gu, '');
+  const norm = v => String(v == null ? '' : v).normalize('NFKC').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
   const key = p => p && (p.placeId ? 'id:'+p.placeId : 'name:'+norm(p.name)+'|'+norm(p.address||''));
   const copy = x => JSON.parse(JSON.stringify(x));
   function validatePlace(p) {
