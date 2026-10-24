@@ -1,0 +1,2 @@
+import React from 'react';import{useRouter}from'expo-router';import{Page,H,P,Card,Action}from'../ui';import{trips}from'../data';import{Text}from'react-native';
+export default function Chapters(){const router=useRouter();return <Page><H>Your chapters</H><P>여행을 선택하면 해당 여행의 홈으로 들어가요.</P>{trips.map(t=><Card key={t.id}><Text style={{fontSize:22,fontWeight:'700'}}>{t.name}</Text><P>{t.dates}</P><Action title="여행 열기" onPress={()=>router.push({pathname:'/trip/[tripId]',params:{tripId:t.id}})}/></Card>)}<Card><P>새 여행 만들기는 다음 스프린트에서 실제 데이터 저장과 연결할 예정이야.</P></Card></Page>}
