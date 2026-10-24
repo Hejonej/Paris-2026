@@ -1,0 +1,1 @@
+import React from 'react';import{Page,H,P,Card}from'../../../../ui';import{Text}from'react-native';export default function Journal(){return <Page><H>여행의 기록</H><Card><Text style={{fontWeight:'700'}}>아직 기록이 없어요</Text><P>여행 중 방문한 장소와 메모를 쌓는 공간이야. 데이터 연결은 다음 스프린트에서 구현해.</P></Card></Page>}
