@@ -1,0 +1,1 @@
+export const ui={bg:'#F7F7F4',surface:'#FFFFFF',ink:'#181B19',muted:'#737771',line:'#E5E6E0',accent:'#24443B'} as const;
