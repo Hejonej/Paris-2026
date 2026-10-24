@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "Afield",
+    "slug": "afield-mobile",
+    "scheme": "afield",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": false
+    },
+    "android": {
+      "edgeToEdgeEnabled": true
+    },
+    "plugins": [
+      "expo-router"
+    ]
+  }
+}
