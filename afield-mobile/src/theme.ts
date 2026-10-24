@@ -1,1 +1,8 @@
-export const ui={bg:'#F7F7F4',surface:'#FFFFFF',ink:'#181B19',muted:'#737771',line:'#E5E6E0',accent:'#24443B'} as const;
+export const ui = {
+  bg: "#F5F3EE",
+  surface: "#FFFEFA",
+  ink: "#252D28",
+  muted: "#73786F",
+  line: "#E1E3D9",
+  accent: "#315746",
+} as const;

@@ -1,2 +1,88 @@
-import React from 'react';import{useLocalSearchParams,useRouter}from'expo-router';import{Text}from'react-native';import{Page,H,P,Card,Action}from'../../../../ui';import{trips}from'../../../../data';
-export default function Home(){const {tripId}=useLocalSearchParams<{tripId:string}>();const router=useRouter();const trip=trips.find(x=>x.id===tripId);return <Page><P>YOUR CHAPTER · {trip?.dates}</P><H>{trip?.name||'여행'}</H><Card><Text style={{fontSize:18,fontWeight:'700'}}>{trip?.hasPlan?'여행 일정':'첫 일정을 만들어볼까요?'}</Text><P>{trip?.hasPlan?'선택한 여행의 날짜별 일정을 확인해요.':'현재 여행에는 일정이 없어요. 빈 일정도 괜찮아요.'}</P><Action title="일정 보기" onPress={()=>router.push({pathname:'/trip/[tripId]/itinerary',params:{tripId:String(tripId)}})}/></Card><Card><Text style={{fontSize:18,fontWeight:'700'}}>새로운 발견</Text><P>원하는 순간에만 추천받고, 여행 후보와 실제 일정을 구분해요.</P><Action title="추천 살펴보기" secondary onPress={()=>router.push({pathname:'/trip/[tripId]/recommend',params:{tripId:String(tripId)}})}/></Card></Page>}
+import React from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { Text, Pressable } from "react-native";
+import { Page, H, P, Card, Action, Label, Photo, s } from "../../../../ui";
+import { cover, tripDates, tripState, dateLabel } from "../../../../data";
+import { useTrips } from "../../../../store";
+export default function Home() {
+  const { tripId } = useLocalSearchParams<{ tripId: string }>();
+  const router = useRouter();
+  const { trips } = useTrips();
+  const trip = trips.find((t) => t.id === tripId);
+  if (!trip)
+    return (
+      <Page>
+        <H>여행을 찾을 수 없어요</H>
+        <Action title="여행 목록" onPress={() => router.replace("/chapters")} />
+      </Page>
+    );
+  const state = tripState(trip);
+  const count = trip.days.reduce((n, d) => n + d.items.length, 0);
+  const today = new Date();
+  const localDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  const next =
+    trip.days.find((d) => d.date >= localDate && d.items.length) ||
+    trip.days.find((d) => d.items.length);
+  const go = (screen: "itinerary" | "recommend" | "journal") =>
+    router.push({ pathname: `/trip/[tripId]/${screen}`, params: { tripId } });
+  return (
+    <Page>
+      <Label>
+        {state} · {trip.city}
+      </Label>
+      <H>{trip.name}</H>
+      <P>{tripDates(trip)}</P>
+      <Photo uri={cover(trip.city)} height={172} />
+      <Card>
+        <Label>YOUR NEXT STEP</Label>
+        <Text style={s.title}>
+          {state === "다녀온 여행"
+            ? "여행의 여운을 기록해요"
+            : count
+              ? state === "여행 중"
+                ? "오늘의 여행을 펼쳐요"
+                : "다가올 장면을 살펴봐요"
+              : "첫 번째 장소를 찾아봐요"}
+        </Text>
+        <P>
+          {state === "다녀온 여행"
+            ? "다녀온 장소와 기억을 돌아볼 시간이에요."
+            : next
+              ? `${dateLabel(next.date)} · ${next.items[0].time} ${next.items[0].name}`
+              : "마음에 드는 장소를 후보에 담고, 원하는 날짜에 직접 배치해요."}
+        </P>
+        <Action
+          title={
+            state === "다녀온 여행"
+              ? "기록 열기"
+              : count
+                ? "일정 펼치기"
+                : "장소 발견하기"
+          }
+          onPress={() =>
+            go(
+              state === "다녀온 여행"
+                ? "journal"
+                : count
+                  ? "itinerary"
+                  : "recommend",
+            )
+          }
+        />
+      </Card>
+      {(count > 0 || state === "다녀온 여행") && (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => go("recommend")}
+          style={{ paddingVertical: 16 }}
+        >
+          <Text style={s.title}>이번 여행의 발견 ↗</Text>
+          <P>{trip.city}에서 취향에 맞는 장면을 찾아요.</P>
+        </Pressable>
+      )}
+      <Label>
+        {count}개의 일정 · {trip.candidates.length}개의 후보
+      </Label>
+    </Page>
+  );
+}
