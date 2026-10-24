@@ -1,0 +1,7 @@
+import React from 'react';import{ScrollView,Text,View,Pressable,StyleSheet}from'react-native';import{ui}from'./theme';
+export function Page({children}:{children:React.ReactNode}){return <ScrollView style={{backgroundColor:ui.bg,flex:1}} contentContainerStyle={{padding:22,paddingBottom:48}}>{children}</ScrollView>}
+export function H({children}:{children:React.ReactNode}){return <Text style={s.h}>{children}</Text>}
+export function P({children}:{children:React.ReactNode}){return <Text style={s.p}>{children}</Text>}
+export function Card({children}:{children:React.ReactNode}){return <View style={s.card}>{children}</View>}
+export function Action({title,onPress,secondary=false}:{title:string;onPress:()=>void;secondary?:boolean}){return <Pressable accessibilityRole="button" onPress={onPress} style={[s.button,secondary&&{backgroundColor:'#E9EBE6'}]}><Text style={{color:secondary?ui.ink:'white',fontWeight:'700'}}>{title}</Text></Pressable>}
+const s=StyleSheet.create({h:{fontSize:31,fontWeight:'750',color:ui.ink,letterSpacing:-.6,marginBottom:12},p:{color:ui.muted,fontSize:15,lineHeight:23,marginBottom:16},card:{padding:18,borderRadius:16,backgroundColor:ui.surface,marginBottom:12,borderWidth:1,borderColor:ui.line,gap:8},button:{backgroundColor:ui.ink,alignItems:'center',justifyContent:'center',padding:14,borderRadius:12,minHeight:46,marginTop:8}});
