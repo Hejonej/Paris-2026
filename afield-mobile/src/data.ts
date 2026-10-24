@@ -1,0 +1,3 @@
+export type Trip={id:string;name:string;dates:string;city:string;hasPlan:boolean};
+export const trips:Trip[]=[{id:'paris',name:'Paris',dates:'12–16 Nov 2026',city:'Paris',hasPlan:true},{id:'berlin',name:'Berlin',dates:'Someday',city:'Berlin',hasPlan:false}];
+export const plan=[{date:'12',label:'목',items:[{time:'10:00',name:'Le Marais 탐색'},{time:'14:00',name:'독립서점 방문'}]},{date:'13',label:'금',items:[{time:'10:00',name:'Musée Carnavalet'},{time:'13:00',name:'Le Marais 산책'}]},{date:'14',label:'토',items:[]},{date:'15',label:'일',items:[]},{date:'16',label:'월',items:[]}];
