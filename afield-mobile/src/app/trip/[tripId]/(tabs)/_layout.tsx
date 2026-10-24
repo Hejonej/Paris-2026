@@ -19,6 +19,7 @@ export default function TripTabs() {
   return (
     <Tabs
       screenOptions={{
+        freezeOnBlur: false,
         headerStyle: { backgroundColor: ui.bg },
         headerTitleStyle: { fontWeight: "700" },
         tabBarActiveTintColor: ui.ink,

@@ -20,7 +20,7 @@ export default function Itinerary() {
   const day = trip?.days.find((d) => d.date === selection) || trip?.days[0];
   return (
     <Page>
-      <Label>THE DAILY EDIT</Label>
+      <Label>하루의 동선</Label>
       <H>일정</H>
       <ScrollView
         horizontal

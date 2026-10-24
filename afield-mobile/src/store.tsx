@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import { addCandidate, addToPlan } from "./planning";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Trip, trips, makeDays } from "./data";
+import { Trip, trips, makeDays, places } from "./data";
 type Result = { ok: boolean; message: string };
 type Store = {
   trips: Trip[];
@@ -15,7 +15,7 @@ type Store = {
   loadFailed: boolean;
   error: string;
   create: (name: string, city: string, start: string, end: string) => string;
-  saveCandidate: (tripId: string, placeId: string) => void;
+  saveCandidate: (tripId: string, placeId: string) => Result;
   place: (
     tripId: string,
     placeId: string,
@@ -110,7 +110,21 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       ]);
       return id;
     },
-    saveCandidate: (id, p) => update(addCandidate(current.current, id, p)),
+    saveCandidate: (id, p) => {
+      if (!current.current.some((t) => t.id === id))
+        return {
+          ok: false,
+          message:
+            "여행 정보를 찾을 수 없어요. 여행 목록에서 다시 열어 주세요.",
+        };
+      if (!places.some((place) => place.id === p))
+        return { ok: false, message: "저장할 장소 정보를 찾을 수 없어요." };
+      update(addCandidate(current.current, id, p));
+      return {
+        ok: true,
+        message: "여행 후보에 담았어요. 후보 탭에서 확인할 수 있어요.",
+      };
+    },
     place: (id, p, name, date, time) => {
       const result = addToPlan(current.current, id, p, name, date, time);
       if (result.ok) update(result.trips);

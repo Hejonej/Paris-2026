@@ -1,64 +1,205 @@
+import { imageSource } from "../images";
 import React from "react";
 import { useRouter } from "expo-router";
-import { View, Text, Pressable, Image } from "react-native";
-import { Page, H, P, Label, Action, s } from "../ui";
-import { cover, tripDates, tripState } from "../data";
+import { View, Text, Pressable, Image, StyleSheet } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { Page, Action } from "../ui";
+import { cover, tripState } from "../data";
 import { useTrips } from "../store";
 import { ui } from "../theme";
 export default function Chapters() {
   const router = useRouter();
   const { trips } = useTrips();
+  const planned = trips.filter((t) => t.start).length;
   return (
     <Page>
-      <Label>YOUR TRAVEL JOURNAL</Label>
-      <H>Chapters</H>
-      <P>다음 장면을 준비하고, 지난 여행을 간직해요.</P>
-      {trips.map((t, i) => (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`${t.name} 여행 열기`}
-          key={t.id}
-          onPress={() =>
-            router.push({
-              pathname: "/trip/[tripId]",
-              params: { tripId: t.id },
-            })
-          }
-          style={({ pressed }) => ({
-            flexDirection: "row",
-            backgroundColor: ui.surface,
-            borderRadius: 16,
-            overflow: "hidden",
-            marginBottom: 12,
-            opacity: pressed ? 0.7 : 1,
-            borderWidth: 1,
-            borderColor: ui.line,
-          })}
-        >
-          <Image
-            source={{ uri: cover(t.city) }}
-            style={{ width: 112, height: 142, backgroundColor: ui.line }}
-          />
-          <View style={{ flex: 1, padding: 15, justifyContent: "center" }}>
-            <Label>
-              CHAPTER {String(i + 1).padStart(2, "0")} · {tripState(t)}
-            </Label>
-            <Text style={s.title}>{t.name} ↗</Text>
-            <Text style={{ color: ui.muted, fontSize: 12, marginTop: 10 }}>
-              {tripDates(t)}
-            </Text>
-            <Text style={{ color: ui.muted, fontSize: 12, marginTop: 6 }}>
-              {t.days.reduce((n, d) => n + d.items.length, 0)}개의 일정 · 후보{" "}
-              {t.candidates.length}
-            </Text>
-          </View>
-        </Pressable>
-      ))}
+      <View style={styles.heading}>
+        <View>
+          <Text style={styles.eyebrow}>떠나기 전부터, 돌아온 뒤까지</Text>
+          <Text style={styles.headingTitle}>나의 여행</Text>
+        </View>
+        <View style={styles.count}>
+          <Text style={styles.countText}>{trips.length}</Text>
+        </View>
+      </View>
+      <View style={styles.summary}>
+        <Ionicons name="compass-outline" size={20} color={ui.accent} />
+        <Text style={styles.summaryText}>
+          날짜가 정해진 여행 {planned} · 모아 둔 후보{" "}
+          {trips.reduce((n, t) => n + t.candidates.length, 0)}
+        </Text>
+      </View>
+      {trips.map((t, i) => {
+        const count = t.days.reduce((n, d) => n + d.items.length, 0);
+        const first = t.days.flatMap((d) => d.items)[0];
+        return (
+          <Pressable
+            key={t.id}
+            accessibilityRole="button"
+            accessibilityLabel={`${t.name}, ${tripState(t)}, 여행 열기`}
+            onPress={() =>
+              router.push({
+                pathname: "/trip/[tripId]",
+                params: { tripId: t.id },
+              })
+            }
+            style={({ pressed }) => [
+              styles.card,
+              { opacity: pressed ? 0.78 : 1 },
+            ]}
+          >
+            <View style={styles.photoWrap}>
+              <Image source={imageSource(cover(t.city))} style={styles.photo} />
+              <View style={styles.number}>
+                <Text style={styles.numberText}>
+                  {String(i + 1).padStart(2, "0")}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.body}>
+              <View style={styles.row}>
+                <Text style={styles.city}>{t.city}</Text>
+                <View style={styles.status}>
+                  <View style={styles.dot} />
+                  <Text style={styles.statusText}>{tripState(t)}</Text>
+                </View>
+              </View>
+              <Text style={styles.title}>{t.name}</Text>
+              <Text style={styles.dates}>
+                {t.start
+                  ? `${t.start.replaceAll("-", ".")} — ${t.end.slice(5).replace("-", ".")}`
+                  : "날짜는 천천히 정해도 괜찮아요"}
+              </Text>
+              <View style={styles.footer}>
+                <Text style={styles.meta}>
+                  일정 {count} · 후보 {t.candidates.length}
+                </Text>
+                <Ionicons name="arrow-forward" size={20} color={ui.accent} />
+              </View>
+              {first && (
+                <View style={styles.preview}>
+                  <Ionicons
+                    name="location-outline"
+                    size={15}
+                    color={ui.accent}
+                  />
+                  <Text numberOfLines={1} style={styles.previewText}>
+                    {first.name}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </Pressable>
+        );
+      })}
       <Action
-        title="＋ 새로운 여행"
-        secondary
+        title="＋ 새 여행 만들기"
         onPress={() => router.push("/new-trip")}
       />
     </Page>
   );
 }
+const styles = StyleSheet.create({
+  heading: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 18,
+  },
+  eyebrow: { fontSize: 15, color: ui.muted, marginBottom: 7 },
+  headingTitle: {
+    fontSize: 34,
+    fontWeight: "700",
+    letterSpacing: -1,
+    color: ui.ink,
+  },
+  count: {
+    borderRadius: 22,
+    backgroundColor: "#E1E8DB",
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+  },
+  countText: { fontSize: 20, fontWeight: "600", color: ui.accent },
+  summary: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: ui.line,
+    paddingVertical: 13,
+    marginBottom: 18,
+  },
+  summaryText: { fontSize: 14, color: ui.accent, flex: 1 },
+  card: {
+    backgroundColor: ui.surface,
+    borderWidth: 1,
+    borderColor: ui.line,
+    borderRadius: 18,
+    overflow: "hidden",
+    marginBottom: 16,
+    flexDirection: "row",
+  },
+  photoWrap: { width: 112, minHeight: 190 },
+  photo: {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#C9D3C0",
+  },
+  number: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    backgroundColor: ui.surface,
+    borderRadius: 9,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  numberText: { fontSize: 14, fontWeight: "700", color: ui.accent },
+  body: { flex: 1, padding: 15 },
+  row: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 6,
+  },
+  city: { fontSize: 14, color: ui.muted },
+  status: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "#EBEFE6",
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: ui.accent },
+  statusText: { fontSize: 13, fontWeight: "600", color: ui.accent },
+  title: {
+    fontSize: 26,
+    fontWeight: "700",
+    color: ui.ink,
+    letterSpacing: -0.6,
+    marginTop: 10,
+  },
+  dates: { fontSize: 14, color: ui.muted, lineHeight: 21, marginTop: 5 },
+  footer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 13,
+  },
+  meta: { fontSize: 14, color: ui.ink, fontWeight: "500" },
+  preview: {
+    borderTopWidth: 1,
+    borderColor: ui.line,
+    marginTop: 12,
+    paddingTop: 9,
+    flexDirection: "row",
+    gap: 4,
+    alignItems: "center",
+  },
+  previewText: { flex: 1, fontSize: 13, color: ui.muted },
+});

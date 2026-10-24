@@ -1,22 +1,28 @@
+import { imageSource } from "../../../../images";
+import { useTripParams } from "../../../../route";
 import React from "react";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { Text, Pressable, View, Image } from "react-native";
 import { Page, H, P, Action, Label, s } from "../../../../ui";
 import { places } from "../../../../data";
 import { useTrips } from "../../../../store";
 import { ui } from "../../../../theme";
 export default function Candidates() {
-  const { tripId } = useLocalSearchParams<{ tripId: string }>();
+  const { tripId } = useTripParams();
   const router = useRouter();
   const { trips } = useTrips();
   const trip = trips.find((t) => t.id === tripId);
   const list = places.filter((p) => trip?.candidates.includes(p.id));
   return (
     <Page>
-      <Label>PLACES TO KEEP</Label>
-      <H>여행 후보</H>
-      <P>마음에 둔 장소들. 저장만으로 일정에 추가되지 않아요.</P>
-      {list.length ? (
+      <Label>
+        {trip?.name || "여행"} · 저장한 장소 {list.length}
+      </Label>
+      <H>가보고 싶은 곳</H>
+      <P>마음에 드는 곳을 모아 두고, 날짜는 나중에 정해요.</P>
+      {!trip ? (
+        <P>여행 정보를 불러올 수 없어요. 여행 목록에서 다시 선택해 주세요.</P>
+      ) : list.length ? (
         list.map((p) => (
           <Pressable
             key={p.id}
@@ -36,7 +42,7 @@ export default function Candidates() {
             }}
           >
             <Image
-              source={{ uri: p.image }}
+              source={imageSource(p.image)}
               style={{
                 width: 72,
                 height: 72,

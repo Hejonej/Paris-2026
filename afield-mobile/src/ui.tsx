@@ -1,3 +1,4 @@
+import { imageSource } from "./images";
 import React from "react";
 import {
   ScrollView,
@@ -65,7 +66,7 @@ export function Action({
 export function Photo({ uri, height = 160 }: { uri: string; height?: number }) {
   return (
     <Image
-      source={{ uri }}
+      source={imageSource(uri)}
       accessibilityLabel="여행 분위기 참고 이미지"
       style={{
         height,
@@ -94,13 +95,13 @@ export const s = StyleSheet.create({
     letterSpacing: -0.7,
     marginBottom: 12,
   },
-  p: { color: ui.muted, fontSize: 14, lineHeight: 22, marginBottom: 12 },
+  p: { color: ui.muted, fontSize: 15, lineHeight: 23, marginBottom: 12 },
   label: {
     color: ui.accent,
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: "700",
-    letterSpacing: 1.5,
-    marginBottom: 10,
+    letterSpacing: 0,
+    marginBottom: 8,
   },
   card: {
     padding: 16,

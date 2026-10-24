@@ -18,7 +18,9 @@ export type Trip = {
 export const cover = (city: string) =>
   city.toLowerCase().includes("paris") || city.includes("파리")
     ? "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=1000&q=80"
-    : "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1000&q=80";
+    : city.toLowerCase().includes("berlin") || city.includes("베를린")
+      ? "https://images.unsplash.com/photo-1560969184-10fe8719e047?w=1000&q=80"
+      : "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1000&q=80";
 export const places = [
   {
     id: "ofr",

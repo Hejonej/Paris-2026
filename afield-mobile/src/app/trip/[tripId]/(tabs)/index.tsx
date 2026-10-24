@@ -1,8 +1,14 @@
 import React from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Text, Pressable } from "react-native";
+import { Text, Pressable, View } from "react-native";
 import { Page, H, P, Card, Action, Label, Photo, s } from "../../../../ui";
-import { cover, tripDates, tripState, dateLabel } from "../../../../data";
+import {
+  cover,
+  tripDates,
+  tripState,
+  dateLabel,
+  places,
+} from "../../../../data";
 import { useTrips } from "../../../../store";
 export default function Home() {
   const { tripId } = useLocalSearchParams<{ tripId: string }>();
@@ -34,7 +40,7 @@ export default function Home() {
       <P>{tripDates(trip)}</P>
       <Photo uri={cover(trip.city)} height={172} />
       <Card>
-        <Label>YOUR NEXT STEP</Label>
+        <Label>다음 여정</Label>
         <Text style={s.title}>
           {state === "다녀온 여행"
             ? "여행의 여운을 기록해요"
@@ -70,6 +76,82 @@ export default function Home() {
           }
         />
       </Card>
+      {next && (
+        <View style={{ marginTop: 8, marginBottom: 16 }}>
+          <View style={s.row}>
+            <Text style={s.title}>{dateLabel(next.date)}</Text>
+            <Text style={{ color: "#73786F", fontSize: 14 }}>
+              {next.items.length}개의 일정
+            </Text>
+          </View>
+          {next.items.slice(0, 3).map((item) => (
+            <Pressable
+              key={item.id}
+              accessibilityRole="button"
+              onPress={() =>
+                router.push({
+                  pathname: "/trip/[tripId]/itinerary",
+                  params: { tripId, date: next.date },
+                })
+              }
+              style={{
+                flexDirection: "row",
+                gap: 14,
+                paddingVertical: 14,
+                borderBottomWidth: 1,
+                borderColor: "#E1E3D9",
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 14,
+                  color: "#315746",
+                  fontWeight: "600",
+                  width: 44,
+                }}
+              >
+                {item.time}
+              </Text>
+              <Text style={{ flex: 1, fontSize: 16, color: "#252D28" }}>
+                {item.name}
+              </Text>
+              <Text style={{ color: "#73786F" }}>›</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+      {trip.candidates.length > 0 && (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() =>
+            router.push({
+              pathname: "/trip/[tripId]/candidates",
+              params: { tripId },
+            })
+          }
+          style={{
+            backgroundColor: "#E7EBE2",
+            padding: 16,
+            borderRadius: 14,
+            marginBottom: 12,
+          }}
+        >
+          <Text style={s.title}>저장한 장소 {trip.candidates.length} →</Text>
+          <Text
+            style={{
+              fontSize: 15,
+              color: "#315746",
+              lineHeight: 23,
+              marginTop: 6,
+            }}
+          >
+            {trip.candidates
+              .map((id) => places.find((p) => p.id === id)?.name)
+              .filter(Boolean)
+              .join(" · ")}
+          </Text>
+        </Pressable>
+      )}
       {(count > 0 || state === "다녀온 여행") && (
         <Pressable
           accessibilityRole="button"

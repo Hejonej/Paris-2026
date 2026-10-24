@@ -1,3 +1,4 @@
+import { useTripParams } from "../../../../route";
 import React, { useState } from "react";
 import {
   Text,
@@ -7,21 +8,13 @@ import {
   Alert,
   Linking,
 } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { Page, H, P, Label, Photo, Action, Field, s } from "../../../../ui";
 import { places, dateLabel } from "../../../../data";
 import { useTrips } from "../../../../store";
 import { ui } from "../../../../theme";
 export default function Place() {
-  const {
-    tripId,
-    placeId,
-    date: initialDate,
-  } = useLocalSearchParams<{
-    tripId: string;
-    placeId: string;
-    date?: string;
-  }>();
+  const { tripId, placeId, date: initialDate } = useTripParams();
   const router = useRouter();
   const { trips, saveCandidate, place } = useTrips();
   const trip = trips.find((t) => t.id === tripId);
@@ -72,8 +65,23 @@ export default function Place() {
         title={saved ? "✓ 여행 후보에 저장됨" : "후보에 저장"}
         disabled={saved}
         secondary
-        onPress={() => saveCandidate(tripId, placeId)}
+        onPress={() => {
+          const result = saveCandidate(tripId, placeId);
+          setMessage(result.message);
+        }}
       />
+      {saved && (
+        <Action
+          title="저장한 후보 보기 →"
+          secondary
+          onPress={() =>
+            router.dismissTo({
+              pathname: "/trip/[tripId]/(tabs)/candidates",
+              params: { tripId },
+            })
+          }
+        />
+      )}
       <Pressable
         accessibilityRole="link"
         style={{ paddingVertical: 18 }}

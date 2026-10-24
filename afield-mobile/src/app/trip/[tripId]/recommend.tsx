@@ -1,3 +1,4 @@
+import { imageSource } from "../../../images";
 import React from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Text, Pressable, Image, View } from "react-native";
@@ -18,7 +19,7 @@ export default function Recommend() {
     (trip.city.toLowerCase().includes("paris") || trip.city.includes("파리"));
   return (
     <Page>
-      <Label>CURATED DISCOVERIES</Label>
+      <Label>취향을 따라 발견하는 장소</Label>
       <H>이번 여행의 발견</H>
       <P>
         직접 고른 예시 장소예요. 후보 저장과 일정 추가는 각각 선택할 수 있어요.
@@ -43,7 +44,7 @@ export default function Recommend() {
             }}
           >
             <Image
-              source={{ uri: p.image }}
+              source={imageSource(p.image)}
               style={{
                 width: 90,
                 height: 94,
