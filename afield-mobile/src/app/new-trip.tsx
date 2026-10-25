@@ -2,12 +2,8 @@ import React, { useState } from "react";
 import { useRouter } from "expo-router";
 import { KeyboardAvoidingView, Platform, Text } from "react-native";
 import { Page, H, P, Label, Field, Action } from "../ui";
-import { makeDays } from "../data";
+import { validateTripDetails } from "../tripEditing";
 import { useTrips } from "../store";
-const validDate = (v: string) =>
-  /^\d{4}-\d{2}-\d{2}$/.test(v) &&
-  Number.isFinite(Date.parse(v + "T00:00:00Z")) &&
-  new Date(v + "T00:00:00Z").toISOString().slice(0, 10) === v;
 export default function NewTrip() {
   const router = useRouter();
   const { create } = useTrips();
@@ -19,17 +15,9 @@ export default function NewTrip() {
   const [busy, setBusy] = useState(false);
   function submit() {
     if (busy) return;
-    if (!name.trim() || !city.trim()) {
-      setError("여행 이름과 도시를 입력해 주세요.");
-      return;
-    }
-    if (
-      (start || end) &&
-      (!validDate(start) || !validDate(end) || !makeDays(start, end).length)
-    ) {
-      setError(
-        "날짜는 YYYY-MM-DD로, 시작일부터 최대 31일 이내로 입력해 주세요.",
-      );
+    const validation = validateTripDetails({ name, city, start, end });
+    if (validation) {
+      setError(validation);
       return;
     }
     setBusy(true);

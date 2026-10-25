@@ -136,7 +136,18 @@ export default function Itinerary() {
           )}
         </>
       ) : (
-        <P>날짜 미정인 여행이에요. 지금은 장소를 후보에 모아 두세요.</P>
+        <>
+          <P>여행 날짜를 정하면 하루씩 일정을 만들 수 있어요.</P>
+          <Action
+            title="여행 날짜 정하기"
+            onPress={() =>
+              router.push({
+                pathname: "/trip/[tripId]/edit",
+                params: { tripId },
+              })
+            }
+          />
+        </>
       )}
       <View style={{ marginTop: 24 }}>
         <Action

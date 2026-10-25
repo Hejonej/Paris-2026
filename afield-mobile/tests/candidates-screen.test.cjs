@@ -18,14 +18,22 @@ function harness(params, initialRaw = null) {
     },
   };
   const native = Object.fromEntries(
-    ["View", "Text", "ScrollView", "Pressable", "Image", "TextInput"].map(
-      (name) => [name, name],
-    ),
+    [
+      "View",
+      "Text",
+      "ScrollView",
+      "Pressable",
+      "Image",
+      "TextInput",
+      "KeyboardAvoidingView",
+    ].map((name) => [name, name]),
   );
+  native.Platform = { OS: "ios" };
   native.StyleSheet = { create: (x) => x };
   native.Alert = { alert: () => {} };
   native.Linking = { openURL: async () => {} };
   const router = {
+    back: () => navigation.push({ back: true }),
     push: (x) => navigation.push(x),
     dismissTo: (x) => navigation.push(x),
   };
@@ -164,5 +172,73 @@ test("an unknown trip cannot report a successful candidate save", async () => {
   });
   assert.equal(result.ok, false);
   assert.equal(view.store.trips[0].candidates.length, 0);
+  await act(async () => view.tree.unmount());
+});
+
+async function mountEditor(h) {
+  const { TripProvider, useTrips } = h.load("src/store.tsx");
+  const Editor = h.load("src/app/trip/[tripId]/edit.tsx").default;
+  let store;
+  let tree;
+  function Watch() {
+    store = useTrips();
+    return null;
+  }
+  await act(async () => {
+    tree = create(
+      React.createElement(
+        TripProvider,
+        null,
+        React.createElement(Watch),
+        React.createElement(Editor),
+      ),
+    );
+  });
+  return {
+    tree,
+    get store() {
+      return store;
+    },
+  };
+}
+test("edit form saves new dates for an undated trip and returns to its source", async () => {
+  const h = harness({ tripId: "berlin" });
+  const view = await mountEditor(h);
+  await act(async () => {
+    view.tree.root
+      .findAllByType("TextInput")
+      .find((n) => n.props.accessibilityLabel === "시작일")
+      .props.onChangeText("2026-12-01");
+    view.tree.root
+      .findAllByType("TextInput")
+      .find((n) => n.props.accessibilityLabel === "종료일")
+      .props.onChangeText("2026-12-03");
+  });
+  const button = view.tree.root.findAll(
+    (n) => n.type === "Text" && n.children.includes("변경사항 저장"),
+  )[0].parent;
+  assert.equal(button.props.disabled, false);
+  await act(async () => button.props.onPress());
+  assert.equal(view.store.trips[1].days.length, 3);
+  assert.equal(h.navigation[0].back, true);
+  await act(async () => view.tree.unmount());
+});
+test("edit form blocks removing scheduled dates and stays open", async () => {
+  const h = harness({ tripId: "paris" });
+  const view = await mountEditor(h);
+  const before = JSON.stringify(view.store.trips);
+  await act(async () => {
+    view.tree.root
+      .findAllByType("TextInput")
+      .find((n) => n.props.accessibilityLabel === "시작일")
+      .props.onChangeText("2026-11-14");
+  });
+  const button = view.tree.root.findAll(
+    (n) => n.type === "Text" && n.children.includes("변경사항 저장"),
+  )[0].parent;
+  await act(async () => button.props.onPress());
+  assert.equal(JSON.stringify(view.store.trips), before);
+  assert.equal(h.navigation.length, 0);
+  assert.ok(words(view.tree).includes("기존 일정이 있어요"));
   await act(async () => view.tree.unmount());
 });

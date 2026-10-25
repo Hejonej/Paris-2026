@@ -49,6 +49,10 @@ function Shell() {
           options={{ headerShown: false }}
         />
         <Stack.Screen
+          name="trip/[tripId]/edit"
+          options={{ title: "여행 정보", presentation: "modal" }}
+        />
+        <Stack.Screen
           name="trip/[tripId]/recommend"
           options={{ title: "장소 발견" }}
         />

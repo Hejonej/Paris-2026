@@ -37,7 +37,26 @@ export default function Home() {
         {state} · {trip.city}
       </Label>
       <H>{trip.name}</H>
-      <P>{tripDates(trip)}</P>
+      <View style={s.row}>
+        <P>{tripDates(trip)}</P>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="여행 정보 수정"
+          onPress={() =>
+            router.push({ pathname: "/trip/[tripId]/edit", params: { tripId } })
+          }
+          style={{
+            minHeight: 44,
+            paddingHorizontal: 8,
+            justifyContent: "center",
+            marginBottom: 8,
+          }}
+        >
+          <Text style={{ fontSize: 15, fontWeight: "600", color: "#315746" }}>
+            정보 수정
+          </Text>
+        </Pressable>
+      </View>
       <Photo uri={cover(trip.city)} height={172} />
       <Card>
         <Label>다음 여정</Label>

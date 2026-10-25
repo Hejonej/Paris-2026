@@ -143,7 +143,19 @@ export default function Place() {
             <Action title="선택한 날짜에 추가" onPress={add} />
           </>
         ) : (
-          <P>날짜가 없는 여행은 후보 저장을 먼저 이용해 주세요.</P>
+          <>
+            <P>여행 날짜를 정하면 이 장소를 일정에 배치할 수 있어요.</P>
+            <Action
+              title="여행 날짜 정하기"
+              secondary
+              onPress={() =>
+                router.push({
+                  pathname: "/trip/[tripId]/edit",
+                  params: { tripId },
+                })
+              }
+            />
+          </>
         )}
         {!!message && (
           <Text

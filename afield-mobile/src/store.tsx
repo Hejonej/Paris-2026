@@ -1,3 +1,4 @@
+import { editTrip, TripDetails } from "./tripEditing";
 import React, {
   createContext,
   useContext,
@@ -15,6 +16,7 @@ type Store = {
   loadFailed: boolean;
   error: string;
   create: (name: string, city: string, start: string, end: string) => string;
+  edit: (tripId: string, details: TripDetails) => Result;
   saveCandidate: (tripId: string, placeId: string) => Result;
   place: (
     tripId: string,
@@ -109,6 +111,11 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         },
       ]);
       return id;
+    },
+    edit: (id, details) => {
+      const result = editTrip(current.current, id, details);
+      if (result.ok) update(result.trips);
+      return { ok: result.ok, message: result.message };
     },
     saveCandidate: (id, p) => {
       if (!current.current.some((t) => t.id === id))

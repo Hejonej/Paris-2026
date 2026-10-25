@@ -20,9 +20,11 @@ function moduleFor(path, storage) {
       ? storage
       : name === "./data"
         ? moduleFor("src/data.ts", storage)
-        : name === "./planning"
-          ? moduleFor("src/planning.ts", storage)
-          : require(name);
+        : name === "./tripEditing"
+          ? moduleFor("src/tripEditing.ts", storage)
+          : name === "./planning"
+            ? moduleFor("src/planning.ts", storage)
+            : require(name);
   vm.runInNewContext(source, {
     exports: module.exports,
     module,
@@ -115,4 +117,44 @@ test("write failures are visible and a later write can recover", async () => {
   assert.equal(view.current.error, "");
   assert.equal(view.current.trips[0].candidates.length, 2);
   await view.close();
+});
+
+test("editing trip dates persists without changing candidates or schedules", async () => {
+  let raw = null;
+  const storage = {
+    getItem: async () => raw,
+    setItem: async (k, v) => {
+      raw = v;
+    },
+  };
+  const view = await mount(storage);
+  await act(async () => view.current.saveCandidate("paris", "ofr"));
+  await act(async () => {
+    const result = view.current.edit("paris", {
+      name: "가을 파리",
+      city: "Paris",
+      start: "2026-11-11",
+      end: "2026-11-17",
+    });
+    assert.equal(result.ok, true);
+  });
+  await act(async () => {
+    assert.equal(
+      view.current.edit("paris", {
+        name: "bad",
+        city: "Paris",
+        start: "",
+        end: "",
+      }).ok,
+      false,
+    );
+  });
+  await view.close();
+  const restored = await mount(storage);
+  const trip = restored.current.trips.find((t) => t.id === "paris");
+  assert.equal(trip.name, "가을 파리");
+  assert.equal(trip.start, "2026-11-11");
+  assert.equal(trip.days[1].items[0].must, true);
+  assert.equal(trip.candidates[0], "ofr");
+  await restored.close();
 });
