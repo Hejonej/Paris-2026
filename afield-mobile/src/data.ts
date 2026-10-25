@@ -1,11 +1,23 @@
+export type TravelMode = "walking" | "transit" | "driving";
+export type EntryLocation = {
+  label: string;
+  query: string;
+  description: string;
+  placeId?: string;
+};
 export type Entry = {
   id: string;
   time: string;
   name: string;
   placeId?: string;
   must?: boolean;
+  location?: EntryLocation;
 };
-export type Day = { date: string; items: Entry[] };
+export type Day = {
+  date: string;
+  items: Entry[];
+  travelModes?: Record<string, TravelMode>;
+};
 export type Trip = {
   id: string;
   name: string;

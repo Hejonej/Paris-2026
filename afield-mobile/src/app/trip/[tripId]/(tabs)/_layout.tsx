@@ -20,6 +20,20 @@ export default function TripTabs() {
     <Tabs
       screenOptions={{
         freezeOnBlur: false,
+        headerLeft: () => (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="여행 목록으로"
+            onPress={() => router.dismissTo("/chapters")}
+            style={{
+              paddingHorizontal: 16,
+              minHeight: 44,
+              justifyContent: "center",
+            }}
+          >
+            <Text style={{ color: ui.accent, fontSize: 15 }}>‹ 여행 목록</Text>
+          </Pressable>
+        ),
         headerStyle: { backgroundColor: ui.bg },
         headerTitleStyle: { fontWeight: "700" },
         tabBarActiveTintColor: ui.ink,
@@ -29,14 +43,6 @@ export default function TripTabs() {
           borderTopColor: ui.line,
           paddingTop: 6,
         },
-        headerRight: () => (
-          <Pressable
-            onPress={() => router.dismissTo("/chapters")}
-            style={{ padding: 10 }}
-          >
-            <Text style={{ color: ui.muted }}>여행 변경 ▾</Text>
-          </Pressable>
-        ),
       }}
     >
       <Tabs.Screen

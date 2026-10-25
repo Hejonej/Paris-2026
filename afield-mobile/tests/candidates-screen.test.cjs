@@ -11,6 +11,7 @@ function harness(params, initialRaw = null) {
   const cache = new Map();
   let raw = initialRaw;
   const navigation = [];
+  const openedUrls = [];
   const storage = {
     getItem: async () => raw,
     setItem: async (k, v) => {
@@ -31,8 +32,14 @@ function harness(params, initialRaw = null) {
   native.Platform = { OS: "ios" };
   native.StyleSheet = { create: (x) => x };
   native.Alert = { alert: () => {} };
-  native.Linking = { openURL: async () => {} };
+  native.Linking = {
+    openURL: async (url) => {
+      openedUrls.push(url);
+    },
+  };
   const router = {
+    canGoBack: () => false,
+    replace: (target) => navigation.push(target),
     back: () => navigation.push({ back: true }),
     push: (x) => navigation.push(x),
     dismissTo: (x) => navigation.push(x),
@@ -52,7 +59,11 @@ function harness(params, initialRaw = null) {
     const resolver = (name) => {
       if (name === "react-native") return native;
       if (name === "expo-router")
-        return { useLocalSearchParams: () => params, useRouter: () => router };
+        return {
+          useLocalSearchParams: () => params,
+          useGlobalSearchParams: () => params,
+          useRouter: () => router,
+        };
       if (name === "@react-native-async-storage/async-storage") return storage;
       if (name.endsWith(".jpg")) return 1;
       if (name.startsWith(".")) {
@@ -81,6 +92,7 @@ function harness(params, initialRaw = null) {
       return raw;
     },
     navigation,
+    openedUrls,
   };
 }
 function words(tree) {
@@ -241,4 +253,120 @@ test("edit form blocks removing scheduled dates and stays open", async () => {
   assert.equal(h.navigation.length, 0);
   assert.ok(words(view.tree).includes("기존 일정이 있어요"));
   await act(async () => view.tree.unmount());
+});
+
+async function mountScreen(h, file) {
+  const { TripProvider, useTrips } = h.load("src/store.tsx");
+  const Screen = h.load(file).default;
+  let store;
+  let tree;
+  function Watch() {
+    store = useTrips();
+    return null;
+  }
+  await act(async () => {
+    tree = create(
+      React.createElement(
+        TripProvider,
+        null,
+        React.createElement(Watch),
+        React.createElement(Screen),
+      ),
+    );
+  });
+  return {
+    tree,
+    get store() {
+      return store;
+    },
+  };
+}
+test("timeline defaults to walking and opens a selected mode with fixed endpoints", async () => {
+  const h = harness({ tripId: "paris" });
+  const view = await mountScreen(
+    h,
+    "src/app/trip/[tripId]/(tabs)/itinerary.tsx",
+  );
+  assert.ok(words(view.tree).includes("출발지와 도착 장소를 지정해 주세요."));
+  assert.equal(h.openedUrls.length, 0);
+  await act(async () => {
+    view.store.bindLocation("paris", "2026-11-12", "original-1", {
+      label: "시작점",
+      query: "Square du Temple, Paris",
+      description: "산책 시작",
+    });
+    view.store.bindLocation("paris", "2026-11-12", "original-2", {
+      label: "Ofr",
+      query: "Ofr Paris bookstore",
+      description: "책 구경",
+    });
+  });
+  let route = view.tree.root.findAll(
+    (n) =>
+      n.type === "Pressable" &&
+      n.props.accessibilityLabel ===
+        "Le Marais 탐색에서 독립서점 방문까지 도보 경로 찾기",
+  )[0];
+  assert.ok(route);
+  const transit = view.tree.root.findAll(
+    (n) =>
+      n.type === "Pressable" &&
+      n.props.accessibilityLabel ===
+        "Le Marais 탐색에서 독립서점 방문까지 대중교통",
+  )[0];
+  await act(async () => transit.props.onPress());
+  route = view.tree.root.findAll(
+    (n) =>
+      n.type === "Pressable" &&
+      n.props.accessibilityLabel ===
+        "Le Marais 탐색에서 독립서점 방문까지 대중교통 경로 찾기",
+  )[0];
+  await act(async () => route.props.onPress());
+  const url = new URL(h.openedUrls[0]);
+  assert.equal(url.searchParams.get("origin"), "Square du Temple, Paris");
+  assert.equal(url.searchParams.get("destination"), "Ofr Paris bookstore");
+  assert.equal(url.searchParams.get("travelmode"), "transit");
+  assert.equal(view.store.trips[0].days[0].items[0].must, true);
+  await act(async () => view.tree.unmount());
+});
+test("entry editor binds a selected place without replacing the user schedule name", async () => {
+  const h = harness({
+    tripId: "paris",
+    date: "2026-11-12",
+    entryId: "original-1",
+  });
+  const view = await mountScreen(
+    h,
+    "src/app/trip/[tripId]/entry/[entryId].tsx",
+  );
+  const place = view.tree.root.findAll(
+    (n) =>
+      n.type === "Pressable" &&
+      n.findAll(
+        (x) => x.type === "Text" && x.children.join("").includes("Ofr. Paris"),
+      ).length,
+  )[0];
+  await act(async () => place.props.onPress());
+  const save = view.tree.root.findAll(
+    (n) => n.type === "Text" && n.children.includes("이 일정에 장소 연결"),
+  )[0].parent;
+  await act(async () => save.props.onPress());
+  const entry = view.store.trips[0].days[0].items[0];
+  assert.equal(entry.name, "Le Marais 탐색");
+  assert.equal(entry.must, true);
+  assert.equal(entry.location.placeId, "ofr");
+  assert.equal(h.navigation[0].back, true);
+  await act(async () => view.tree.unmount());
+});
+test("detail back button has a trip-home fallback when opened without history", async () => {
+  const h = harness({ tripId: "paris" });
+  const Back = h.load("src/back.tsx").DetailBack;
+  let tree;
+  await act(async () => {
+    tree = create(React.createElement(Back));
+  });
+  await act(async () => tree.root.findByType("Pressable").props.onPress());
+  assert.equal(h.navigation[0].pathname, "/trip/[tripId]");
+  assert.equal(h.navigation[0].params.tripId, "paris");
+  await act(async () => tree.unmount());
 });

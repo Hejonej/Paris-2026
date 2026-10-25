@@ -30,7 +30,10 @@ export default function Home() {
     trip.days.find((d) => d.date >= localDate && d.items.length) ||
     trip.days.find((d) => d.items.length);
   const go = (screen: "itinerary" | "recommend" | "journal") =>
-    router.push({ pathname: `/trip/[tripId]/${screen}`, params: { tripId } });
+    router.navigate({
+      pathname: `/trip/[tripId]/${screen}`,
+      params: { tripId },
+    });
   return (
     <Page>
       <Label>

@@ -20,11 +20,13 @@ function moduleFor(path, storage) {
       ? storage
       : name === "./data"
         ? moduleFor("src/data.ts", storage)
-        : name === "./tripEditing"
-          ? moduleFor("src/tripEditing.ts", storage)
-          : name === "./planning"
-            ? moduleFor("src/planning.ts", storage)
-            : require(name);
+        : name === "./routing"
+          ? moduleFor("src/routing.ts", storage)
+          : name === "./tripEditing"
+            ? moduleFor("src/tripEditing.ts", storage)
+            : name === "./planning"
+              ? moduleFor("src/planning.ts", storage)
+              : require(name);
   vm.runInNewContext(source, {
     exports: module.exports,
     module,
@@ -156,5 +158,47 @@ test("editing trip dates persists without changing candidates or schedules", asy
   assert.equal(trip.start, "2026-11-11");
   assert.equal(trip.days[1].items[0].must, true);
   assert.equal(trip.candidates[0], "ofr");
+  await restored.close();
+});
+
+test("location links and per-leg travel modes survive restart without moving entries", async () => {
+  let raw = null;
+  const storage = {
+    getItem: async () => raw,
+    setItem: async (k, v) => {
+      raw = v;
+    },
+  };
+  const view = await mount(storage);
+  await act(async () => {
+    assert.equal(
+      view.current.bindLocation("paris", "2026-11-12", "original-1", {
+        label: "출발지",
+        query: "Square du Temple, Paris",
+        description: "산책 출발",
+      }).ok,
+      true,
+    );
+    assert.equal(
+      view.current.setMode(
+        "paris",
+        "2026-11-12",
+        "original-1",
+        "original-2",
+        "transit",
+      ).ok,
+      true,
+    );
+  });
+  await view.close();
+  const restored = await mount(storage);
+  const day = restored.current.trips[0].days[0];
+  assert.equal(day.items[0].location.query, "Square du Temple, Paris");
+  assert.equal(day.items[0].must, true);
+  assert.equal(day.items[1].time, "14:00");
+  assert.equal(
+    day.travelModes[JSON.stringify(["original-1", "original-2"])],
+    "transit",
+  );
   await restored.close();
 });

@@ -1,3 +1,4 @@
+import { DetailBack } from "../back";
 import React from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -33,13 +34,17 @@ function Shell() {
         screenOptions={{
           headerStyle: { backgroundColor: ui.bg },
           headerTintColor: ui.ink,
+          headerLeft: () => <DetailBack />,
           headerShadowVisible: false,
           headerBackButtonDisplayMode: "minimal",
           contentStyle: { backgroundColor: ui.bg },
         }}
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="chapters" options={{ title: "Afield" }} />
+        <Stack.Screen
+          name="chapters"
+          options={{ title: "Afield", headerLeft: () => null }}
+        />
         <Stack.Screen
           name="new-trip"
           options={{ title: "새로운 여행", presentation: "modal" }}
@@ -51,6 +56,10 @@ function Shell() {
         <Stack.Screen
           name="trip/[tripId]/edit"
           options={{ title: "여행 정보", presentation: "modal" }}
+        />
+        <Stack.Screen
+          name="trip/[tripId]/entry/[entryId]"
+          options={{ title: "일정 장소", presentation: "modal" }}
         />
         <Stack.Screen
           name="trip/[tripId]/recommend"

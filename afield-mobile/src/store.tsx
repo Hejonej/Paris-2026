@@ -1,3 +1,5 @@
+import { bindEntryLocation, setLegMode } from "./routing";
+import type { EntryLocation, TravelMode } from "./data";
 import { editTrip, TripDetails } from "./tripEditing";
 import React, {
   createContext,
@@ -17,6 +19,19 @@ type Store = {
   error: string;
   create: (name: string, city: string, start: string, end: string) => string;
   edit: (tripId: string, details: TripDetails) => Result;
+  bindLocation: (
+    tripId: string,
+    date: string,
+    entryId: string,
+    location: EntryLocation,
+  ) => Result;
+  setMode: (
+    tripId: string,
+    date: string,
+    fromId: string,
+    toId: string,
+    mode: TravelMode,
+  ) => Result;
   saveCandidate: (tripId: string, placeId: string) => Result;
   place: (
     tripId: string,
@@ -55,12 +70,26 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
                 t.days.every(
                   (d: any) =>
                     typeof d.date === "string" &&
+                    (d.travelModes === undefined ||
+                      (d.travelModes &&
+                        typeof d.travelModes === "object" &&
+                        !Array.isArray(d.travelModes) &&
+                        Object.values(d.travelModes).every((m) =>
+                          ["walking", "transit", "driving"].includes(String(m)),
+                        ))) &&
                     Array.isArray(d.items) &&
                     d.items.every(
                       (x: any) =>
                         typeof x.id === "string" &&
                         typeof x.name === "string" &&
-                        typeof x.time === "string",
+                        typeof x.time === "string" &&
+                        (x.location === undefined ||
+                          (x.location &&
+                            typeof x.location.label === "string" &&
+                            typeof x.location.query === "string" &&
+                            typeof x.location.description === "string" &&
+                            (x.location.placeId === undefined ||
+                              typeof x.location.placeId === "string"))),
                     ),
                 ),
             )
@@ -114,6 +143,22 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     },
     edit: (id, details) => {
       const result = editTrip(current.current, id, details);
+      if (result.ok) update(result.trips);
+      return { ok: result.ok, message: result.message };
+    },
+    bindLocation: (id, date, entryId, location) => {
+      const result = bindEntryLocation(
+        current.current,
+        id,
+        date,
+        entryId,
+        location,
+      );
+      if (result.ok) update(result.trips);
+      return { ok: result.ok, message: result.message };
+    },
+    setMode: (id, date, fromId, toId, mode) => {
+      const result = setLegMode(current.current, id, date, fromId, toId, mode);
       if (result.ok) update(result.trips);
       return { ok: result.ok, message: result.message };
     },
