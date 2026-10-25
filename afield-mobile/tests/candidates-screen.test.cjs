@@ -760,7 +760,7 @@ test("activity badge opens choices and persists the user selection in the schedu
   const choice = view.tree.root
     .findByType("Modal")
     .findAll(
-      (n) => n.type === "Text" && n.children.includes("카페(휴식)"),
+      (n) => n.type === "Text" && n.children.includes("카페/디저트"),
     )[0].parent;
   await act(async () => choice.props.onPress());
   assert.equal(view.store.trips[0].days[0].items[0].tag, "cafe");
@@ -769,7 +769,7 @@ test("activity badge opens choices and persists the user selection in the schedu
     view.tree.root.findAll(
       (n) =>
         n.type === "Pressable" &&
-        n.props.accessibilityLabel === "Le Marais 탐색 분류: 카페(휴식)",
+        n.props.accessibilityLabel === "Le Marais 탐색 분류: 카페/디저트",
     ).length,
   );
   await act(async () => view.tree.unmount());

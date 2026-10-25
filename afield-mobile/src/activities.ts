@@ -1,5 +1,5 @@
 import { tripPlaces } from "./data";
-import type { ActivityTag, Entry, Place, Trip } from "./data";
+import type { ActivityTag, Entry, Trip } from "./data";
 export const activityTags: ActivityTag[] = [
   "shopping",
   "sightseeing",
@@ -13,7 +13,7 @@ export const activityLabels: Record<ActivityTag, string> = {
   shopping: "쇼핑",
   sightseeing: "관광",
   meal: "식사",
-  cafe: "카페(휴식)",
+  cafe: "카페/디저트",
   stay: "숙소",
   transport: "이동",
   other: "기타",
@@ -27,7 +27,7 @@ export function inferActivity(name: string, category = ""): ActivityTag {
       )
     )
       return "stay";
-    if (/카페|커피|caf[eé]|coffee|tea.?room/i.test(text)) return "cafe";
+    if (/카페|커피|디저트|베이커리|caf[eé]|coffee|dessert|patisserie|pâtisserie|bakery|tea.?room/i.test(text)) return "cafe";
     if (
       /식사|점심|저녁|아침 ?식사|브런치|레스토랑|식당|restaurant|lunch|dinner|breakfast|brunch/i.test(
         text,
