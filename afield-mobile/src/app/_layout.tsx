@@ -62,6 +62,14 @@ function Shell() {
           options={{ title: "일정 장소", presentation: "modal" }}
         />
         <Stack.Screen
+          name="trip/[tripId]/instagram"
+          options={{ title: "Instagram 가져오기" }}
+        />
+        <Stack.Screen
+          name="trip/[tripId]/inspiration/[postId]"
+          options={{ title: "저장한 게시물" }}
+        />
+        <Stack.Screen
           name="trip/[tripId]/recommend"
           options={{ title: "장소 발견" }}
         />

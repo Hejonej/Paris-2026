@@ -24,9 +24,52 @@ export type Trip = {
   city: string;
   start: string;
   end: string;
+  country?: string;
+  inspirations?: InspirationPost[];
+  importedPlaces?: ImportedPlace[];
   days: Day[];
   candidates: string[];
 };
+export type Place = {
+  id: string;
+  name: string;
+  category: string;
+  area: string;
+  description: string;
+  image: string;
+  query: string;
+};
+export type ExtractedCandidate = {
+  id: string;
+  name: string;
+  kind: "mention" | "caption" | "manual";
+  confidence: "high" | "medium";
+};
+export type InspirationPost = {
+  id: string;
+  name: string;
+  url: string;
+  caption: string;
+  owner: string;
+  username: string;
+  collection: string;
+  category: string;
+  candidates: ExtractedCandidate[];
+};
+export type ImportedPlace = Place & {
+  sourcePostIds: string[];
+  address?: string;
+  googlePlaceId?: string;
+  matchStatus: "needs_confirmation" | "confirmed";
+};
+export function tripPlaces(trip?: Trip): (Place | ImportedPlace)[] {
+  return [
+    ...new Map(
+      [...places, ...(trip?.importedPlaces || [])].map((p) => [p.id, p]),
+    ).values(),
+  ];
+}
+
 export const cover = (city: string) =>
   city.toLowerCase().includes("paris") || city.includes("파리")
     ? "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=1000&q=80"
@@ -61,12 +104,7 @@ export function makeDays(start: string, end: string): Day[] {
   const result: Day[] = [];
   const first = Date.parse(start + "T00:00:00Z");
   const last = Date.parse(end + "T00:00:00Z");
-  if (
-    !Number.isFinite(first) ||
-    !Number.isFinite(last) ||
-    last < first ||
-    last - first > 30 * 86400000
-  )
+  if (!Number.isFinite(first) || !Number.isFinite(last) || last < first)
     return result;
   for (let d = first; d <= last; d += 86400000)
     result.push({ date: new Date(d).toISOString().slice(0, 10), items: [] });

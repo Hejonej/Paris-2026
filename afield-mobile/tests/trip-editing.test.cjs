@@ -96,7 +96,7 @@ test("invalid dates, reversed ranges, one-sided dates and missing names are reje
     { start: "2026-02-30", end: "2026-03-01" },
     { start: "2026-11-14", end: "2026-11-12" },
     { start: "2026-11-12", end: "" },
-    { start: "2026-11-01", end: "2026-12-02" },
+
     { name: "  " },
     { city: "  " },
   ])

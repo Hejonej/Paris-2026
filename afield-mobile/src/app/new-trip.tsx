@@ -1,3 +1,4 @@
+import { CitySearch, TripDates } from "../tripFields";
 import React, { useState } from "react";
 import { useRouter } from "expo-router";
 import { KeyboardAvoidingView, Platform, Text } from "react-native";
@@ -9,20 +10,24 @@ export default function NewTrip() {
   const { create } = useTrips();
   const [name, setName] = useState("");
   const [city, setCity] = useState("");
+  const [country, setCountry] = useState("");
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  function submit() {
+  function submit(importNow = false) {
     if (busy) return;
-    const validation = validateTripDetails({ name, city, start, end });
+    const validation = validateTripDetails({ name, city, country, start, end });
     if (validation) {
       setError(validation);
       return;
     }
     setBusy(true);
-    const id = create(name.trim(), city.trim(), start, end);
-    router.replace({ pathname: "/trip/[tripId]", params: { tripId: id } });
+    const id = create(name.trim(), city.trim(), start, end, country);
+    router.replace({
+      pathname: importNow ? "/trip/[tripId]/instagram" : "/trip/[tripId]",
+      params: { tripId: id },
+    });
   }
   return (
     <KeyboardAvoidingView
@@ -40,32 +45,16 @@ export default function NewTrip() {
           onChangeText={setName}
           maxLength={60}
         />
-        <Field
-          accessibilityLabel="도시"
-          placeholder="도시 · Paris"
+        <CitySearch
           value={city}
-          onChangeText={setCity}
-          maxLength={60}
+          country={country}
+          onChange={(city, country) => {
+            setCity(city);
+            setCountry(country);
+          }}
         />
         <Label>여행 날짜 · 선택</Label>
-        <Field
-          accessibilityLabel="시작일"
-          placeholder="시작일 YYYY-MM-DD"
-          value={start}
-          onChangeText={setStart}
-          maxLength={10}
-          autoCapitalize="none"
-          keyboardType="numbers-and-punctuation"
-        />
-        <Field
-          accessibilityLabel="종료일"
-          placeholder="종료일 YYYY-MM-DD"
-          value={end}
-          onChangeText={setEnd}
-          maxLength={10}
-          autoCapitalize="none"
-          keyboardType="numbers-and-punctuation"
-        />
+        <TripDates start={start} end={end} onStart={setStart} onEnd={setEnd} />
         {!!error && (
           <Text
             accessibilityRole="alert"
@@ -74,7 +63,17 @@ export default function NewTrip() {
             {error}
           </Text>
         )}
-        <Action title="여행 시작하기" disabled={busy} onPress={submit} />
+        <Action
+          title="여행 시작하기"
+          disabled={busy}
+          onPress={() => submit()}
+        />
+        <Action
+          title="만들고 Instagram 가져오기"
+          secondary
+          disabled={busy}
+          onPress={() => submit(true)}
+        />
       </Page>
     </KeyboardAvoidingView>
   );

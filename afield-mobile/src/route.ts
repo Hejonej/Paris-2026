@@ -7,11 +7,15 @@ export function useTripParams() {
     tripId?: string | string[];
     placeId?: string | string[];
     entryId?: string | string[];
+    postId?: string | string[];
+    section?: string | string[];
     date?: string | string[];
   }>();
   return {
     tripId: routeValue(params.tripId),
     entryId: routeValue(params.entryId),
+    postId: routeValue(params.postId),
+    section: routeValue(params.section),
     placeId: routeValue(params.placeId),
     date: routeValue(params.date),
   };

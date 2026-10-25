@@ -1,6 +1,9 @@
 import { makeDays } from "./data";
 import type { Trip } from "./data";
-export type TripDetails = Pick<Trip, "name" | "city" | "start" | "end">;
+export type TripDetails = Pick<
+  Trip,
+  "name" | "city" | "start" | "end" | "country"
+>;
 export const validDate = (value: string) =>
   /^\d{4}-\d{2}-\d{2}$/.test(value) &&
   Number.isFinite(Date.parse(value + "T00:00:00Z")) &&
@@ -16,7 +19,7 @@ export function validateTripDetails(details: TripDetails): string {
       !validDate(details.end) ||
       !makeDays(details.start, details.end).length)
   )
-    return "날짜는 YYYY-MM-DD로, 시작일부터 최대 31일 이내로 입력해 주세요.";
+    return "시작일과 종료일을 올바르게 선택해 주세요. 종료일은 시작일보다 빠를 수 없어요.";
   return "";
 }
 export function editTrip(

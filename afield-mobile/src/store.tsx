@@ -1,3 +1,10 @@
+import {
+  importPosts,
+  confirmCandidates,
+  updateImportedPlace,
+  addManualCandidate,
+} from "./instagram";
+import type { InspirationPost } from "./data";
 import { bindEntryLocation, setLegMode } from "./routing";
 import type { EntryLocation, TravelMode } from "./data";
 import { editTrip, TripDetails } from "./tripEditing";
@@ -10,14 +17,40 @@ import React, {
 } from "react";
 import { addCandidate, addToPlan } from "./planning";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Trip, trips, makeDays, places } from "./data";
+import { Trip, trips, makeDays, places, tripPlaces } from "./data";
 type Result = { ok: boolean; message: string };
 type Store = {
   trips: Trip[];
   ready: boolean;
   loadFailed: boolean;
   error: string;
-  create: (name: string, city: string, start: string, end: string) => string;
+  create: (
+    name: string,
+    city: string,
+    start: string,
+    end: string,
+    country?: string,
+  ) => string;
+  importInstagram: (tripId: string, posts: InspirationPost[]) => Result;
+  addInspirationCandidate: (
+    tripId: string,
+    postId: string,
+    name: string,
+  ) => Result;
+  confirmInstagram: (
+    tripId: string,
+    selections: { postId: string; candidateId: string }[],
+  ) => Result;
+  confirmPlace: (
+    tripId: string,
+    placeId: string,
+    update: {
+      name: string;
+      query: string;
+      address: string;
+      googlePlaceId?: string;
+    },
+  ) => Result;
   edit: (tripId: string, details: TripDetails) => Result;
   bindLocation: (
     tripId: string,
@@ -64,6 +97,50 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
                 typeof t.city === "string" &&
                 typeof t.start === "string" &&
                 typeof t.end === "string" &&
+                (t.country === undefined || typeof t.country === "string") &&
+                (t.inspirations === undefined ||
+                  (Array.isArray(t.inspirations) &&
+                    t.inspirations.every(
+                      (p: any) =>
+                        p &&
+                        typeof p.id === "string" &&
+                        typeof p.name === "string" &&
+                        typeof p.url === "string" &&
+                        typeof p.caption === "string" &&
+                        typeof p.category === "string" &&
+                        typeof p.collection === "string" &&
+                        typeof p.owner === "string" &&
+                        typeof p.username === "string" &&
+                        Array.isArray(p.candidates) &&
+                        p.candidates.every(
+                          (c: any) =>
+                            c &&
+                            typeof c.id === "string" &&
+                            typeof c.name === "string" &&
+                            ["mention", "caption", "manual"].includes(c.kind) &&
+                            ["high", "medium"].includes(c.confidence),
+                        ),
+                    ))) &&
+                (t.importedPlaces === undefined ||
+                  (Array.isArray(t.importedPlaces) &&
+                    t.importedPlaces.every(
+                      (p: any) =>
+                        p &&
+                        typeof p.id === "string" &&
+                        typeof p.name === "string" &&
+                        typeof p.query === "string" &&
+                        typeof p.image === "string" &&
+                        typeof p.area === "string" &&
+                        typeof p.category === "string" &&
+                        typeof p.description === "string" &&
+                        ["needs_confirmation", "confirmed"].includes(
+                          p.matchStatus,
+                        ) &&
+                        Array.isArray(p.sourcePostIds) &&
+                        p.sourcePostIds.every(
+                          (id: any) => typeof id === "string",
+                        ),
+                    ))) &&
                 Array.isArray(t.candidates) &&
                 t.candidates.every((x: unknown) => typeof x === "string") &&
                 Array.isArray(t.days) &&
@@ -124,7 +201,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     ready,
     loadFailed,
     error,
-    create: (name, city, start, end) => {
+    create: (name, city, start, end, country) => {
       const id =
         "trip-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7);
       update([
@@ -133,6 +210,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
           id,
           name,
           city,
+          country,
           start,
           end,
           days: makeDays(start, end),
@@ -140,6 +218,26 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         },
       ]);
       return id;
+    },
+    importInstagram: (id, posts) => {
+      const result = importPosts(current.current, id, posts);
+      if (result.ok) update(result.trips);
+      return { ok: result.ok, message: result.message };
+    },
+    addInspirationCandidate: (id, postId, name) => {
+      const result = addManualCandidate(current.current, id, postId, name);
+      if (result.ok) update(result.trips);
+      return { ok: result.ok, message: result.message };
+    },
+    confirmInstagram: (id, selections) => {
+      const result = confirmCandidates(current.current, id, selections);
+      if (result.ok) update(result.trips);
+      return { ok: result.ok, message: result.message };
+    },
+    confirmPlace: (id, p, details) => {
+      const result = updateImportedPlace(current.current, id, p, details);
+      if (result.ok) update(result.trips);
+      return { ok: result.ok, message: result.message };
     },
     edit: (id, details) => {
       const result = editTrip(current.current, id, details);
@@ -169,7 +267,11 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
           message:
             "여행 정보를 찾을 수 없어요. 여행 목록에서 다시 열어 주세요.",
         };
-      if (!places.some((place) => place.id === p))
+      if (
+        !tripPlaces(current.current.find((t) => t.id === id)).some(
+          (place) => place.id === p,
+        )
+      )
         return { ok: false, message: "저장할 장소 정보를 찾을 수 없어요." };
       update(addCandidate(current.current, id, p));
       return {
@@ -178,7 +280,41 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       };
     },
     place: (id, p, name, date, time) => {
-      const result = addToPlan(current.current, id, p, name, date, time);
+      const trip = current.current.find((t) => t.id === id);
+      const target = tripPlaces(trip).find((place) => place.id === p);
+      if (!target) return { ok: false, message: "장소를 찾을 수 없어요." };
+      if ("matchStatus" in target && target.matchStatus !== "confirmed")
+        return { ok: false, message: "실제 장소 위치를 먼저 확인해 주세요." };
+      const result = addToPlan(current.current, id, p, target.name, date, time);
+      if (result.ok && "matchStatus" in target) {
+        result.trips = result.trips.map((t) =>
+          t.id === id
+            ? {
+                ...t,
+                days: t.days.map((d) =>
+                  d.date === date
+                    ? {
+                        ...d,
+                        items: d.items.map((e) =>
+                          e.placeId === p
+                            ? {
+                                ...e,
+                                location: {
+                                  label: target.name,
+                                  query: target.query,
+                                  description: target.description,
+                                  placeId: p,
+                                },
+                              }
+                            : e,
+                        ),
+                      }
+                    : d,
+                ),
+              }
+            : t,
+        );
+      }
       if (result.ok) update(result.trips);
       return { ok: result.ok, message: result.message };
     },

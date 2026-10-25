@@ -81,6 +81,6 @@ test("undated trip and invalid time reject placement", () => {
 test("date range crosses month and year without leaking seed days", () => {
   assert.equal(makeDays("2026-12-31", "2027-01-02").length, 3);
   assert.equal(makeDays("2026-12-31", "2026-12-30").length, 0);
-  assert.equal(makeDays("2026-01-01", "2026-03-01").length, 0);
+  assert.equal(makeDays("2026-01-01", "2026-03-01").length, 60);
   assert.equal(trips[1].days.length, 0);
 });

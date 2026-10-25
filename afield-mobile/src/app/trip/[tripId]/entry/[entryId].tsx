@@ -11,7 +11,7 @@ import {
 import { Page, H, P, Label, Field, Action, s } from "../../../../ui";
 import { useTripParams } from "../../../../route";
 import { useTrips } from "../../../../store";
-import { places } from "../../../../data";
+import { places, tripPlaces } from "../../../../data";
 import { entryLocation, locationUrl } from "../../../../routing";
 import { ui } from "../../../../theme";
 export default function EntryPlace() {
@@ -23,6 +23,13 @@ export default function EntryPlace() {
     .find((d) => d.date === date)
     ?.items.find((e) => e.id === entryId);
   const location = entry && entryLocation(entry);
+  const available = tripPlaces(trip).filter((p) =>
+    "matchStatus" in p
+      ? p.matchStatus === "confirmed"
+      : !!trip &&
+        (trip.city.toLowerCase().includes("paris") ||
+          trip.city.includes("파리")),
+  );
   const [label, setLabel] = useState(location?.label || "");
   const [query, setQuery] = useState(location?.query || "");
   const [description, setDescription] = useState(location?.description || "");
@@ -58,11 +65,10 @@ export default function EntryPlace() {
           실제로 찾아갈 장소나 산책 시작 지점을 정해 주세요. 일정 이름과 시간은
           그대로 유지돼요.
         </P>
-        {(trip?.city.toLowerCase().includes("paris") ||
-          trip?.city.includes("파리")) && (
+        {!!available.length && (
           <View style={{ marginBottom: 18 }}>
             <Label>등록된 장소에서 선택</Label>
-            {places.map((p) => (
+            {available.map((p) => (
               <Pressable
                 accessibilityRole="button"
                 accessibilityState={{ selected: placeId === p.id }}

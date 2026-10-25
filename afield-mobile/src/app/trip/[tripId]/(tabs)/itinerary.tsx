@@ -3,7 +3,7 @@ import {
   Text,
   View,
   Pressable,
-  ScrollView,
+  FlatList,
   Linking,
   StyleSheet,
 } from "react-native";
@@ -48,12 +48,14 @@ export default function Itinerary() {
     <Page>
       <Label>하루의 동선</Label>
       <H>일정</H>
-      <ScrollView
+      <FlatList
+        data={trip?.days || []}
+        keyExtractor={(d) => d.date}
+        extraData={day?.date}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ gap: 8, paddingBottom: 18 }}
-      >
-        {trip?.days.map((d, i) => (
+        renderItem={({ item: d, index: i }) => (
           <Pressable
             accessibilityRole="button"
             accessibilityState={{ selected: day?.date === d.date }}
@@ -68,7 +70,7 @@ export default function Itinerary() {
               {
                 backgroundColor: day?.date === d.date ? ui.accent : ui.line,
                 alignItems: "center",
-                minWidth: 58,
+                width: 64,
               },
             ]}
           >
@@ -91,8 +93,8 @@ export default function Itinerary() {
               {d.date.slice(8)}
             </Text>
           </Pressable>
-        ))}
-      </ScrollView>
+        )}
+      />
       {!!error && (
         <Text
           accessibilityRole="alert"

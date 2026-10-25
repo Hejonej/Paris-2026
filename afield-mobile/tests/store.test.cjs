@@ -11,6 +11,7 @@ function moduleFor(path, storage) {
   const source = ts.transpileModule(fs.readFileSync(path, "utf8"), {
     compilerOptions: {
       module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
       jsx: ts.JsxEmit.ReactJSX,
       esModuleInterop: true,
     },
@@ -20,17 +21,20 @@ function moduleFor(path, storage) {
       ? storage
       : name === "./data"
         ? moduleFor("src/data.ts", storage)
-        : name === "./routing"
-          ? moduleFor("src/routing.ts", storage)
-          : name === "./tripEditing"
-            ? moduleFor("src/tripEditing.ts", storage)
-            : name === "./planning"
-              ? moduleFor("src/planning.ts", storage)
-              : require(name);
+        : name === "./instagram"
+          ? moduleFor("src/instagram.ts", storage)
+          : name === "./routing"
+            ? moduleFor("src/routing.ts", storage)
+            : name === "./tripEditing"
+              ? moduleFor("src/tripEditing.ts", storage)
+              : name === "./planning"
+                ? moduleFor("src/planning.ts", storage)
+                : require(name);
   vm.runInNewContext(source, {
     exports: module.exports,
     module,
     require: resolver,
+    URL,
     Date,
     Math,
     Set,
@@ -200,5 +204,71 @@ test("location links and per-leg travel modes survive restart without moving ent
     day.travelModes[JSON.stringify(["original-1", "original-2"])],
     "transit",
   );
+  await restored.close();
+});
+
+test("Instagram import, candidate review and explicit placement persist without resetting originals", async () => {
+  const tsModule = moduleFor("src/instagram.ts", {});
+  const posts = tsModule.parseInstagram(
+    JSON.stringify([
+      {
+        name: "원본 게시물",
+        url: "https://instagram.com/p/StoreTest1/",
+        caption: "Cafe Example",
+      },
+    ]),
+  )[0].posts;
+  let raw = null;
+  const storage = {
+    getItem: async () => raw,
+    setItem: async (k, v) => {
+      raw = v;
+    },
+  };
+  const view = await mount(storage);
+  const before = JSON.stringify(view.current.trips[0].days);
+  await act(async () => {
+    assert.equal(view.current.importInstagram("paris", posts).ok, true);
+    assert.equal(view.current.importInstagram("paris", posts).ok, false);
+    assert.equal(
+      view.current.confirmInstagram("paris", [
+        { postId: posts[0].id, candidateId: posts[0].candidates[0].id },
+      ]).ok,
+      true,
+    );
+  });
+  const place = view.current.trips[0].importedPlaces[0];
+  await act(async () => {
+    assert.equal(
+      view.current.place("paris", place.id, place.name, "2026-11-14", "11:00")
+        .ok,
+      false,
+    );
+  });
+  assert.equal(JSON.stringify(view.current.trips[0].days), before);
+  await act(async () => {
+    assert.equal(
+      view.current.confirmPlace("paris", place.id, {
+        name: place.name,
+        query: "Exact Street Paris",
+        address: "Exact Street",
+      }).ok,
+      true,
+    );
+    assert.equal(
+      view.current.place("paris", place.id, place.name, "2026-11-14", "11:00")
+        .ok,
+      true,
+    );
+  });
+  await view.close();
+  const restored = await mount(storage);
+  const trip = restored.current.trips[0];
+  assert.equal(trip.inspirations[0].url, posts[0].url);
+  assert.equal(trip.importedPlaces[0].sourcePostIds[0], posts[0].id);
+  assert.equal(trip.days[0].items[0].must, true);
+  assert.equal(trip.days[2].items[0].location.query, "Exact Street Paris");
+  assert.equal(trip.days[2].items[0].placeId, place.id);
+  assert.equal(restored.current.trips[1].inspirations, undefined);
   await restored.close();
 });

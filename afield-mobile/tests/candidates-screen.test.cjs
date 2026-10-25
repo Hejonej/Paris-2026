@@ -7,7 +7,7 @@ const ts = require("typescript");
 const React = require("react");
 const { create, act } = require("react-test-renderer");
 global.IS_REACT_ACT_ENVIRONMENT = true;
-function harness(params, initialRaw = null) {
+function harness(params, initialRaw = null, options = {}) {
   const cache = new Map();
   let raw = initialRaw;
   const navigation = [];
@@ -29,6 +29,29 @@ function harness(params, initialRaw = null) {
       "KeyboardAvoidingView",
     ].map((name) => [name, name]),
   );
+  native.Modal = ({ visible, children, ...props }) =>
+    visible ? React.createElement("Modal", props, children) : null;
+  native.ActivityIndicator = "ActivityIndicator";
+  native.FlatList = ({
+    data = [],
+    renderItem,
+    ListHeaderComponent,
+    ListFooterComponent,
+    ...props
+  }) =>
+    React.createElement(
+      "FlatList",
+      props,
+      ListHeaderComponent,
+      ListFooterComponent,
+      ...data.map((item, index) =>
+        React.createElement(
+          React.Fragment,
+          { key: item.id || index },
+          renderItem({ item, index }),
+        ),
+      ),
+    );
   native.Platform = { OS: "ios" };
   native.StyleSheet = { create: (x) => x };
   native.Alert = { alert: () => {} };
@@ -52,11 +75,26 @@ function harness(params, initialRaw = null) {
     const source = ts.transpileModule(fs.readFileSync(file, "utf8"), {
       compilerOptions: {
         module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2022,
         jsx: ts.JsxEmit.ReactJSX,
         esModuleInterop: true,
       },
     }).outputText;
     const resolver = (name) => {
+      if (name === "expo-document-picker")
+        return {
+          getDocumentAsync: async () =>
+            options.pickerResult || { canceled: true },
+        };
+      if (name === "expo-file-system")
+        return {
+          File: class {
+            size = (options.fileText || "").length;
+            async text() {
+              return options.fileText || "";
+            }
+          },
+        };
       if (name === "react-native") return native;
       if (name === "expo-router")
         return {
@@ -80,6 +118,10 @@ function harness(params, initialRaw = null) {
       module: mod,
       exports: mod.exports,
       require: resolver,
+      URL,
+      AbortController,
+      setTimeout,
+      clearTimeout,
       Date,
       Math,
       Set,
@@ -218,13 +260,17 @@ test("edit form saves new dates for an undated trip and returns to its source", 
   const view = await mountEditor(h);
   await act(async () => {
     view.tree.root
-      .findAllByType("TextInput")
-      .find((n) => n.props.accessibilityLabel === "시작일")
-      .props.onChangeText("2026-12-01");
+      .findAll(
+        (n) => typeof n.type === "function" && n.type.name === "DateField",
+      )
+      .find((n) => n.props.label === "시작일")
+      .props.onChange("2026-12-01");
     view.tree.root
-      .findAllByType("TextInput")
-      .find((n) => n.props.accessibilityLabel === "종료일")
-      .props.onChangeText("2026-12-03");
+      .findAll(
+        (n) => typeof n.type === "function" && n.type.name === "DateField",
+      )
+      .find((n) => n.props.label === "종료일")
+      .props.onChange("2026-12-03");
   });
   const button = view.tree.root.findAll(
     (n) => n.type === "Text" && n.children.includes("변경사항 저장"),
@@ -241,9 +287,11 @@ test("edit form blocks removing scheduled dates and stays open", async () => {
   const before = JSON.stringify(view.store.trips);
   await act(async () => {
     view.tree.root
-      .findAllByType("TextInput")
-      .find((n) => n.props.accessibilityLabel === "시작일")
-      .props.onChangeText("2026-11-14");
+      .findAll(
+        (n) => typeof n.type === "function" && n.type.name === "DateField",
+      )
+      .find((n) => n.props.label === "시작일")
+      .props.onChange("2026-11-14");
   });
   const button = view.tree.root.findAll(
     (n) => n.type === "Text" && n.children.includes("변경사항 저장"),
@@ -369,4 +417,260 @@ test("detail back button has a trip-home fallback when opened without history", 
   assert.equal(h.navigation[0].pathname, "/trip/[tripId]");
   assert.equal(h.navigation[0].params.tripId, "paris");
   await act(async () => tree.unmount());
+});
+
+test("calendar modal returns an actual selected day and leaves cancel unchanged", async () => {
+  const h = harness({});
+  const DateField = h.load("src/tripFields.tsx").DateField;
+  const selected = [];
+  let tree;
+  await act(async () => {
+    tree = create(
+      React.createElement(DateField, {
+        label: "시작일",
+        value: "2026-11-12",
+        onChange: (v) => selected.push(v),
+      }),
+    );
+  });
+  assert.equal(tree.root.findAllByType("Modal").length, 0);
+  await act(async () =>
+    tree.root
+      .findAll(
+        (n) =>
+          n.type === "Pressable" &&
+          n.props.accessibilityLabel === "시작일 달력 열기",
+      )[0]
+      .props.onPress(),
+  );
+  assert.equal(tree.root.findAllByType("Modal").length, 1);
+  await act(async () =>
+    tree.root
+      .findAll(
+        (n) =>
+          n.type === "Pressable" && n.props.accessibilityLabel === "2026-11-15",
+      )[0]
+      .props.onPress(),
+  );
+  assert.deepEqual(selected, ["2026-11-15"]);
+  assert.equal(tree.root.findAllByType("Modal").length, 0);
+  await act(async () => tree.unmount());
+});
+test("new trip supports Korean city search, auto country and a calendar period over 31 days", async () => {
+  const h = harness({});
+  const view = await mountScreen(h, "src/app/new-trip.tsx");
+  await act(async () => {
+    view.tree.root
+      .findAllByType("TextInput")
+      .find((n) => n.props.accessibilityLabel === "여행 이름")
+      .props.onChangeText("긴 여행");
+    view.tree.root
+      .findAllByType("TextInput")
+      .find((n) => n.props.accessibilityLabel === "도시")
+      .props.onChangeText("파리");
+  });
+  const city = view.tree.root.findAll(
+    (n) =>
+      n.type === "Pressable" &&
+      n.props.accessibilityLabel === "Paris, France 선택",
+  )[0];
+  assert.ok(city);
+  await act(async () => city.props.onPress());
+  await act(async () => {
+    const fields = view.tree.root.findAll(
+      (n) => typeof n.type === "function" && n.type.name === "DateField",
+    );
+    fields.find((n) => n.props.label === "시작일").props.onChange("2026-12-01");
+    fields.find((n) => n.props.label === "종료일").props.onChange("2027-02-01");
+  });
+  const submit = view.tree.root.findAll(
+    (n) => n.type === "Text" && n.children.includes("여행 시작하기"),
+  )[0].parent;
+  await act(async () => submit.props.onPress());
+  const trip = view.store.trips.find((t) => t.name === "긴 여행");
+  assert.equal(trip.city, "Paris");
+  assert.equal(trip.country, "France");
+  assert.equal(trip.days.length, 63);
+  await act(async () => view.tree.unmount());
+});
+test("cancelled and malformed JSON picking do not mutate existing trips", async () => {
+  for (const options of [
+    { pickerResult: { canceled: true } },
+    {
+      pickerResult: {
+        canceled: false,
+        assets: [{ name: "bad.json", uri: "file://mock" }],
+      },
+      fileText: "{broken",
+    },
+  ]) {
+    const h = harness({ tripId: "paris" }, null, options);
+    const view = await mountScreen(h, "src/app/trip/[tripId]/instagram.tsx");
+    const before = JSON.stringify(view.store.trips);
+    await act(async () =>
+      view.tree.root
+        .findAll(
+          (n) => n.type === "Text" && n.children.includes("JSON 파일 선택"),
+        )[0]
+        .parent.props.onPress(),
+    );
+    assert.equal(JSON.stringify(view.store.trips), before);
+    assert.equal(h.navigation.length, 0);
+    await act(async () => view.tree.unmount());
+  }
+});
+test("JSON screen imports only on approval and exposes imported posts after restart", async () => {
+  const options = {
+    pickerResult: {
+      canceled: false,
+      assets: [{ name: "saved.json", uri: "file://mock" }],
+    },
+    fileText: JSON.stringify([
+      {
+        name: "서점 저장",
+        url: "https://instagram.com/p/TestImport01/",
+        caption: "Ofr. Paris",
+      },
+    ]),
+  };
+  const h = harness({ tripId: "paris" }, null, options);
+  const view = await mountScreen(h, "src/app/trip/[tripId]/instagram.tsx");
+  const before = JSON.stringify(view.store.trips[0].days);
+  await act(async () =>
+    view.tree.root
+      .findAll(
+        (n) => n.type === "Text" && n.children.includes("JSON 파일 선택"),
+      )[0]
+      .parent.props.onPress(),
+  );
+  assert.ok(words(view.tree).includes("서점 저장"));
+  assert.equal(view.store.trips[0].inspirations, undefined);
+  const apply = view.tree.root.findAll(
+    (n) =>
+      n.type === "Text" && n.children.includes("선택한 1개 게시물 가져오기"),
+  )[0].parent;
+  await act(async () => apply.props.onPress());
+  assert.equal(view.store.trips[0].inspirations.length, 1);
+  assert.equal(view.store.trips[0].candidates.length, 0);
+  assert.equal(JSON.stringify(view.store.trips[0].days), before);
+  const postId = view.store.trips[0].inspirations[0].id;
+  await act(async () => view.tree.unmount());
+  const next = harness({ tripId: "paris", postId }, h.raw);
+  const reviewed = await mountScreen(
+    next,
+    "src/app/trip/[tripId]/inspiration/[postId].tsx",
+  );
+  const checkbox = reviewed.tree.root.findAll(
+    (n) => n.type === "Pressable" && n.props.accessibilityRole === "checkbox",
+  )[0];
+  await act(async () => checkbox.props.onPress());
+  await act(async () =>
+    reviewed.tree.root
+      .findAll(
+        (n) =>
+          n.type === "Text" && n.children.includes("선택한 1개를 여행 후보로"),
+      )[0]
+      .parent.props.onPress(),
+  );
+  const trip = reviewed.store.trips[0];
+  assert.equal(trip.importedPlaces.length, 1);
+  assert.equal(trip.importedPlaces[0].matchStatus, "needs_confirmation");
+  assert.equal(trip.importedPlaces[0].sourcePostIds[0], postId);
+  assert.equal(JSON.stringify(trip.days), before);
+  await act(async () => reviewed.tree.unmount());
+  const candidates = await mountScreen(
+    harness({ tripId: "paris", section: "inspiration" }, next.raw),
+    "src/app/trip/[tripId]/(tabs)/candidates.tsx",
+  );
+  assert.ok(words(candidates.tree).includes("서점 저장"));
+  await act(async () =>
+    candidates.tree.root
+      .findAll((n) => n.type === "Text" && n.children.includes("장소 1"))[0]
+      .parent.props.onPress(),
+  );
+  assert.ok(words(candidates.tree).includes("Ofr. Paris"));
+  await act(async () => candidates.tree.unmount());
+});
+
+test("an imported candidate requires explicit location confirmation before scheduling", async () => {
+  const h = harness({ tripId: "paris", placeId: "pending-import" });
+  const view = await mountScreen(
+    h,
+    "src/app/trip/[tripId]/place/[placeId].tsx",
+  );
+  await act(async () => {
+    view.store.importInstagram("paris", [
+      {
+        id: "source",
+        name: "원본",
+        url: "https://instagram.com/p/ManualPlaceTest/",
+        caption: "Cafe Example",
+        owner: "",
+        username: "",
+        collection: "Paris",
+        category: "맛집·카페",
+        candidates: [
+          {
+            id: "cafe",
+            name: "Cafe Example",
+            kind: "caption",
+            confidence: "medium",
+          },
+        ],
+      },
+    ]);
+  });
+  const post = view.store.trips[0].inspirations[0];
+  await act(async () =>
+    view.store.confirmInstagram("paris", [
+      { postId: post.id, candidateId: "cafe" },
+    ]),
+  );
+  const target = view.store.trips[0].importedPlaces[0];
+  const raw = h.raw;
+  await act(async () => view.tree.unmount());
+  const detail = await mountScreen(
+    harness({ tripId: "paris", placeId: target.id }, raw),
+    "src/app/trip/[tripId]/place/[placeId].tsx",
+  );
+  assert.equal(
+    detail.tree.root.findAll(
+      (n) => n.type === "Text" && n.children.includes("선택한 날짜에 추가"),
+    ).length,
+    0,
+  );
+  await act(async () =>
+    detail.tree.root
+      .findAllByType("TextInput")
+      .find((n) => n.props.accessibilityLabel === "확인할 지도 검색어")
+      .props.onChangeText("Exact Street, Paris"),
+  );
+  await act(async () =>
+    detail.tree.root
+      .findAll(
+        (n) =>
+          n.type === "Text" &&
+          n.children.includes("위치를 확인했어요 · 후보에 반영"),
+      )[0]
+      .parent.props.onPress(),
+  );
+  assert.equal(
+    detail.store.trips[0].importedPlaces[0].matchStatus,
+    "confirmed",
+  );
+  await act(async () =>
+    detail.tree.root
+      .findAll(
+        (n) => n.type === "Text" && n.children.includes("선택한 날짜에 추가"),
+      )[0]
+      .parent.props.onPress(),
+  );
+  const day = detail.store.trips[0].days[0];
+  assert.equal(day.items.length, 3);
+  assert.equal(day.items[0].must, true);
+  assert.equal(
+    day.items.find((i) => i.placeId === target.id).location.query,
+    "Exact Street, Paris",
+  );
+  await act(async () => detail.tree.unmount());
 });

@@ -1,4 +1,4 @@
-import { places } from "./data";
+import { places, tripPlaces } from "./data";
 import type { Entry, EntryLocation, Trip, TravelMode } from "./data";
 export const travelModes: TravelMode[] = ["walking", "transit", "driving"];
 export const modeLabels: Record<TravelMode, string> = {
@@ -75,8 +75,10 @@ export function bindEntryLocation(
       "장소 이름은 80자, 주소는 300자, 설명은 160자 이내로 입력해 주세요.",
     );
   const linked = location.placeId
-    ? places.find((p) => p.id === location.placeId)
+    ? tripPlaces(trip).find((p) => p.id === location.placeId)
     : undefined;
+  if (linked && "matchStatus" in linked && linked.matchStatus !== "confirmed")
+    return fail("장소 위치를 먼저 확인해 주세요.");
   if (location.placeId && !linked) return fail("선택한 장소를 찾을 수 없어요.");
   const next: EntryLocation = linked
     ? {

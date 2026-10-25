@@ -1,3 +1,4 @@
+import { CitySearch, TripDates } from "../../../tripFields";
 import React, { useRef, useState } from "react";
 import { useRouter } from "expo-router";
 import { KeyboardAvoidingView, Platform, Text, View } from "react-native";
@@ -13,6 +14,7 @@ export default function EditTrip() {
   const trip = trips.find((t) => t.id === tripId);
   const [name, setName] = useState(trip?.name || "");
   const [city, setCity] = useState(trip?.city || "");
+  const [country, setCountry] = useState(trip?.country || "");
   const [start, setStart] = useState(trip?.start || "");
   const [end, setEnd] = useState(trip?.end || "");
   const [error, setError] = useState("");
@@ -27,10 +29,11 @@ export default function EditTrip() {
         />
       </Page>
     );
-  const details = { name, city, start, end };
+  const details = { name, city, country, start, end };
   const changed =
     name !== trip.name ||
     city !== trip.city ||
+    country !== (trip.country || "") ||
     start !== trip.start ||
     end !== trip.end;
   const preview = editTrip(trips, tripId, details);
@@ -59,31 +62,16 @@ export default function EditTrip() {
           onChangeText={setName}
           maxLength={60}
         />
-        <Label>도시</Label>
-        <Field
-          accessibilityLabel="도시"
+        <CitySearch
           value={city}
-          onChangeText={setCity}
-          maxLength={60}
+          country={country}
+          onChange={(city, country) => {
+            setCity(city);
+            setCountry(country);
+          }}
         />
         <Label>여행 날짜 · 선택</Label>
-        <P>날짜 미정이면 두 칸을 모두 비워 주세요.</P>
-        <Field
-          accessibilityLabel="시작일"
-          placeholder="시작일 YYYY-MM-DD"
-          value={start}
-          onChangeText={setStart}
-          maxLength={10}
-          keyboardType="numbers-and-punctuation"
-        />
-        <Field
-          accessibilityLabel="종료일"
-          placeholder="종료일 YYYY-MM-DD"
-          value={end}
-          onChangeText={setEnd}
-          maxLength={10}
-          keyboardType="numbers-and-punctuation"
-        />
+        <TripDates start={start} end={end} onStart={setStart} onEnd={setEnd} />
         <View
           style={{
             backgroundColor: "#E7EBE2",

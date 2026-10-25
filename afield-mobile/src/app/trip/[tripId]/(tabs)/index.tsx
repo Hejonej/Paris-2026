@@ -8,6 +8,7 @@ import {
   tripState,
   dateLabel,
   places,
+  tripPlaces,
 } from "../../../../data";
 import { useTrips } from "../../../../store";
 export default function Home() {
@@ -168,7 +169,7 @@ export default function Home() {
             }}
           >
             {trip.candidates
-              .map((id) => places.find((p) => p.id === id)?.name)
+              .map((id) => tripPlaces(trip).find((p) => p.id === id)?.name)
               .filter(Boolean)
               .join(" · ")}
           </Text>
@@ -184,6 +185,23 @@ export default function Home() {
           <P>{trip.city}에서 취향에 맞는 장면을 찾아요.</P>
         </Pressable>
       )}
+      <Pressable
+        accessibilityRole="button"
+        onPress={() =>
+          router.push({
+            pathname: "/trip/[tripId]/instagram",
+            params: { tripId },
+          })
+        }
+        style={{
+          paddingVertical: 16,
+          borderTopWidth: 1,
+          borderColor: "#E1E3D9",
+        }}
+      >
+        <Text style={s.title}>Instagram에 모아 둔 곳 가져오기 →</Text>
+        <P>저장 컬렉션 JSON에서 여행의 영감을 이어가요.</P>
+      </Pressable>
       <Label>
         {count}개의 일정 · {trip.candidates.length}개의 후보
       </Label>
