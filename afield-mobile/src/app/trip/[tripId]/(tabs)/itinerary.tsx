@@ -1,3 +1,10 @@
+import { ActivityButton } from "../../../../activityUI";
+import { entryActivity } from "../../../../activities";
+import {
+  journeyStop,
+  missingPlacePrompt,
+  isMaraisWalk,
+} from "../../../../journey";
 import React, { useEffect, useState } from "react";
 import {
   Text,
@@ -16,7 +23,7 @@ import { useTripParams } from "../../../../route";
 import {
   entryLocation,
   entryDescription,
-  locationUrl,
+  navigationUrl,
   directionsUrl,
   legKey,
   modeLabels,
@@ -25,7 +32,7 @@ import {
 import { ui } from "../../../../theme";
 export default function Itinerary() {
   const { tripId, date } = useTripParams();
-  const { trips, setMode } = useTrips();
+  const { trips, setMode, setTag } = useTrips();
   const trip = trips.find((t) => t.id === tripId);
   const [selection, setSelection] = useState(date || "");
   const [error, setError] = useState("");
@@ -106,9 +113,12 @@ export default function Itinerary() {
       {day ? (
         <>
           <Text style={s.title}>{dateLabel(day.date)}</Text>
-          <P>{day.items.length}개의 일정 · 장소 사이의 이동까지</P>
+          <P>
+            {day.items.length}개의 일정 · 경로 찾기는 현재 위치에서 출발해요.
+          </P>
           {day.items.map((item, index) => {
-            const location = entryLocation(item);
+            const stop = journeyStop(trip!, day, index);
+            const location = stop.location;
             const next = day.items[index + 1];
             const storedMode =
               next && day.travelModes?.[legKey(item.id, next.id)];
@@ -116,7 +126,17 @@ export default function Itinerary() {
               storedMode && travelModes.includes(storedMode)
                 ? storedMode
                 : "walking";
-            const route = next && directionsUrl(item, next, mode);
+            const nextStop = next
+              ? journeyStop(trip!, day, index + 1)
+              : undefined;
+            const sameStart =
+              !!nextStop?.suggestion &&
+              nextStop.suggestion.basis === "previous" &&
+              nextStop.suggestion.linkedEntryId === item.id;
+            const route =
+              nextStop &&
+              !sameStart &&
+              directionsUrl(stop.entry, nextStop.entry, mode);
             return (
               <View key={item.id}>
                 <View style={styles.entry}>
@@ -140,28 +160,51 @@ export default function Itinerary() {
                     >
                       <Text style={styles.title}>{item.name} ›</Text>
                     </Pressable>
+                    <View style={{ marginTop: 8 }}>
+                      <ActivityButton
+                        name={item.name}
+                        value={entryActivity(item, trip)}
+                        onChange={(tag) => {
+                          const result = setTag(tripId, day.date, item.id, tag);
+                          if (!result.ok) setError(result.message);
+                        }}
+                      />
+                    </View>
                     <Text style={styles.description} numberOfLines={2}>
                       {entryDescription(item)}
                     </Text>
                     {location && (
                       <Text style={styles.location} numberOfLines={1}>
+                        {stop.suggestion ? "추천 시작점 · " : ""}
                         {location.label}
+                      </Text>
+                    )}
+                    {stop.suggestion && (
+                      <Text
+                        style={{
+                          fontSize: 13,
+                          lineHeight: 20,
+                          color: ui.muted,
+                          marginTop: 6,
+                        }}
+                      >
+                        {stop.suggestion.reason}
                       </Text>
                     )}
                     <View style={styles.actions}>
                       {item.must && <Text style={styles.must}>MUST</Text>}
                       <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel={`${item.name} ${location ? "위치 보기" : "장소 지정"}`}
+                        accessibilityLabel={`${item.name} ${location ? "현재 위치에서 경로 찾기" : "방문할 곳 선택"}`}
                         onPress={() =>
                           location
-                            ? open(locationUrl(location))
+                            ? open(navigationUrl(location))
                             : editLocation(item)
                         }
                         style={styles.smallButton}
                       >
                         <Text style={styles.link}>
-                          {location ? "위치 보기 ↗" : "장소 지정 ＋"}
+                          {location ? "경로 찾기 ↗" : "방문할 곳 선택 ＋"}
                         </Text>
                       </Pressable>
                       {location && (
@@ -171,7 +214,11 @@ export default function Itinerary() {
                           onPress={() => editLocation(item)}
                           style={styles.smallButton}
                         >
-                          <Text style={styles.mutedLink}>장소 변경</Text>
+                          <Text style={styles.mutedLink}>
+                            {isMaraisWalk(item, trip!)
+                              ? "시작점 바꾸기"
+                              : "장소 변경"}
+                          </Text>
                         </Pressable>
                       )}
                     </View>
@@ -179,74 +226,111 @@ export default function Itinerary() {
                 </View>
                 {next && (
                   <View style={styles.leg}>
-                    <Text style={styles.legTitle}>↓ {next.name}까지</Text>
-                    <View
-                      accessibilityLabel={`${item.name}에서 ${next.name}까지 이동수단`}
-                      style={styles.modes}
-                    >
-                      {travelModes.map((option) => (
-                        <Pressable
-                          key={option}
-                          accessibilityRole="button"
-                          accessibilityLabel={`${item.name}에서 ${next.name}까지 ${modeLabels[option]}`}
-                          accessibilityState={{ selected: option === mode }}
-                          onPress={() => {
-                            const result = setMode(
-                              tripId,
-                              day.date,
-                              item.id,
-                              next.id,
-                              option,
-                            );
-                            if (!result.ok) setError(result.message);
-                          }}
-                          style={[
-                            styles.mode,
-                            {
-                              backgroundColor:
-                                option === mode ? ui.accent : "transparent",
-                            },
-                          ]}
-                        >
-                          <Text
-                            style={{
-                              color: option === mode ? "white" : ui.muted,
-                              fontSize: 14,
-                              fontWeight: "600",
-                            }}
-                          >
-                            {modeLabels[option]}
-                          </Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                    {route ? (
-                      <View>
-                        <Text style={styles.duration}>
-                          소요 시간은 Google Maps에서 확인
-                        </Text>
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={`${item.name}에서 ${next.name}까지 ${modeLabels[mode]} 경로 찾기`}
-                          onPress={() => open(route)}
-                          style={styles.routeButton}
-                        >
-                          <Text style={styles.link}>경로 찾기 ↗</Text>
-                        </Pressable>
-                      </View>
+                    <Text style={styles.legTitle}>
+                      {item.name} → {next.name}
+                    </Text>
+                    {sameStart ? (
+                      <Text style={styles.duration}>
+                        관람을 마친 곳에서 바로 산책을 이어가요. 별도 이동 없이
+                        시작할 수 있어요.
+                      </Text>
                     ) : (
-                      <View>
-                        <Text style={styles.duration}>
-                          출발지와 도착 장소를 지정해 주세요.
-                        </Text>
-                        <Pressable
-                          accessibilityRole="button"
-                          onPress={() => editLocation(location ? next : item)}
-                          style={styles.routeButton}
+                      <>
+                        <View
+                          accessibilityLabel={`${item.name}에서 ${next.name}까지 이동수단`}
+                          style={styles.modes}
                         >
-                          <Text style={styles.link}>장소 지정하기 →</Text>
-                        </Pressable>
-                      </View>
+                          {travelModes.map((option) => (
+                            <Pressable
+                              key={option}
+                              accessibilityRole="button"
+                              accessibilityLabel={`${item.name}에서 ${next.name}까지 ${modeLabels[option]}`}
+                              accessibilityState={{ selected: option === mode }}
+                              onPress={() => {
+                                const result = setMode(
+                                  tripId,
+                                  day.date,
+                                  item.id,
+                                  next.id,
+                                  option,
+                                );
+                                if (!result.ok) setError(result.message);
+                              }}
+                              style={[
+                                styles.mode,
+                                {
+                                  backgroundColor:
+                                    option === mode ? ui.accent : "transparent",
+                                },
+                              ]}
+                            >
+                              <Text
+                                style={{
+                                  color: option === mode ? "white" : ui.muted,
+                                  fontSize: 14,
+                                  fontWeight: "600",
+                                }}
+                              >
+                                {modeLabels[option]}
+                              </Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                        {route ? (
+                          <View>
+                            <Text style={styles.duration}>
+                              소요 시간은 Google Maps에서 확인
+                            </Text>
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel={`${item.name}에서 ${next.name}까지 ${modeLabels[mode]} 경로 찾기`}
+                              onPress={() => open(route)}
+                              style={styles.routeButton}
+                            >
+                              <Text style={styles.link}>
+                                이 구간 경로 찾기 ↗
+                              </Text>
+                            </Pressable>
+                          </View>
+                        ) : (
+                          <View>
+                            {!location && (
+                              <>
+                                <Text style={styles.duration}>
+                                  {missingPlacePrompt(item, trip!)}
+                                </Text>
+                                <Pressable
+                                  accessibilityRole="button"
+                                  accessibilityLabel={`${item.name} 방문할 곳 선택`}
+                                  onPress={() => editLocation(item)}
+                                  style={styles.routeButton}
+                                >
+                                  <Text style={styles.link}>
+                                    {item.name} · 장소 선택 →
+                                  </Text>
+                                </Pressable>
+                              </>
+                            )}
+                            {!nextStop?.location && (
+                              <>
+                                <Text style={styles.duration}>
+                                  {missingPlacePrompt(next, trip!)}
+                                </Text>
+                                <Pressable
+                                  accessibilityRole="button"
+                                  accessibilityLabel={`${next.name} 방문할 곳 선택`}
+                                  onPress={() => editLocation(next)}
+                                  style={styles.routeButton}
+                                >
+                                  <Text style={styles.link}>
+                                    {next.name} · 장소 선택 →
+                                  </Text>
+                                </Pressable>
+                              </>
+                            )}
+                          </View>
+                        )}
+                      </>
                     )}
                   </View>
                 )}

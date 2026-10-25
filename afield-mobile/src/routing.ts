@@ -35,6 +35,18 @@ export function locationUrl(location: EntryLocation): string {
     encodeURIComponent(location.query)
   );
 }
+export function navigationUrl(
+  location: EntryLocation,
+  mode: TravelMode = "walking",
+): string {
+  return (
+    "https://www.google.com/maps/dir/?api=1&destination=" +
+    encodeURIComponent(location.query) +
+    "&travelmode=" +
+    mode +
+    "&dir_action=navigate"
+  );
+}
 export function directionsUrl(
   from: Entry,
   to: Entry,

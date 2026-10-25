@@ -335,7 +335,9 @@ test("timeline defaults to walking and opens a selected mode with fixed endpoint
     h,
     "src/app/trip/[tripId]/(tabs)/itinerary.tsx",
   );
-  assert.ok(words(view.tree).includes("출발지와 도착 장소를 지정해 주세요."));
+  assert.ok(
+    words(view.tree).includes("독립서점 방문에서 방문할 곳을 선택해 주세요."),
+  );
   assert.equal(h.openedUrls.length, 0);
   await act(async () => {
     view.store.bindLocation("paris", "2026-11-12", "original-1", {
@@ -673,4 +675,102 @@ test("an imported candidate requires explicit location confirmation before sched
     "Exact Street, Paris",
   );
   await act(async () => detail.tree.unmount());
+});
+
+test("13th museum offers current-location directions and the following walk starts there without an ambiguous prompt", async () => {
+  const h = harness({ tripId: "paris", date: "2026-11-13" });
+  const view = await mountScreen(
+    h,
+    "src/app/trip/[tripId]/(tabs)/itinerary.tsx",
+  );
+  const nakedText = [];
+  function checkText(node, inText = false) {
+    if (Array.isArray(node)) return node.forEach((n) => checkText(n, inText));
+    if (node === null || node === undefined) return;
+    if (typeof node === "string" || typeof node === "number") {
+      if (!inText) nakedText.push(node);
+      return;
+    }
+    (node.children || []).forEach((n) =>
+      checkText(n, inText || node.type === "Text"),
+    );
+  }
+  checkText(view.tree.toJSON());
+  assert.deepEqual(nakedText, [], "native layout must wrap all text in Text");
+  assert.equal(words(view.tree).includes("장소 지정하기"), false);
+  assert.ok(words(view.tree).includes("별도 이동 없이 시작할 수 있어요"));
+  const route = view.tree.root.findAll(
+    (n) =>
+      n.type === "Pressable" &&
+      n.props.accessibilityLabel === "Musée Carnavalet 현재 위치에서 경로 찾기",
+  )[0];
+  assert.ok(route);
+  await act(async () => route.props.onPress());
+  const url = new URL(h.openedUrls[0]);
+  assert.equal(url.searchParams.get("origin"), null);
+  assert.equal(url.searchParams.get("destination"), "Musee Carnavalet Paris");
+  assert.equal(view.store.trips[0].days[1].items[1].location, undefined);
+  await act(async () => view.tree.unmount());
+});
+test("changing a next stop updates the walk-start recommendation while leaving original MUST untouched", async () => {
+  const h = harness({ tripId: "paris" });
+  const view = await mountScreen(
+    h,
+    "src/app/trip/[tripId]/(tabs)/itinerary.tsx",
+  );
+  assert.ok(words(view.tree).includes("Place des Vosges"));
+  await act(async () =>
+    view.store.bindLocation("paris", "2026-11-12", "original-2", {
+      label: "Ofr. Paris",
+      query: "Ofr Paris bookstore",
+      description: "서점",
+      placeId: "ofr",
+    }),
+  );
+  assert.ok(words(view.tree).includes("Square du Temple"));
+  const route = view.tree.root.findAll(
+    (n) =>
+      n.type === "Pressable" &&
+      n.props.accessibilityLabel === "Le Marais 탐색 현재 위치에서 경로 찾기",
+  )[0];
+  await act(async () => route.props.onPress());
+  assert.ok(
+    new URL(h.openedUrls[0]).searchParams
+      .get("destination")
+      .includes("64 Rue de Bretagne"),
+  );
+  const entry = view.store.trips[0].days[0].items[0];
+  assert.equal(entry.name, "Le Marais 탐색");
+  assert.equal(entry.must, true);
+  assert.equal(entry.location, undefined);
+  await act(async () => view.tree.unmount());
+});
+test("activity badge opens choices and persists the user selection in the schedule", async () => {
+  const h = harness({ tripId: "paris" });
+  const view = await mountScreen(
+    h,
+    "src/app/trip/[tripId]/(tabs)/itinerary.tsx",
+  );
+  const badge = view.tree.root.findAll(
+    (n) =>
+      n.type === "Pressable" &&
+      n.props.accessibilityLabel === "Le Marais 탐색 분류: 관광",
+  )[0];
+  await act(async () => badge.props.onPress());
+  const choice = view.tree.root
+    .findByType("Modal")
+    .findAll(
+      (n) => n.type === "Text" && n.children.includes("카페(휴식)"),
+    )[0].parent;
+  await act(async () => choice.props.onPress());
+  assert.equal(view.store.trips[0].days[0].items[0].tag, "cafe");
+  assert.equal(view.tree.root.findAllByType("Modal").length, 0);
+  assert.ok(
+    view.tree.root.findAll(
+      (n) =>
+        n.type === "Pressable" &&
+        n.props.accessibilityLabel === "Le Marais 탐색 분류: 카페(휴식)",
+    ).length,
+  );
+  await act(async () => view.tree.unmount());
 });

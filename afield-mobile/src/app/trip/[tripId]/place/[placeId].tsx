@@ -1,3 +1,6 @@
+import { ActivityBadge } from "../../../../activityUI";
+import { inferActivity } from "../../../../activities";
+import { navigationUrl } from "../../../../routing";
 import { matchPlace } from "../../../../matching";
 import type { GoogleMatch } from "../../../../matching";
 import { instagramUrl } from "../../../../instagram";
@@ -110,6 +113,7 @@ export default function Place() {
       <Label>
         {info.category} · {info.area}
       </Label>
+      <ActivityBadge value={inferActivity(info.name, info.category)} />
       <H>{info.name}</H>
       <P>{info.description}</P>
       {!!info.image && <P>사진은 분위기 참고용이에요.</P>}
@@ -228,22 +232,31 @@ export default function Place() {
           }
         />
       )}
-      <Pressable
-        accessibilityRole="link"
-        style={{ paddingVertical: 18 }}
-        onPress={() =>
-          Linking.openURL(
-            "https://www.google.com/maps/search/?api=1&query=" +
-              encodeURIComponent(info.query),
-          ).catch(() =>
-            setMessage("지도를 열 수 없어요. 잠시 후 다시 시도해 주세요."),
-          )
-        }
-      >
-        <Text style={{ color: ui.accent, fontWeight: "600" }}>
-          지도에서 위치 확인 ↗
-        </Text>
-      </Pressable>
+      {confirmed && (
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel={`${info.name} 현재 위치에서 경로 찾기`}
+          style={{ paddingVertical: 18 }}
+          onPress={() =>
+            Linking.openURL(
+              navigationUrl({
+                label: info.name,
+                query: info.query,
+                description: info.description,
+              }),
+            ).catch(() =>
+              setMessage("경로를 열지 못했어요. 다시 시도해 주세요."),
+            )
+          }
+        >
+          <Text style={{ color: ui.accent, fontWeight: "600" }}>
+            경로 찾기 ↗
+          </Text>
+          <Text style={{ fontSize: 13, color: ui.muted, marginTop: 5 }}>
+            현재 위치에서 {info.name}까지
+          </Text>
+        </Pressable>
+      )}
       <View style={{ borderTopWidth: 1, borderColor: ui.line, paddingTop: 20 }}>
         <Text style={s.title}>일정에 배치</Text>
         <P>기존 일정과 MUST는 그대로 두고, 선택한 시간에 추가해요.</P>

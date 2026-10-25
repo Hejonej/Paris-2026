@@ -21,15 +21,17 @@ function moduleFor(path, storage) {
       ? storage
       : name === "./data"
         ? moduleFor("src/data.ts", storage)
-        : name === "./instagram"
-          ? moduleFor("src/instagram.ts", storage)
-          : name === "./routing"
-            ? moduleFor("src/routing.ts", storage)
-            : name === "./tripEditing"
-              ? moduleFor("src/tripEditing.ts", storage)
-              : name === "./planning"
-                ? moduleFor("src/planning.ts", storage)
-                : require(name);
+        : name === "./activities"
+          ? moduleFor("src/activities.ts", storage)
+          : name === "./instagram"
+            ? moduleFor("src/instagram.ts", storage)
+            : name === "./routing"
+              ? moduleFor("src/routing.ts", storage)
+              : name === "./tripEditing"
+                ? moduleFor("src/tripEditing.ts", storage)
+                : name === "./planning"
+                  ? moduleFor("src/planning.ts", storage)
+                  : require(name);
   vm.runInNewContext(source, {
     exports: module.exports,
     module,
@@ -270,5 +272,30 @@ test("Instagram import, candidate review and explicit placement persist without 
   assert.equal(trip.days[2].items[0].location.query, "Exact Street Paris");
   assert.equal(trip.days[2].items[0].placeId, place.id);
   assert.equal(restored.current.trips[1].inspirations, undefined);
+  await restored.close();
+});
+
+test("user activity tags survive restart alongside existing MUST and route preferences", async () => {
+  let raw = null;
+  const storage = {
+    getItem: async () => raw,
+    setItem: async (k, v) => {
+      raw = v;
+    },
+  };
+  const view = await mount(storage);
+  await act(async () => {
+    assert.equal(
+      view.current.setTag("paris", "2026-11-12", "original-1", "shopping").ok,
+      true,
+    );
+  });
+  await view.close();
+  const restored = await mount(storage);
+  const entry = restored.current.trips[0].days[0].items[0];
+  assert.equal(entry.tag, "shopping");
+  assert.equal(entry.must, true);
+  assert.equal(entry.name, "Le Marais 탐색");
+  assert.equal(restored.current.trips[1].days.length, 0);
   await restored.close();
 });

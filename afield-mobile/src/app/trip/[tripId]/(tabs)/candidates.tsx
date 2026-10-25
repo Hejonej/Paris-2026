@@ -1,3 +1,5 @@
+import { ActivityBadge } from "../../../../activityUI";
+import { inferActivity } from "../../../../activities";
 import React, { useEffect, useState } from "react";
 import { useRouter } from "expo-router";
 import { Text, Pressable, View, Image, FlatList } from "react-native";
@@ -171,6 +173,9 @@ export default function Candidates() {
             )}
             <View style={{ flex: 1, justifyContent: "center" }}>
               <Text style={s.title}>{r.place.name} ›</Text>
+              <ActivityBadge
+                value={inferActivity(r.place.name, r.place.category)}
+              />
               <P>
                 {r.place.category}
                 {"matchStatus" in r.place

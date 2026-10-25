@@ -74,7 +74,7 @@ npx expo install --check
 npx expo export --platform ios --output-dir /tmp/afield-ios-check
 ```
 
-타입 검사, 테스트 47개, SDK 의존성 호환성 맵 검사와 iOS Hermes 번들 생성으로 검증합니다. 테스트에는 도시/달력 조작, 여러 JSON 형식, 한글 보정, 중복/취소/오류, 출처 보존, 수동 장소 확인 후 배치, 기존 일정/MUST 보존, 앱 재시작 복원을 포함합니다. 실제 iPhone 파일 선택창·iCloud/Files 접근·실제 사용자 내보내기 파일·지도 왕복은 기기 확인이 필요합니다.
+타입 검사, 테스트 58개, SDK 의존성 호환성 맵 검사와 iOS Hermes 번들 생성으로 검증합니다. 테스트에는 도시/달력 조작, 여러 JSON 형식, 한글 보정, 중복/취소/오류, 출처 보존, 수동 장소 확인 후 배치, 기존 일정/MUST 보존, 앱 재시작 복원을 포함합니다. 실제 iPhone 파일 선택창·iCloud/Files 접근·실제 사용자 내보내기 파일·지도 왕복은 기기 확인이 필요합니다.
 
 SDK 54의 기존 전이 의존성 audit 경고 10개(높음6/중간4)는 남아 있습니다. SDK를 바꾸는 강제 수정은 적용하지 않았습니다.
 
@@ -90,3 +90,15 @@ SDK 54의 기존 전이 의존성 audit 경고 10개(높음6/중간4)는 남아 
 8. 파일 선택 취소, 잘못된 JSON, 캡션 없는 게시물, Google 권한 오류에서도 기존 데이터가 유지되는지 확인합니다.
 
 사용한 Expo 파일 선택 방식: https://docs.expo.dev/versions/latest/sdk/document-picker/ (`copyToCacheDirectory: true`).
+
+## 경로와 일정 분류 개선
+
+장소 옆 **경로 찾기**는 Google Maps에서 현재 위치를 출발점으로 사용합니다. 위치를 사용할 수 없으면 Maps에서 출발점을 선택합니다. **이 구간 경로 찾기**는 일정의 두 장소 사이를 연결하고 선택한 이동수단을 사용합니다.
+
+Paris의 Le Marais 산책은 다음에 확인된 Ofr./Temple 또는 Carnavalet/Vosges 권역에 따라 시작점을 추천합니다. 마지막 산책이 Carnavalet 방문 뒤라면 박물관 앞에서 이어갑니다. 다음 장소가 미정이면 보주 광장을 기본 제안하고 그 이유를 표시합니다. 이는 제한된 지역 규칙이며 실시간 거리·소요 시간 기반 최적화가 아닙니다. 기존에 사용자가 정한 위치와 MUST는 바꾸지 않습니다. ‘시작점 바꾸기’에서 수정하거나 저장할 수 있습니다.
+
+일정에 쇼핑·관광·식사·카페(휴식)·숙소·이동·기타 태그를 표시합니다. 이름/카테고리로 최초 분류하며 태그를 눌러 수정하면 재실행 후에도 저장됩니다. 후보와 추천 장소에도 분류를 표시합니다.
+
+기기 확인: Paris → 13일 → Carnavalet의 경로 찾기, 이어지는 산책 시작점 확인 → 12일 독립서점 방문을 Ofr.로 지정 → 마레 시작점 갱신 확인 → 태그 수정 후 재실행. 실제 iPhone에서 Maps 왕복은 추가 확인이 필요합니다.
+
+참고: [Google Maps URLs](https://developers.google.com/maps/documentation/urls/get-started), [보주 광장](https://parisjetaime.com/eng/transport/place-des-vosges-p1907), [Temple 정원 주소](https://www.paris.fr/lieux/square-du-temple-elie-wiesel-2425). Temple 시작점은 정원 내부가 아닌 rue de Bretagne 입구 앞입니다.

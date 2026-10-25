@@ -1,3 +1,5 @@
+import { setEntryTag } from "./activities";
+import type { ActivityTag } from "./data";
 import {
   importPosts,
   confirmCandidates,
@@ -52,6 +54,12 @@ type Store = {
     },
   ) => Result;
   edit: (tripId: string, details: TripDetails) => Result;
+  setTag: (
+    tripId: string,
+    date: string,
+    entryId: string,
+    tag: ActivityTag,
+  ) => Result;
   bindLocation: (
     tripId: string,
     date: string,
@@ -160,6 +168,16 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
                         typeof x.id === "string" &&
                         typeof x.name === "string" &&
                         typeof x.time === "string" &&
+                        (x.tag === undefined ||
+                          [
+                            "shopping",
+                            "sightseeing",
+                            "meal",
+                            "cafe",
+                            "stay",
+                            "transport",
+                            "other",
+                          ].includes(x.tag)) &&
                         (x.location === undefined ||
                           (x.location &&
                             typeof x.location.label === "string" &&
@@ -241,6 +259,11 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     },
     edit: (id, details) => {
       const result = editTrip(current.current, id, details);
+      if (result.ok) update(result.trips);
+      return { ok: result.ok, message: result.message };
+    },
+    setTag: (id, date, entryId, tag) => {
+      const result = setEntryTag(current.current, id, date, entryId, tag);
       if (result.ok) update(result.trips);
       return { ok: result.ok, message: result.message };
     },

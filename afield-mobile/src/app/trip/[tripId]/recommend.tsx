@@ -1,3 +1,5 @@
+import { ActivityBadge } from "../../../activityUI";
+import { inferActivity } from "../../../activities";
 import { imageSource } from "../../../images";
 import React from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -53,7 +55,7 @@ export default function Recommend() {
               }}
             />
             <View style={{ flex: 1, justifyContent: "center" }}>
-              <Label>{p.category}</Label>
+              <ActivityBadge value={inferActivity(p.name, p.category)} />
               <Text style={s.title}>{p.name} ›</Text>
               <Text style={{ fontSize: 12, color: ui.muted, marginTop: 7 }}>
                 {p.area} ·{" "}

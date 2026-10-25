@@ -1,3 +1,4 @@
+import { journeyStop } from "../../../../journey";
 import React, { useState } from "react";
 import { useRouter } from "expo-router";
 import {
@@ -22,7 +23,11 @@ export default function EntryPlace() {
   const entry = trip?.days
     .find((d) => d.date === date)
     ?.items.find((e) => e.id === entryId);
-  const location = entry && entryLocation(entry);
+  const day = trip?.days.find((d) => d.date === date);
+  const index = day?.items.findIndex((e) => e.id === entryId) ?? -1;
+  const stop =
+    trip && day && index >= 0 ? journeyStop(trip, day, index) : undefined;
+  const location = stop?.location;
   const available = tripPlaces(trip).filter((p) =>
     "matchStatus" in p
       ? p.matchStatus === "confirmed"
@@ -65,6 +70,24 @@ export default function EntryPlace() {
           실제로 찾아갈 장소나 산책 시작 지점을 정해 주세요. 일정 이름과 시간은
           그대로 유지돼요.
         </P>
+        {stop?.suggestion && (
+          <View
+            style={{
+              padding: 14,
+              backgroundColor: "#E7EBE2",
+              borderRadius: 12,
+              marginBottom: 18,
+            }}
+          >
+            <Label>추천 시작점</Label>
+            <Text style={s.title}>{stop.location?.label}</Text>
+            <P>{stop.suggestion.reason}</P>
+            <Text style={{ fontSize: 13, lineHeight: 20, color: ui.muted }}>
+              추천 위치를 미리 채웠어요. 그대로 저장하거나 다른 시작점으로 바꿀
+              수 있어요.
+            </Text>
+          </View>
+        )}
         {!!available.length && (
           <View style={{ marginBottom: 18 }}>
             <Label>등록된 장소에서 선택</Label>

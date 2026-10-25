@@ -5,12 +5,21 @@ export type EntryLocation = {
   description: string;
   placeId?: string;
 };
+export type ActivityTag =
+  | "shopping"
+  | "sightseeing"
+  | "meal"
+  | "cafe"
+  | "stay"
+  | "transport"
+  | "other";
 export type Entry = {
   id: string;
   time: string;
   name: string;
   placeId?: string;
   must?: boolean;
+  tag?: ActivityTag;
   location?: EntryLocation;
 };
 export type Day = {
