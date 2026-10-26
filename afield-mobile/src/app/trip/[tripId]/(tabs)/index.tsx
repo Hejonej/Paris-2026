@@ -62,6 +62,21 @@ export default function Home() {
       </View>
       <Photo uri={cover(trip.city)} height={172} />
       <Card>
+        <Label>AI와 여행 계획</Label>
+        <Text style={s.title}>모아 둔 장소로 하루를 짜요</Text>
+        <P>숙소·항공편·식사 시간을 고려해 제안받고, 검토한 뒤 적용해요.</P>
+        <Action
+          title={
+            trip.planDraft
+              ? "AI 제안 이어서 검토"
+              : "여행 조건 입력하고 AI로 계획"
+          }
+          onPress={() =>
+            router.push({ pathname: "/trip/[tripId]/plan", params: { tripId } })
+          }
+        />
+      </Card>
+      <Card>
         <Label>다음 여정</Label>
         <Text style={s.title}>
           {state === "다녀온 여행"

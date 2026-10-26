@@ -1,3 +1,4 @@
+import type { PlanningConditions, PlanDraft } from "./planner";
 export type TravelMode = "walking" | "transit" | "driving";
 export type EntryLocation = {
   label: string;
@@ -14,6 +15,9 @@ export type ActivityTag =
   | "transport"
   | "other";
 export type Entry = {
+  durationMinutes?: number;
+  origin?: "ai";
+  anchorKey?: string;
   id: string;
   time: string;
   name: string;
@@ -29,6 +33,8 @@ export type Day = {
   travelModes?: Record<string, TravelMode>;
 };
 export type Trip = {
+  planning?: PlanningConditions;
+  planDraft?: PlanDraft;
   deletedAt?: string;
   id: string;
   name: string;

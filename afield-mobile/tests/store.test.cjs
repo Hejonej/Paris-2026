@@ -19,19 +19,21 @@ function moduleFor(path, storage) {
   const resolver = (name) =>
     name === "@react-native-async-storage/async-storage"
       ? storage
-      : name === "./data"
-        ? moduleFor("src/data.ts", storage)
-        : name === "./activities"
-          ? moduleFor("src/activities.ts", storage)
-          : name === "./instagram"
-            ? moduleFor("src/instagram.ts", storage)
-            : name === "./routing"
-              ? moduleFor("src/routing.ts", storage)
-              : name === "./tripEditing"
-                ? moduleFor("src/tripEditing.ts", storage)
-                : name === "./planning"
-                  ? moduleFor("src/planning.ts", storage)
-                  : require(name);
+      : name === "./planner"
+        ? moduleFor("src/planner.ts", storage)
+        : name === "./data"
+          ? moduleFor("src/data.ts", storage)
+          : name === "./activities"
+            ? moduleFor("src/activities.ts", storage)
+            : name === "./instagram"
+              ? moduleFor("src/instagram.ts", storage)
+              : name === "./routing"
+                ? moduleFor("src/routing.ts", storage)
+                : name === "./tripEditing"
+                  ? moduleFor("src/tripEditing.ts", storage)
+                  : name === "./planning"
+                    ? moduleFor("src/planning.ts", storage)
+                    : require(name);
   vm.runInNewContext(source, {
     exports: module.exports,
     module,
@@ -416,4 +418,101 @@ test("bulk deletion validates all selected IDs before a single persistent update
     false,
   );
   await restored.close();
+});
+
+test("planning conditions and unapplied draft survive restart, then apply exactly once without replacing originals", async () => {
+  let raw = null;
+  const storage = {
+    getItem: async () => raw,
+    setItem: async (k, v) => {
+      raw = v;
+    },
+  };
+  const view = await mount(storage);
+  let id;
+  await act(async () => {
+    id = view.current.addManualPlace(
+      "paris",
+      "Test Gallery",
+      "Test Address Paris",
+      "관광",
+    ).placeIds[0];
+  });
+  const planner = moduleFor("src/planner.ts", storage);
+  const conditions = planner.defaultConditions(view.current.trips[0]);
+  await act(async () =>
+    assert.equal(view.current.savePlanning("paris", conditions).ok, true),
+  );
+  const snapshot = planner.planningSnapshot(view.current.trips[0]);
+  const draft = {
+    id: "test-draft",
+    generatedAt: new Date().toISOString(),
+    baseSnapshot: snapshot,
+    rows: [
+      {
+        id: "row1",
+        date: "2026-11-14",
+        time: "10:00",
+        duration: 60,
+        kind: "place",
+        name: "Test Gallery",
+        placeId: id,
+        query: "Test Address Paris",
+        reason: "Test plan",
+        tag: "sightseeing",
+      },
+    ],
+    anchors: [],
+    issues: [],
+    unplaced: [],
+  };
+  const before = JSON.stringify(view.current.trips[0].days);
+  await act(async () =>
+    assert.equal(view.current.saveDraft("paris", draft).ok, true),
+  );
+  assert.equal(JSON.stringify(view.current.trips[0].days), before);
+  await view.close();
+  const restored = await mount(storage);
+  assert.equal(restored.current.trips[0].planDraft.id, "test-draft");
+  assert.equal(restored.current.trips[0].planning.start, "09:00");
+  await act(async () =>
+    assert.equal(restored.current.applyDraft("paris", ["row1"]).ok, true),
+  );
+  assert.equal(restored.current.trips[0].days[0].items[0].must, true);
+  assert.equal(
+    restored.current.trips[0].days[2].items.some((e) => e.placeId === id),
+    true,
+  );
+  assert.equal(restored.current.applyDraft("paris", ["row1"]).ok, false);
+  await restored.close();
+});
+test("a response received after the planning conditions changed cannot be stored as a fresh draft", async () => {
+  let raw = null;
+  const storage = {
+    getItem: async () => raw,
+    setItem: async (k, v) => {
+      raw = v;
+    },
+  };
+  const view = await mount(storage);
+  const planner = moduleFor("src/planner.ts", storage);
+  let c = planner.defaultConditions(view.current.trips[0]);
+  await act(async () => view.current.savePlanning("paris", c));
+  const snapshot = planner.planningSnapshot(view.current.trips[0]);
+  await act(async () =>
+    view.current.savePlanning("paris", { ...c, notes: "New user preference" }),
+  );
+  assert.equal(
+    view.current.saveDraft("paris", {
+      id: "stale",
+      generatedAt: new Date().toISOString(),
+      baseSnapshot: snapshot,
+      rows: [],
+      anchors: [],
+      issues: [],
+      unplaced: [],
+    }).ok,
+    false,
+  );
+  await view.close();
 });

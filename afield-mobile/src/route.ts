@@ -8,6 +8,7 @@ export function useTripParams() {
     placeId?: string | string[];
     entryId?: string | string[];
     postId?: string | string[];
+    planApplied?: string | string[];
     postFilter?: string | string[];
     startPost?: string | string[];
     section?: string | string[];
@@ -21,6 +22,7 @@ export function useTripParams() {
     tripId: routeValue(params.tripId),
     entryId: routeValue(params.entryId),
     postId: routeValue(params.postId),
+    planApplied: routeValue(params.planApplied),
     postFilter: routeValue(params.postFilter),
     startPost: routeValue(params.startPost),
     section: routeValue(params.section),

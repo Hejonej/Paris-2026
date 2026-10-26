@@ -32,7 +32,8 @@ import {
 } from "../../../../routing";
 import { ui } from "../../../../theme";
 export default function Itinerary() {
-  const { tripId, date, updatedEntry, addedPlace } = useTripParams();
+  const { tripId, date, updatedEntry, addedPlace, planApplied } =
+    useTripParams();
   const { trips, setMode, setTag } = useTrips();
   const trip = trips.find((t) => t.id === tripId);
   const { pendingPosts } = inspirationProgress(trip);
@@ -62,6 +63,13 @@ export default function Itinerary() {
     <Page>
       <Label>하루의 동선</Label>
       <H>일정</H>
+      <Action
+        title="AI로 빈 시간 계획하기"
+        secondary
+        onPress={() =>
+          router.push({ pathname: "/trip/[tripId]/plan", params: { tripId } })
+        }
+      />
       {!!pendingPosts.length && (
         <Action
           title={`남은 게시물 ${pendingPosts.length}개 계속 보기 →`}
@@ -131,6 +139,19 @@ export default function Itinerary() {
       )}
       {day ? (
         <>
+          {!!planApplied && /^\d+$/.test(planApplied) && (
+            <Text
+              accessibilityRole="alert"
+              style={{
+                fontSize: 16,
+                lineHeight: 24,
+                color: ui.accent,
+                marginBottom: 12,
+              }}
+            >
+              AI 제안 {planApplied}곳과 식사·고정 일정을 추가했어요.
+            </Text>
+          )}
           <Text style={s.title}>{dateLabel(day.date)}</Text>
           <P>
             {day.items.length}개의 일정 · 경로 찾기는 현재 위치에서 출발해요.
@@ -261,8 +282,9 @@ export default function Itinerary() {
                     )}
                     {!location && (
                       <Text style={styles.description}>
-                        방문할 곳 미정 · 활동 이름만 정해 둔 상태예요. 실제
-                        장소를 고르면 길을 찾을 수 있어요.
+                        {item.origin === "ai"
+                          ? "식사·휴식 시간을 비워 둔 자리예요. 원하면 장소를 연결할 수 있어요."
+                          : "방문할 곳 미정 · 활동 이름만 정해 둔 상태예요. 실제 장소를 고르면 길을 찾을 수 있어요."}
                       </Text>
                     )}
                     <View style={styles.actions}>
@@ -272,7 +294,12 @@ export default function Itinerary() {
                         accessibilityLabel={`${item.name} ${location ? "현재 위치에서 경로 찾기" : "방문할 곳 선택"}`}
                         onPress={() =>
                           location
-                            ? open(navigationUrl(location))
+                            ? open(
+                                navigationUrl(
+                                  location,
+                                  trip?.planning?.mode || "walking",
+                                ),
+                              )
                             : editLocation(item)
                         }
                         hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}

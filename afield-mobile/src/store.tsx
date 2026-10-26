@@ -1,3 +1,11 @@
+import {
+  savePlanning,
+  applyDraft,
+  validConditions,
+  validDraft,
+  planningSnapshot,
+} from "./planner";
+import type { PlanningConditions, PlanDraft } from "./planner";
 import { setEntryTag } from "./activities";
 import type { ActivityTag } from "./data";
 import {
@@ -32,6 +40,15 @@ type Store = {
   deleteTrip: (id: string) => Result;
   deleteTrips: (ids: string[]) => Result;
   restoreTrip: (id: string) => Result;
+  savePlanning: (id: string, conditions: PlanningConditions) => Result;
+  saveDraft: (id: string, draft: PlanDraft) => Result;
+  applyDraft: (id: string, selected: string[]) => Result;
+  addManualPlace: (
+    id: string,
+    name: string,
+    query: string,
+    category: string,
+  ) => Result;
   ready: boolean;
   loadFailed: boolean;
   error: string;
@@ -113,6 +130,8 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
                 typeof t.id === "string" &&
                 typeof t.name === "string" &&
                 typeof t.city === "string" &&
+                (t.planning === undefined || validConditions(t.planning)) &&
+                (t.planDraft === undefined || validDraft(t.planDraft)) &&
                 (t.deletedAt === undefined ||
                   typeof t.deletedAt === "string") &&
                 typeof t.start === "string" &&
@@ -180,6 +199,13 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
                         typeof x.id === "string" &&
                         typeof x.name === "string" &&
                         typeof x.time === "string" &&
+                        (x.origin === undefined || x.origin === "ai") &&
+                        (x.anchorKey === undefined ||
+                          typeof x.anchorKey === "string") &&
+                        (x.durationMinutes === undefined ||
+                          (Number.isInteger(x.durationMinutes) &&
+                            x.durationMinutes > 0 &&
+                            x.durationMinutes <= 1440)) &&
                         (x.customTag === undefined ||
                           (typeof x.customTag === "string" &&
                             x.customTag.trim().length > 0 &&
@@ -264,6 +290,88 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         ),
       );
       return { ok: true, message: "챕터를 복원했어요." };
+    },
+    savePlanning: (id, c) => {
+      const r = savePlanning(current.current, id, c);
+      if (r.ok) update(r.trips);
+      return { ok: r.ok, message: r.message };
+    },
+    saveDraft: (id, draft) => {
+      const t = current.current.find((t) => t.id === id && !t.deletedAt);
+      if (
+        !t ||
+        !validDraft(draft) ||
+        planningSnapshot(t) !== draft.baseSnapshot
+      )
+        return {
+          ok: false,
+          message:
+            "일정이나 조건이 바뀌었어요. 최신 조건으로 다시 제안받아 주세요.",
+        };
+      update(
+        current.current.map((t) =>
+          t.id === id ? { ...t, planDraft: draft } : t,
+        ),
+      );
+      return { ok: true, message: "검토할 제안을 저장했어요." };
+    },
+    applyDraft: (id, selected) => {
+      const r = applyDraft(current.current, id, selected);
+      if (r.ok) update(r.trips);
+      return { ok: r.ok, message: r.message };
+    },
+    addManualPlace: (id, name, query, category) => {
+      const t = current.current.find((t) => t.id === id && !t.deletedAt);
+      if (
+        !t ||
+        name.trim().length < 2 ||
+        name.trim().length > 80 ||
+        !query.trim() ||
+        query.length > 300 ||
+        category.length > 40
+      )
+        return {
+          ok: false,
+          message: "장소 이름과 확인한 주소를 입력해 주세요.",
+        };
+      if (
+        tripPlaces(t).some(
+          (p) =>
+            t.candidates.includes(p.id) &&
+            p.name.trim().toLowerCase() === name.trim().toLowerCase(),
+        )
+      )
+        return {
+          ok: false,
+          message: "이미 저장한 이름이에요. 저장한 장소에서 확인해 주세요.",
+        };
+      const placeId = `manual-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      update(
+        current.current.map((t) =>
+          t.id === id
+            ? {
+                ...t,
+                candidates: [...t.candidates, placeId],
+                importedPlaces: [
+                  ...(t.importedPlaces || []),
+                  {
+                    id: placeId,
+                    name: name.trim(),
+                    query: query.trim(),
+                    address: query.trim(),
+                    category,
+                    area: t.city,
+                    description: "직접 입력하고 위치를 확인한 장소",
+                    image: "",
+                    sourcePostIds: [],
+                    matchStatus: "confirmed",
+                  },
+                ],
+              }
+            : t,
+        ),
+      );
+      return { ok: true, message: "장소를 저장했어요.", placeIds: [placeId] };
     },
     ready,
     loadFailed,
