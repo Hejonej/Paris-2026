@@ -237,8 +237,8 @@ export default function Place() {
           accessibilityRole="button"
           accessibilityLabel={`${info.name} 현재 위치에서 경로 찾기`}
           style={{
-            minHeight: 56,
-            padding: 14,
+            minHeight: 44,
+            padding: 10,
             marginVertical: 12,
             backgroundColor: "#E7EBE2",
             borderWidth: 1,

@@ -236,6 +236,7 @@ export default function Itinerary() {
                             ? open(navigationUrl(location))
                             : editLocation(item)
                         }
+                        hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}
                         style={styles.smallButton}
                       >
                         <Text style={styles.link}>
@@ -251,6 +252,7 @@ export default function Itinerary() {
                           accessibilityRole="button"
                           accessibilityLabel={`${item.name} 연결 장소 변경`}
                           onPress={() => editLocation(item)}
+                          hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}
                           style={styles.smallButton}
                         >
                           <Text style={styles.mutedLink}>
@@ -324,6 +326,7 @@ export default function Itinerary() {
                               accessibilityRole="button"
                               accessibilityLabel={`${item.name}에서 ${next.name}까지 ${modeLabels[mode]} 경로 찾기`}
                               onPress={() => open(route)}
+                              hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}
                               style={styles.routeButton}
                             >
                               <Text style={styles.link}>
@@ -342,6 +345,12 @@ export default function Itinerary() {
                                   accessibilityRole="button"
                                   accessibilityLabel={`${item.name} 방문할 곳 선택`}
                                   onPress={() => editLocation(item)}
+                                  hitSlop={{
+                                    top: 4,
+                                    bottom: 4,
+                                    left: 2,
+                                    right: 2,
+                                  }}
                                   style={styles.routeButton}
                                 >
                                   <Text style={styles.link}>
@@ -359,6 +368,12 @@ export default function Itinerary() {
                                   accessibilityRole="button"
                                   accessibilityLabel={`${next.name} 방문할 곳 선택`}
                                   onPress={() => editLocation(next)}
+                                  hitSlop={{
+                                    top: 4,
+                                    bottom: 4,
+                                    left: 2,
+                                    right: 2,
+                                  }}
                                   style={styles.routeButton}
                                 >
                                   <Text style={styles.link}>
@@ -419,7 +434,7 @@ const styles = StyleSheet.create({
     paddingTop: 3,
   },
   content: { flex: 1 },
-  title: { fontSize: 17, fontWeight: "700", color: ui.ink },
+  title: { fontSize: 20, fontWeight: "700", color: ui.ink },
   description: { fontSize: 14, color: ui.muted, lineHeight: 21, marginTop: 6 },
   location: { fontSize: 13, color: ui.accent, marginTop: 5 },
   actions: {
@@ -439,15 +454,15 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   smallButton: {
-    minHeight: 48,
+    minHeight: 36,
     justifyContent: "center",
-    paddingHorizontal: 14,
+    paddingHorizontal: 11,
     backgroundColor: "#E7EBE2",
     borderWidth: 1,
     borderColor: "#CFD8C8",
-    borderRadius: 24,
+    borderRadius: 18,
   },
-  link: { fontSize: 15, fontWeight: "600", color: ui.accent },
+  link: { fontSize: 14, fontWeight: "600", color: ui.accent },
   mutedLink: { fontSize: 13, color: ui.muted },
   leg: {
     marginLeft: 58,
@@ -470,14 +485,14 @@ const styles = StyleSheet.create({
   },
   duration: { fontSize: 13, lineHeight: 20, color: ui.muted, marginTop: 10 },
   routeButton: {
-    minHeight: 48,
+    minHeight: 36,
     justifyContent: "center",
     alignSelf: "flex-start",
-    paddingHorizontal: 14,
+    paddingHorizontal: 11,
     marginTop: 8,
     borderWidth: 1,
     borderColor: "#B8C6B4",
-    borderRadius: 24,
+    borderRadius: 18,
     backgroundColor: "#E2E8DB",
   },
 });

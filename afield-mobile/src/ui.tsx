@@ -57,7 +57,13 @@ export function Action({
         { opacity: disabled ? 0.45 : pressed ? 0.7 : 1 },
       ]}
     >
-      <Text style={{ color: secondary ? ui.ink : "white", fontWeight: "700" }}>
+      <Text
+        style={{
+          color: secondary ? ui.ink : "white",
+          fontWeight: "600",
+          fontSize: 17,
+        }}
+      >
         {title}
       </Text>
     </Pressable>
@@ -95,11 +101,11 @@ export const s = StyleSheet.create({
     letterSpacing: -0.7,
     marginBottom: 12,
   },
-  p: { color: ui.muted, fontSize: 15, lineHeight: 23, marginBottom: 12 },
+  p: { color: ui.muted, fontSize: 17, lineHeight: 26, marginBottom: 12 },
   label: {
     color: ui.accent,
-    fontSize: 14,
-    fontWeight: "700",
+    fontSize: 16,
+    fontWeight: "600",
     letterSpacing: 0,
     marginBottom: 8,
   },
@@ -128,7 +134,7 @@ export const s = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     backgroundColor: ui.surface,
-    fontSize: 16,
+    fontSize: 18,
     color: ui.ink,
     marginBottom: 12,
   },

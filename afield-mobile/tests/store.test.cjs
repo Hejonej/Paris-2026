@@ -345,3 +345,45 @@ test("custom activity labels survive restart, reject invalid input and clear on 
   assert.equal(restored.current.trips[0].days[0].items[0].customTag, undefined);
   await restored.close();
 });
+
+test("chapter deletion and restoration persist all schedules and leave other chapters unchanged", async () => {
+  let raw = null;
+  const storage = {
+    getItem: async () => raw,
+    setItem: async (k, v) => {
+      raw = v;
+    },
+  };
+  const view = await mount(storage);
+  const before = JSON.stringify(
+    view.current.trips.find((t) => t.id === "paris").days,
+  );
+  const other = JSON.stringify(
+    view.current.trips.find((t) => t.id !== "paris"),
+  );
+  await act(async () =>
+    assert.equal(view.current.deleteTrip("paris").ok, true),
+  );
+  assert.equal(
+    view.current.trips.some((t) => t.id === "paris"),
+    false,
+  );
+  assert.equal(view.current.deletedTrips[0].id, "paris");
+  assert.equal(
+    JSON.stringify(view.current.trips.find((t) => t.id !== "paris")),
+    other,
+  );
+  await view.close();
+  const restored = await mount(storage);
+  assert.equal(restored.current.deletedTrips[0].id, "paris");
+  await act(async () =>
+    assert.equal(restored.current.restoreTrip("paris").ok, true),
+  );
+  assert.equal(
+    JSON.stringify(restored.current.trips.find((t) => t.id === "paris").days),
+    before,
+  );
+  assert.equal(restored.current.deletedTrips.length, 0);
+  assert.equal(restored.current.deleteTrip("missing").ok, false);
+  await restored.close();
+});

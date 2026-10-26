@@ -325,3 +325,38 @@ test("Google permission failures explain the manual-location fallback", async ()
     /Google 접근 권한/,
   );
 });
+
+test("global offline city search includes Sydney, Melbourne, Bangkok and Korean aliases", () => {
+  assert.equal(searchCities("시드니")[0].name, "Sydney");
+  assert.equal(searchCities("Sydney")[0].country, "Australia");
+  assert.equal(findCity("멜버른").country, "Australia");
+  assert.equal(searchCities("방콕")[0].country, "Thailand");
+  assert.ok(searchCities("syd").some((c) => c.name === "Sydney"));
+  assert.equal(searchCities("   ").length, 0);
+  assert.equal(searchCities("없는도시가나다").length, 0);
+});
+test("alternate post URL fields and username-prefixed URLs import without remote resolution", () => {
+  for (const field of ["post_url", "permalink", "uri", "value"]) {
+    const result = ig.parseInstagram(
+      JSON.stringify([
+        {
+          title: "Saved post",
+          [field]: "https://www.instagram.com/author/p/AbC123/?igsh=test",
+        },
+      ]),
+    );
+    assert.equal(result[0].posts[0].url, "https://www.instagram.com/p/AbC123/");
+  }
+});
+test("a collection-only index explains the missing posts rather than claiming file read failure", () => {
+  assert.throws(
+    () =>
+      ig.parseInstagram(JSON.stringify({ collections: [{ name: "Sydney" }] })),
+    /컬렉션 이름만 든 목록/,
+  );
+  assert.throws(
+    () =>
+      ig.parseInstagram(JSON.stringify({ collections: [{ name: "Sydney" }] })),
+    /진단 정보: collections/,
+  );
+});

@@ -35,7 +35,7 @@ export function CitySearch({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`${city.name}, ${city.country} 선택`}
-              key={city.name}
+              key={city.id}
               onPress={() => {
                 onChange(city.name, city.country);
                 setFocused(false);
@@ -52,13 +52,24 @@ export function CitySearch({
       )}
       {focused && value.trim() && !results.length && (
         <Text style={styles.help}>
-          등록 목록에서 찾지 못했어요. 다른 도시는 직접 입력할 수 있어요.
+          검색 결과가 없어요. 도시 이름과 국가를 직접 입력해도 만들 수 있어요.
         </Text>
+      )}
+      {focused && value.trim() && !results.length && (
+        <Field
+          accessibilityLabel="국가 직접 입력"
+          placeholder="국가 · 예: Australia"
+          value={country}
+          onChangeText={(text) => onChange(value, text)}
+        />
       )}
       <Text style={styles.help}>
         {country
           ? `국가 · ${country}`
-          : "도시를 선택하면 국가가 자동으로 입력돼요."}
+          : "한글·영문으로 검색하고 도시를 선택해 주세요."}
+      </Text>
+      <Text style={{ fontSize: 12, color: ui.muted, marginBottom: 12 }}>
+        도시 데이터 · GeoNames (CC BY 4.0)
       </Text>
     </View>
   );
@@ -293,8 +304,8 @@ const styles = StyleSheet.create({
     minHeight: 54,
   },
   main: { fontSize: 16, color: ui.ink, fontWeight: "600" },
-  small: { fontSize: 13, color: ui.muted, marginTop: 3 },
-  help: { fontSize: 13, lineHeight: 20, color: ui.muted, marginBottom: 10 },
+  small: { fontSize: 15, color: ui.muted, marginTop: 3 },
+  help: { fontSize: 15, lineHeight: 23, color: ui.muted, marginBottom: 10 },
   date: {
     flexDirection: "row",
     justifyContent: "space-between",

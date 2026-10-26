@@ -1,5 +1,5 @@
 import { imageSource } from "../images";
-import React from "react";
+import React, { useState } from "react";
 import { useRouter } from "expo-router";
 import { View, Text, Pressable, Image, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -9,7 +9,8 @@ import { useTrips } from "../store";
 import { ui } from "../theme";
 export default function Chapters() {
   const router = useRouter();
-  const { trips } = useTrips();
+  const { trips, deletedTrips, restoreTrip } = useTrips();
+  const [showDeleted, setShowDeleted] = useState(false);
   const planned = trips.filter((t) => t.start).length;
   return (
     <Page>
@@ -25,7 +26,7 @@ export default function Chapters() {
       <View style={styles.summary}>
         <Ionicons name="compass-outline" size={20} color={ui.accent} />
         <Text style={styles.summaryText}>
-          날짜가 정해진 여행 {planned} · 모아 둔 후보{" "}
+          날짜가 정해진 여행 {planned} · 가고 싶은 곳{" "}
           {trips.reduce((n, t) => n + t.candidates.length, 0)}
         </Text>
       </View>
@@ -72,9 +73,34 @@ export default function Chapters() {
               </Text>
               <View style={styles.footer}>
                 <Text style={styles.meta}>
-                  일정 {count} · 후보 {t.candidates.length}
+                  일정 {count} · 저장 {t.candidates.length}
                 </Text>
-                <Ionicons name="arrow-forward" size={20} color={ui.accent} />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${t.name} 수정 또는 삭제`}
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    router.push({
+                      pathname: "/trip/[tripId]/edit",
+                      params: { tripId: t.id },
+                    });
+                  }}
+                  style={{
+                    minHeight: 44,
+                    justifyContent: "center",
+                    paddingHorizontal: 8,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 15,
+                      color: ui.accent,
+                      fontWeight: "600",
+                    }}
+                  >
+                    관리 ›
+                  </Text>
+                </Pressable>
               </View>
               {first && (
                 <View style={styles.preview}>
@@ -92,10 +118,56 @@ export default function Chapters() {
           </Pressable>
         );
       })}
+      {!trips.length && (
+        <Text
+          style={{
+            fontSize: 17,
+            lineHeight: 26,
+            color: ui.muted,
+            marginVertical: 16,
+          }}
+        >
+          첫 챕터를 만들어 여행을 시작해 보세요.
+        </Text>
+      )}
       <Action
         title="＋ 새 여행 만들기"
         onPress={() => router.push("/new-trip")}
       />
+      {!!deletedTrips.length && (
+        <>
+          <Action
+            title={`삭제한 챕터 ${deletedTrips.length}개 ${showDeleted ? "접기" : "보기"}`}
+            secondary
+            onPress={() => setShowDeleted(!showDeleted)}
+          />
+          {showDeleted &&
+            deletedTrips.map((t) => (
+              <View
+                key={t.id}
+                style={{
+                  paddingVertical: 14,
+                  borderBottomWidth: 1,
+                  borderColor: ui.line,
+                }}
+              >
+                <Text
+                  style={{ fontSize: 18, fontWeight: "600", color: ui.ink }}
+                >
+                  {t.name}
+                </Text>
+                <Text style={{ fontSize: 15, color: ui.muted }}>
+                  {t.city} · 일정과 저장한 장소 보관 중
+                </Text>
+                <Action
+                  title={`${t.name} 복원`}
+                  secondary
+                  onPress={() => restoreTrip(t.id)}
+                />
+              </View>
+            ))}
+        </>
+      )}
     </Page>
   );
 }

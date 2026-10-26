@@ -1,4 +1,10 @@
-export type City = { name: string; country: string; aliases: string[] };
+import { worldRows } from "./worldCities";
+export type City = {
+  id: string;
+  name: string;
+  country: string;
+  aliases: string[];
+};
 const rows: [string, string, string[]][] = [
   ["Paris", "France", ["파리", "프랑스"]],
   ["Berlin", "Germany", ["베를린", "독일"]],
@@ -25,28 +31,49 @@ const rows: [string, string, string[]][] = [
   ["Madrid", "Spain", ["마드리드", "스페인"]],
   ["Nice", "France", ["니스", "프랑스"]],
 ];
-export const cities: City[] = rows.map(([name, country, aliases]) => ({
-  name,
-  country,
-  aliases,
+const normalize = (s: string) =>
+  s
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+export const cities: City[] = worldRows.map(([id, name, country, aliases]) => {
+  const curated = rows.find((r) => r[0] === name && r[1] === country);
+  return {
+    id,
+    name,
+    country,
+    aliases: [...new Set([...(curated?.[2] || []), ...aliases])],
+  };
+});
+const index = cities.map((city) => ({
+  city,
+  keys: [city.name, ...city.aliases].map(normalize),
+  country: normalize(city.country),
 }));
 export function searchCities(query: string): City[] {
-  const q = query.trim().toLocaleLowerCase();
-  return q
-    ? cities
-        .filter((c) =>
-          [c.name, c.country, ...c.aliases].some((v) =>
-            v.toLocaleLowerCase().includes(q),
-          ),
-        )
-        .slice(0, 8)
-    : [];
+  const q = normalize(query);
+  if (!q) return [];
+  const ranked: { city: City; rank: number; order: number }[] = [];
+  index.forEach((x, order) => {
+    const rank = x.keys.some((k) => k === q)
+      ? 0
+      : x.keys.some((k) => k.startsWith(q))
+        ? 1
+        : x.keys.some((k) => k.includes(q))
+          ? 2
+          : x.country.includes(q)
+            ? 3
+            : 4;
+    if (rank < 4) ranked.push({ city: x.city, rank, order });
+  });
+  return ranked
+    .sort((a, b) => a.rank - b.rank || a.order - b.order)
+    .slice(0, 8)
+    .map((x) => x.city);
 }
 export function findCity(query: string): City | undefined {
-  const q = query.trim().toLocaleLowerCase();
-  return cities.find(
-    (c) =>
-      c.name.toLocaleLowerCase() === q ||
-      c.aliases.some((a) => a.toLocaleLowerCase() === q),
-  );
+  const q = normalize(query);
+  return index.find((x) => x.keys.includes(q))?.city;
 }

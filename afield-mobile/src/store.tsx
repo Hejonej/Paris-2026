@@ -23,6 +23,9 @@ import { Trip, trips, makeDays, places, tripPlaces } from "./data";
 type Result = { ok: boolean; message: string };
 type Store = {
   trips: Trip[];
+  deletedTrips: Trip[];
+  deleteTrip: (id: string) => Result;
+  restoreTrip: (id: string) => Result;
   ready: boolean;
   loadFailed: boolean;
   error: string;
@@ -104,6 +107,8 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
                 typeof t.id === "string" &&
                 typeof t.name === "string" &&
                 typeof t.city === "string" &&
+                (t.deletedAt === undefined ||
+                  typeof t.deletedAt === "string") &&
                 typeof t.start === "string" &&
                 typeof t.end === "string" &&
                 (t.country === undefined || typeof t.country === "string") &&
@@ -220,7 +225,28 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       );
   }
   const value: Store = {
-    trips: list,
+    trips: list.filter((t) => !t.deletedAt),
+    deletedTrips: list.filter((t) => !!t.deletedAt),
+    deleteTrip: (id) => {
+      if (!current.current.some((t) => t.id === id && !t.deletedAt))
+        return { ok: false, message: "챕터를 찾을 수 없어요." };
+      update(
+        current.current.map((t) =>
+          t.id === id ? { ...t, deletedAt: new Date().toISOString() } : t,
+        ),
+      );
+      return { ok: true, message: "삭제한 챕터에서 복원할 수 있어요." };
+    },
+    restoreTrip: (id) => {
+      if (!current.current.some((t) => t.id === id && t.deletedAt))
+        return { ok: false, message: "복원할 챕터를 찾을 수 없어요." };
+      update(
+        current.current.map((t) =>
+          t.id === id ? { ...t, deletedAt: undefined } : t,
+        ),
+      );
+      return { ok: true, message: "챕터를 복원했어요." };
+    },
     ready,
     loadFailed,
     error,

@@ -1,3 +1,4 @@
+import { ImportGuide } from "../../../importGuide";
 import React, { useRef, useState } from "react";
 import {
   View,
@@ -56,7 +57,11 @@ export default function InstagramImport() {
         if (file.collections.length === 1) choose(file.collections[0]);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "파일을 읽지 못했어요.");
+      setError(
+        e && typeof e === "object" && "message" in e
+          ? String(e.message)
+          : "파일을 읽지 못했어요.",
+      );
     } finally {
       locked.current = false;
       setBusy(false);
@@ -92,6 +97,11 @@ export default function InstagramImport() {
         onPress={pick}
         disabled={busy}
       />
+      <ImportGuide />
+      <P>
+        ZIP은 먼저 ‘파일’ 앱에서 압축을 풀어 주세요. iCloud 파일을 읽지 못하면
+        다운로드를 마친 뒤 ‘나의 iPhone’에 저장해 선택해 주세요.
+      </P>
       {busy && (
         <ActivityIndicator
           accessibilityLabel="JSON 파일 읽는 중"

@@ -86,11 +86,19 @@ function harness(params, initialRaw = null, options = {}) {
           getDocumentAsync: async () =>
             options.pickerResult || { canceled: true },
         };
+      if (name === "expo-file-system/legacy")
+        return {
+          readAsStringAsync: async () => {
+            if (options.legacyError) throw Error("legacy read error");
+            return options.fileText || "";
+          },
+        };
       if (name === "expo-file-system")
         return {
           File: class {
             size = (options.fileText || "").length;
             async text() {
+              if (options.readError) throw Error("read error");
               return options.fileText || "";
             }
           },
@@ -486,7 +494,7 @@ test("new trip supports Korean city search, auto country and a calendar period o
     fields.find((n) => n.props.label === "종료일").props.onChange("2027-02-01");
   });
   const submit = view.tree.root.findAll(
-    (n) => n.type === "Text" && n.children.includes("여행 시작하기"),
+    (n) => n.type === "Text" && n.children.includes("챕터 만들기"),
   )[0].parent;
   await act(async () => submit.props.onPress());
   const trip = view.store.trips.find((t) => t.name === "긴 여행");
@@ -786,7 +794,12 @@ test("custom tag entry updates the schedule and returns to its larger button", a
       n.type === "Pressable" &&
       n.props.accessibilityLabel === "Le Marais 탐색 분류: 관광",
   )[0];
-  assert.ok(badge.props.style.minHeight >= 44);
+  assert.ok(
+    badge.props.style.minHeight +
+      badge.props.hitSlop.top +
+      badge.props.hitSlop.bottom >=
+      44,
+  );
   await act(async () => badge.props.onPress());
   const input = view.tree.root
     .findAllByType("TextInput")
@@ -844,4 +857,149 @@ test("selected next stop explains the actual preceding recommended start", async
   );
   assert.ok(words(view.tree).includes("앞 산책은 Square du Temple"));
   await act(async () => view.tree.unmount());
+});
+
+test("new chapter offers Sydney with one creation action and a separate visual guide", async () => {
+  const h = harness({});
+  const view = await mountScreen(h, "src/app/new-trip.tsx");
+  await act(async () =>
+    view.tree.root
+      .findAllByType("TextInput")
+      .find((n) => n.props.accessibilityLabel === "도시")
+      .props.onChangeText("시드니"),
+  );
+  const city = view.tree.root.findAll(
+    (n) =>
+      n.type === "Pressable" &&
+      n.props.accessibilityLabel === "Sydney, Australia 선택",
+  )[0];
+  assert.ok(city);
+  await act(async () => city.props.onPress());
+  assert.ok(words(view.tree).includes("Australia"));
+  assert.equal(words(view.tree).includes("만들고 Instagram 가져오기"), false);
+  await act(async () =>
+    view.tree.root
+      .findAll(
+        (n) =>
+          n.type === "Text" && n.children.includes("Instagram 가져오기 가이드"),
+      )[0]
+      .parent.props.onPress(),
+  );
+  assert.equal(view.tree.root.findAllByType("Modal").length, 1);
+  for (let i = 0; i < 3; i++)
+    await act(async () =>
+      view.tree.root
+        .findAll((n) => n.type === "Text" && n.children.includes("다음"))[0]
+        .parent.props.onPress(),
+    );
+  assert.ok(words(view.tree).includes("압축을 풀고 JSON"));
+  await act(async () =>
+    view.tree.root
+      .findAll(
+        (n) => n.type === "Text" && n.children.includes("가이드 닫기"),
+      )[0]
+      .parent.props.onPress(),
+  );
+  assert.equal(view.tree.root.findAllByType("Modal").length, 0);
+  await act(async () => view.tree.unmount());
+});
+test("chapter deletion requires its confirmation and can be restored from the list", async () => {
+  const h = harness({ tripId: "paris" });
+  const view = await mountScreen(h, "src/app/trip/[tripId]/edit.tsx");
+  await act(async () =>
+    view.tree.root
+      .findAll(
+        (n) => n.type === "Text" && n.children.includes("이 챕터 삭제"),
+      )[0]
+      .parent.props.onPress(),
+  );
+  assert.ok(view.store.trips.some((t) => t.id === "paris"));
+  await act(async () =>
+    view.tree.root
+      .findAll((n) => n.type === "Text" && n.children.includes("취소"))[0]
+      .parent.props.onPress(),
+  );
+  assert.ok(view.store.trips.some((t) => t.id === "paris"));
+  await act(async () =>
+    view.tree.root
+      .findAll(
+        (n) => n.type === "Text" && n.children.includes("이 챕터 삭제"),
+      )[0]
+      .parent.props.onPress(),
+  );
+  await act(async () =>
+    view.tree.root
+      .findAll(
+        (n) => n.type === "Text" && n.children.includes("삭제하고 목록으로"),
+      )[0]
+      .parent.props.onPress(),
+  );
+  assert.equal(
+    view.store.trips.some((t) => t.id === "paris"),
+    false,
+  );
+  assert.ok(h.navigation.includes("/chapters"));
+  await act(async () => view.tree.unmount());
+});
+test("file import recovers from native reading failure and explains unsupported export files", async () => {
+  for (const options of [
+    {
+      pickerResult: {
+        canceled: false,
+        assets: [{ name: "saved.json", uri: "file://mock" }],
+      },
+      readError: true,
+      fileText: JSON.stringify([
+        { url: "https://instagram.com/p/Fallback01/" },
+      ]),
+    },
+    {
+      pickerResult: {
+        canceled: false,
+        assets: [{ name: "download.zip", uri: "file://mock" }],
+      },
+      expected: "ZIP 압축 파일",
+    },
+    {
+      pickerResult: {
+        canceled: false,
+        assets: [{ name: "saved.html", uri: "file://mock" }],
+      },
+      expected: "HTML 형식",
+    },
+    {
+      pickerResult: {
+        canceled: false,
+        assets: [{ name: "saved.json", uri: "file://mock" }],
+      },
+      readError: true,
+      legacyError: true,
+      expected: "기기에서 읽지 못했어요",
+    },
+    {
+      pickerResult: {
+        canceled: false,
+        assets: [{ name: "collections.json", uri: "file://mock" }],
+      },
+      fileText: JSON.stringify({ collections: [{ name: "Sydney" }] }),
+      expected: "컬렉션 이름만 든 목록",
+    },
+  ]) {
+    const h = harness({ tripId: "paris" }, null, options);
+    const view = await mountScreen(h, "src/app/trip/[tripId]/instagram.tsx");
+    const before = JSON.stringify(view.store.trips);
+    await act(async () =>
+      view.tree.root
+        .findAll(
+          (n) => n.type === "Text" && n.children.includes("JSON 파일 선택"),
+        )[0]
+        .parent.props.onPress(),
+    );
+    assert.ok(
+      words(view.tree).includes(options.expected || "개 발견"),
+      words(view.tree),
+    );
+    assert.equal(JSON.stringify(view.store.trips), before);
+    await act(async () => view.tree.unmount());
+  }
 });

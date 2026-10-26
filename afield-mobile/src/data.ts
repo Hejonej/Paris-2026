@@ -29,6 +29,7 @@ export type Day = {
   travelModes?: Record<string, TravelMode>;
 };
 export type Trip = {
+  deletedAt?: string;
   id: string;
   name: string;
   city: string;

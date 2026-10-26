@@ -33,7 +33,12 @@ export function repairText(v: string): string {
 export function instagramUrl(v: unknown): string {
   if (typeof v !== "string") return "";
   try {
-    const u = new URL(v);
+    const u = new URL(
+      v
+        .trim()
+        .replace(/^www\.instagram\.com\//i, "https://www.instagram.com/")
+        .replace(/^instagram\.com\//i, "https://instagram.com/"),
+    );
     if (
       !["www.instagram.com", "instagram.com", "m.instagram.com"].includes(
         u.hostname.toLowerCase(),
@@ -41,7 +46,9 @@ export function instagramUrl(v: unknown): string {
       !["http:", "https:"].includes(u.protocol)
     )
       return "";
-    const match = u.pathname.match(/^\/(p|reel|tv)\/([A-Za-z0-9_-]+)\/?$/);
+    const match = u.pathname.match(
+      /^\/(?:[A-Za-z0-9._]+\/)?(p|reel|tv)\/([A-Za-z0-9_-]+)\/?$/,
+    );
     return match ? `https://www.instagram.com/${match[1]}/${match[2]}/` : "";
   } catch {
     return "";
@@ -183,6 +190,11 @@ export function parseInstagram(text: string): ImportCollection[] {
     ].filter((x) => x && typeof x === "object");
     const strings = [
       n.source,
+      n.value,
+      n.text,
+      n.uri,
+      n.post_url,
+      n.permalink,
       n.url,
       n.href,
       n.link,
@@ -258,10 +270,29 @@ export function parseInstagram(text: string): ImportCollection[] {
     name,
     posts: [...posts.values()],
   }));
-  if (!result.length)
-    throw Error(
-      "Instagram 게시물 링크가 있는 저장 항목을 찾지 못했어요. saved collections JSON인지 확인해 주세요.",
+  if (!result.length) {
+    const keys =
+      raw && typeof raw === "object" && !Array.isArray(raw)
+        ? Object.keys(raw)
+            .slice(0, 6)
+            .map((k) => k.slice(0, 40))
+            .join(", ")
+        : Array.isArray(raw)
+          ? "배열"
+          : typeof raw;
+    const hasInstagram = nodes.some(({ value }) =>
+      Object.values(value).some(
+        (v) => typeof v === "string" && /instagram\.com/i.test(v),
+      ),
     );
+    throw Error(
+      (hasInstagram
+        ? "Instagram 관련 내용은 있지만 가져올 수 있는 게시물 링크 형식을 찾지 못했어요."
+        : "이 파일에서 Instagram 게시물 링크를 찾지 못했어요. 컬렉션 이름만 든 목록이거나 저장 항목이 아닌 파일일 수 있어요.") +
+        " 압축을 푼 폴더에서 저장한 게시물 JSON(예: saved_posts.json, saved_collections.json)을 선택해 주세요. 파일 이름은 버전에 따라 달라요. 가이드에서 저장 항목을 포함해 JSON으로 다시 요청하는 방법을 확인할 수 있어요. 진단 정보: " +
+        keys,
+    );
+  }
   return result;
 }
 export function importPosts(

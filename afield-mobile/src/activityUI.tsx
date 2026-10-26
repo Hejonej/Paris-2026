@@ -37,14 +37,14 @@ export function ActivityButton({
         style={{
           minHeight: 48,
           justifyContent: "center",
-          paddingHorizontal: 14,
+          paddingHorizontal: 10,
           borderRadius: 8,
           backgroundColor: "#E7EBE2",
           alignSelf: "flex-start",
         }}
-        hitSlop={4}
+        hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
       >
-        <Text style={{ fontSize: 15, fontWeight: "600", color: ui.accent }}>
+        <Text style={{ fontSize: 13, fontWeight: "500", color: ui.accent }}>
           {customValue || activityLabels[value]} ▾
         </Text>
       </Pressable>
@@ -195,7 +195,7 @@ export function ActivityBadge({ value }: { value: ActivityTag }) {
         marginVertical: 5,
       }}
     >
-      <Text style={{ fontSize: 15, fontWeight: "600", color: ui.accent }}>
+      <Text style={{ fontSize: 13, fontWeight: "500", color: ui.accent }}>
         {activityLabels[value]}
       </Text>
     </View>
