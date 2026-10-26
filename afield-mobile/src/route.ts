@@ -9,10 +9,12 @@ export function useTripParams() {
     entryId?: string | string[];
     postId?: string | string[];
     section?: string | string[];
+    addedPlace?: string | string[];
     updatedEntry?: string | string[];
     date?: string | string[];
   }>();
   return {
+    addedPlace: routeValue(params.addedPlace),
     updatedEntry: routeValue(params.updatedEntry),
     tripId: routeValue(params.tripId),
     entryId: routeValue(params.entryId),

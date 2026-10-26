@@ -577,9 +577,7 @@ test("JSON screen imports only on approval and exposes imported posts after rest
   await act(async () =>
     reviewed.tree.root
       .findAll(
-        (n) =>
-          n.type === "Text" &&
-          n.children.includes("선택한 1개를 가고 싶은 곳에 저장"),
+        (n) => n.type === "Text" && n.children.includes("저장하고 위치 확인 →"),
       )[0]
       .parent.props.onPress(),
   );
@@ -646,7 +644,8 @@ test("an imported candidate requires explicit location confirmation before sched
   );
   assert.equal(
     detail.tree.root.findAll(
-      (n) => n.type === "Text" && n.children.includes("선택한 날짜에 추가"),
+      (n) =>
+        n.type === "Text" && n.children.includes("이 날짜와 시간에 일정 추가"),
     ).length,
     0,
   );
@@ -661,7 +660,7 @@ test("an imported candidate requires explicit location confirmation before sched
       .findAll(
         (n) =>
           n.type === "Text" &&
-          n.children.includes("위치를 확인했어요 · 저장한 장소에 반영"),
+          n.children.includes("이 위치가 맞아요 · 날짜 선택 →"),
       )[0]
       .parent.props.onPress(),
   );
@@ -672,7 +671,9 @@ test("an imported candidate requires explicit location confirmation before sched
   await act(async () =>
     detail.tree.root
       .findAll(
-        (n) => n.type === "Text" && n.children.includes("선택한 날짜에 추가"),
+        (n) =>
+          n.type === "Text" &&
+          n.children.includes("이 날짜와 시간에 일정 추가"),
       )[0]
       .parent.props.onPress(),
   );
@@ -1002,4 +1003,87 @@ test("file import recovers from native reading failure and explains unsupported 
     assert.equal(JSON.stringify(view.store.trips), before);
     await act(async () => view.tree.unmount());
   }
+});
+
+test("manual place entry goes directly to location confirmation without silently scheduling", async () => {
+  const seed = harness({ tripId: "paris" });
+  const base = await mountScreen(
+    seed,
+    "src/app/trip/[tripId]/(tabs)/candidates.tsx",
+  );
+  await act(async () =>
+    base.store.importInstagram("paris", [
+      {
+        id: "manual-source",
+        url: "https://www.instagram.com/p/ManualFlow01/",
+        name: "A saved post",
+        caption: "",
+        owner: "",
+        username: "",
+        collection: "Test",
+        category: "기타",
+        candidates: [],
+      },
+    ]),
+  );
+  const postId = base.store.trips[0].inspirations[0].id;
+  const raw = seed.raw;
+  await act(async () => base.tree.unmount());
+  const h = harness({ tripId: "paris", postId }, raw);
+  const view = await mountScreen(
+    h,
+    "src/app/trip/[tripId]/inspiration/[postId].tsx",
+  );
+  const before = JSON.stringify(view.store.trips[0].days);
+  await act(async () =>
+    view.tree.root
+      .findAllByType("TextInput")
+      .find((n) => n.props.accessibilityLabel === "게시물의 장소 이름")
+      .props.onChangeText("Test Cafe"),
+  );
+  await act(async () =>
+    view.tree.root
+      .findAll(
+        (n) =>
+          n.type === "Text" &&
+          n.children.includes("이 이름으로 저장하고 위치 확인"),
+      )[0]
+      .parent.props.onPress(),
+  );
+  const p = view.store.trips[0].importedPlaces[0];
+  assert.equal(p.name, "Test Cafe");
+  assert.equal(p.matchStatus, "needs_confirmation");
+  assert.equal(h.navigation.at(-1).params.placeId, p.id);
+  assert.equal(JSON.stringify(view.store.trips[0].days), before);
+  await act(async () => view.tree.unmount());
+  const detail = await mountScreen(
+    harness({ tripId: "paris", placeId: p.id }, h.raw),
+    "src/app/trip/[tripId]/place/[placeId].tsx",
+  );
+  assert.ok(words(detail.tree).includes("Google Maps에서 장소 확인"));
+  assert.equal(words(detail.tree).includes("언제 방문할까요?"), false);
+  await act(async () =>
+    detail.tree.root
+      .findAllByType("TextInput")
+      .find((n) => n.props.accessibilityLabel === "확인할 지도 검색어")
+      .props.onChangeText("Test Cafe, Test Street, Paris"),
+  );
+  await act(async () =>
+    detail.tree.root
+      .findAll(
+        (n) =>
+          n.type === "Text" &&
+          n.children.includes("이 위치가 맞아요 · 날짜 선택 →"),
+      )[0]
+      .parent.props.onPress(),
+  );
+  assert.equal(words(detail.tree).includes("언제 방문할까요?"), true);
+  assert.equal(
+    detail.tree.root
+      .findAllByType("TextInput")
+      .some((n) => n.props.accessibilityLabel === "확인할 지도 검색어"),
+    false,
+  );
+  assert.equal(JSON.stringify(detail.store.trips[0].days), before);
+  await act(async () => detail.tree.unmount());
 });

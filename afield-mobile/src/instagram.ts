@@ -18,17 +18,20 @@ export const categories = [
 const clean = (x: unknown) =>
   typeof x === "string" ? repairText(x).trim() : "";
 export function repairText(v: string): string {
-  if (!/[\u0080-\u00ff]/.test(v) || [...v].some((c) => c.charCodeAt(0) > 255))
-    return v;
-  try {
-    return decodeURIComponent(
-      [...v]
-        .map((c) => "%" + c.charCodeAt(0).toString(16).padStart(2, "0"))
-        .join(""),
-    );
-  } catch {
-    return v;
-  }
+  return v.replace(
+    /(?:[\u00c2-\u00df][\u0080-\u00bf]|[\u00e0-\u00ef][\u0080-\u00bf]{2}|[\u00f0-\u00f4][\u0080-\u00bf]{3})+/g,
+    (fragment) => {
+      try {
+        return decodeURIComponent(
+          [...fragment]
+            .map((c) => "%" + c.charCodeAt(0).toString(16).padStart(2, "0"))
+            .join(""),
+        );
+      } catch {
+        return fragment;
+      }
+    },
+  );
 }
 export function instagramUrl(v: unknown): string {
   if (typeof v !== "string") return "";
@@ -213,6 +216,10 @@ export function parseInstagram(text: string): ImportCollection[] {
     if (!url) continue;
     // Bare URL child nodes are handled by their post container, preserving its caption and collection.
     if (
+      !Array.isArray(n.dict) &&
+      !Array.isArray(n.label_values) &&
+      !Array.isArray(n.string_list_data) &&
+      !n.string_map_data &&
       ancestors.some(
         (a) =>
           (Array.isArray(a.string_list_data) &&
@@ -234,6 +241,7 @@ export function parseInstagram(text: string): ImportCollection[] {
     const owner = clean(n.owner) || lv(n, ["이름", "name"]);
     const username = clean(n.username) || lv(n, ["사용자 이름", "username"]);
     const name =
+      lv(n, ["제목", "title"]) ||
       clean(n.title) ||
       clean(n.name) ||
       owner ||
@@ -344,6 +352,7 @@ export function confirmCandidates(
   const ids = [...trip.candidates];
   let added = 0;
   let linked = 0;
+  const placeIds: string[] = [];
   for (const selection of selections) {
     const post = trip.inspirations?.find((p) => p.id === selection.postId);
     const candidate = post?.candidates.find(
@@ -352,6 +361,7 @@ export function confirmCandidates(
     if (!post || !candidate) continue;
     const existing = custom.find((p) => key(p.name) === key(candidate.name));
     if (existing) {
+      if (!placeIds.includes(existing.id)) placeIds.push(existing.id);
       if (!existing.sourcePostIds.includes(post.id)) {
         custom[custom.indexOf(existing)] = {
           ...existing,
@@ -371,19 +381,21 @@ export function confirmCandidates(
       category: post.category,
       area: trip.city,
       description:
-        "저장한 게시물에서 발견한 장소 후보예요. 실제 위치를 먼저 확인해 주세요.",
+        "게시물에서 고른 장소예요. 지도에서 방문할 지점이 맞는지 확인해 주세요.",
       image: "",
       query: candidate.name + " " + trip.city,
       sourcePostIds: [post.id],
       matchStatus: "needs_confirmation",
     };
     custom.push(place);
+    placeIds.push(id);
     if (!ids.includes(id)) ids.push(id);
     added++;
   }
   if (!added && !linked) return fail("추가할 새 장소 후보가 없어요.");
   return {
     ok: true,
+    placeIds,
     message: `${added}개 장소 후보를 추가했어요.${linked ? ` ${linked}개 출처를 연결했어요.` : ""}`,
     trips: trips.map((t) =>
       t.id === tripId ? { ...t, importedPlaces: custom, candidates: ids } : t,
@@ -459,6 +471,7 @@ export function addManualCandidate(
   };
   return {
     ok: true,
+    candidateId: candidate.id,
     message: "게시물에 장소 후보를 추가했어요.",
     trips: trips.map((t) =>
       t.id === tripId

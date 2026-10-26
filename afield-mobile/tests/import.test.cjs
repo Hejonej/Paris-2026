@@ -360,3 +360,43 @@ test("a collection-only index explains the missing posts rather than claiming fi
     /진단 정보: collections/,
   );
 });
+
+test("nested dict post containers are retained while their URL leaves are deduplicated", () => {
+  const mojibake = (s) => Buffer.from(s, "utf8").toString("latin1");
+  const raw = [
+    {
+      timestamp: 123,
+      media: [],
+      label_values: [
+        { label: mojibake("이름"), value: mojibake("테스트 여행") },
+        {
+          title: "posts",
+          dict: [
+            {
+              title: "post",
+              dict: [
+                {
+                  label: "URL",
+                  value: "https://www.instagram.com/reel/Nested01/",
+                  href: "https://www.instagram.com/reel/Nested01/",
+                },
+                {
+                  label: mojibake("캡션"),
+                  value: mojibake("카페 둘러보기") + " 🌿",
+                },
+                { label: mojibake("제목"), value: "Test Coffee" },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ];
+  const parsed = ig.parseInstagram(JSON.stringify(raw));
+  assert.equal(parsed.length, 1);
+  assert.equal(parsed[0].name, "테스트 여행");
+  assert.equal(parsed[0].posts.length, 1);
+  assert.equal(parsed[0].posts[0].name, "Test Coffee");
+  assert.equal(parsed[0].posts[0].caption, "카페 둘러보기 🌿");
+  assert.equal(ig.repairText("café 🌿"), "café 🌿");
+});

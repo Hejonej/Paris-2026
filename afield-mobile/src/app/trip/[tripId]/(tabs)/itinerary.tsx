@@ -31,7 +31,7 @@ import {
 } from "../../../../routing";
 import { ui } from "../../../../theme";
 export default function Itinerary() {
-  const { tripId, date, updatedEntry } = useTripParams();
+  const { tripId, date, updatedEntry, addedPlace } = useTripParams();
   const { trips, setMode, setTag } = useTrips();
   const trip = trips.find((t) => t.id === tripId);
   const [selection, setSelection] = useState(date || "");
@@ -121,6 +121,19 @@ export default function Itinerary() {
           <P>
             {day.items.length}개의 일정 · 경로 찾기는 현재 위치에서 출발해요.
           </P>
+          {!!addedPlace && day.items.some((e) => e.placeId === addedPlace) && (
+            <Text
+              accessibilityRole="alert"
+              style={{
+                fontSize: 16,
+                lineHeight: 24,
+                color: ui.accent,
+                marginBottom: 12,
+              }}
+            >
+              선택한 장소를 이 날짜의 일정에 추가했어요.
+            </Text>
+          )}
           {!!updatedEntry && day.items.some((e) => e.id === updatedEntry) && (
             <View
               accessibilityRole="alert"

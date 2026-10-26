@@ -20,7 +20,12 @@ import React, {
 import { addCandidate, addToPlan } from "./planning";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Trip, trips, makeDays, places, tripPlaces } from "./data";
-type Result = { ok: boolean; message: string };
+type Result = {
+  ok: boolean;
+  message: string;
+  placeIds?: string[];
+  candidateId?: string;
+};
 type Store = {
   trips: Trip[];
   deletedTrips: Trip[];
@@ -276,12 +281,20 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     addInspirationCandidate: (id, postId, name) => {
       const result = addManualCandidate(current.current, id, postId, name);
       if (result.ok) update(result.trips);
-      return { ok: result.ok, message: result.message };
+      return {
+        ok: result.ok,
+        message: result.message,
+        candidateId: "candidateId" in result ? result.candidateId : undefined,
+      };
     },
     confirmInstagram: (id, selections) => {
       const result = confirmCandidates(current.current, id, selections);
       if (result.ok) update(result.trips);
-      return { ok: result.ok, message: result.message };
+      return {
+        ok: result.ok,
+        message: result.message,
+        placeIds: "placeIds" in result ? result.placeIds : undefined,
+      };
     },
     confirmPlace: (id, p, details) => {
       const result = updateImportedPlace(current.current, id, p, details);

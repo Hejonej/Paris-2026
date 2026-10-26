@@ -40,6 +40,11 @@ export default function Candidates() {
         가고 싶은 장소를 모아 두는 목록이에요. 저장만으로 일정에 들어가지는
         않아요. 장소를 열어 ‘일정에 추가’를 눌러 주세요.
       </P>
+      <P>
+        {tab === "posts"
+          ? "다음: 게시물을 열고 가고 싶은 장소를 골라 주세요."
+          : "다음: 장소를 열어 위치를 확인하고, 날짜와 시간을 골라 일정에 넣으세요."}
+      </P>
       <Action
         title="Instagram JSON 가져오기"
         onPress={() =>
@@ -52,7 +57,7 @@ export default function Candidates() {
       <View style={{ flexDirection: "row", gap: 8, marginVertical: 18 }}>
         {[
           { id: "places", label: `장소 ${list.length}` },
-          { id: "posts", label: `게시물 ${posts.length}` },
+          { id: "posts", label: `가져온 게시물 ${posts.length}` },
         ].map((t) => (
           <Pressable
             key={t.id}
@@ -181,8 +186,8 @@ export default function Candidates() {
                 {r.place.category}
                 {"matchStatus" in r.place
                   ? r.place.matchStatus === "confirmed"
-                    ? " · 위치 확인됨"
-                    : " · 위치 확인 필요"
+                    ? " · 날짜를 골라 일정에 추가 →"
+                    : " · 다음: 위치 확인 →"
                   : ""}
               </P>
             </View>
