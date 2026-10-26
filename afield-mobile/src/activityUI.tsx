@@ -35,18 +35,31 @@ export function ActivityButton({
           setOpen(true);
         }}
         style={{
-          minHeight: 48,
+          minHeight: 44,
+          maxWidth: 112,
+          flexShrink: 0,
           justifyContent: "center",
-          paddingHorizontal: 10,
-          borderRadius: 8,
-          backgroundColor: "#E7EBE2",
-          alignSelf: "flex-start",
+          alignSelf: "center",
         }}
         hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
       >
-        <Text style={{ fontSize: 13, fontWeight: "500", color: ui.accent }}>
-          {customValue || activityLabels[value]} ▾
-        </Text>
+        <View
+          style={{
+            minHeight: 26,
+            justifyContent: "center",
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderRadius: 7,
+            backgroundColor: "#E7EBE2",
+          }}
+        >
+          <Text
+            numberOfLines={1}
+            style={{ fontSize: 13, fontWeight: "500", color: ui.accent }}
+          >
+            {customValue || activityLabels[value]} ▾
+          </Text>
+        </View>
       </Pressable>
       {open && (
         <Modal

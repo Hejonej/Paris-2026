@@ -1,3 +1,4 @@
+import { inspirationProgress } from "../../../../inspirationProgress";
 import { ActivityButton } from "../../../../activityUI";
 import { entryActivity } from "../../../../activities";
 import {
@@ -34,6 +35,7 @@ export default function Itinerary() {
   const { tripId, date, updatedEntry, addedPlace } = useTripParams();
   const { trips, setMode, setTag } = useTrips();
   const trip = trips.find((t) => t.id === tripId);
+  const { pendingPosts } = inspirationProgress(trip);
   const [selection, setSelection] = useState(date || "");
   const [error, setError] = useState("");
   const router = useRouter();
@@ -60,6 +62,18 @@ export default function Itinerary() {
     <Page>
       <Label>하루의 동선</Label>
       <H>일정</H>
+      {!!pendingPosts.length && (
+        <Action
+          title={`남은 게시물 ${pendingPosts.length}개 계속 보기 →`}
+          secondary
+          onPress={() =>
+            router.navigate({
+              pathname: "/trip/[tripId]/candidates",
+              params: { tripId, section: "inspiration", postFilter: "pending" },
+            })
+          }
+        />
+      )}
       <FlatList
         data={trip?.days || []}
         keyExtractor={(d) => d.date}
@@ -177,25 +191,37 @@ export default function Itinerary() {
                 <View style={styles.entry}>
                   <Text style={styles.time}>{item.time}</Text>
                   <View style={styles.content}>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`${item.name} 장소 ${location?.placeId ? "상세" : "지정"}`}
-                      onPress={() =>
-                        location?.placeId
-                          ? router.push({
-                              pathname: "/trip/[tripId]/place/[placeId]",
-                              params: {
-                                tripId,
-                                placeId: location.placeId,
-                                date: day.date,
-                              },
-                            })
-                          : editLocation(item)
-                      }
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
                     >
-                      <Text style={styles.title}>{item.name} ›</Text>
-                    </Pressable>
-                    <View style={{ marginTop: 8 }}>
+                      <Pressable
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          minHeight: 44,
+                          justifyContent: "center",
+                        }}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${item.name} 장소 ${location?.placeId ? "상세" : "지정"}`}
+                        onPress={() =>
+                          location?.placeId
+                            ? router.push({
+                                pathname: "/trip/[tripId]/place/[placeId]",
+                                params: {
+                                  tripId,
+                                  placeId: location.placeId,
+                                  date: day.date,
+                                },
+                              })
+                            : editLocation(item)
+                        }
+                      >
+                        <Text style={styles.title}>{item.name} ›</Text>
+                      </Pressable>
                       <ActivityButton
                         name={item.name}
                         value={entryActivity(item, trip)}

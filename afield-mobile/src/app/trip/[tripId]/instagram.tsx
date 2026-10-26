@@ -79,7 +79,13 @@ export default function InstagramImport() {
     if (result.ok)
       router.dismissTo({
         pathname: "/trip/[tripId]/(tabs)/candidates",
-        params: { tripId, section: "inspiration" },
+        params: {
+          tripId,
+          section: "inspiration",
+          startPost: posts.find(
+            (p) => selected.has(p.id) && !existing.has(p.url),
+          )?.id,
+        },
       });
     else setError(result.message);
     locked.current = false;

@@ -1,13 +1,7 @@
 import { CitySearch, TripDates } from "../../../tripFields";
 import React, { useRef, useState } from "react";
 import { useRouter } from "expo-router";
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Text,
-  View,
-  Modal,
-} from "react-native";
+import { KeyboardAvoidingView, Platform, Text, View } from "react-native";
 import { Page, H, P, Label, Field, Action } from "../../../ui";
 import { useTripParams } from "../../../route";
 import { useTrips } from "../../../store";
@@ -16,7 +10,7 @@ import { ui } from "../../../theme";
 export default function EditTrip() {
   const { tripId } = useTripParams();
   const router = useRouter();
-  const { trips, edit, deleteTrip } = useTrips();
+  const { trips, edit } = useTrips();
   const trip = trips.find((t) => t.id === tripId);
   const [name, setName] = useState(trip?.name || "");
   const [city, setCity] = useState(trip?.city || "");
@@ -24,7 +18,6 @@ export default function EditTrip() {
   const [start, setStart] = useState(trip?.start || "");
   const [end, setEnd] = useState(trip?.end || "");
   const [error, setError] = useState("");
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const submitting = useRef(false);
   if (!trip)
     return (
@@ -126,61 +119,6 @@ export default function EditTrip() {
           </Text>
         )}
         <Action title="변경사항 저장" disabled={!changed} onPress={save} />
-        <View style={{ marginTop: 24 }}>
-          <Action
-            title="이 챕터 삭제"
-            secondary
-            onPress={() => setConfirmDelete(true)}
-          />
-        </View>
-        {confirmDelete && (
-          <Modal
-            visible
-            transparent
-            animationType="fade"
-            onRequestClose={() => setConfirmDelete(false)}
-          >
-            <View
-              style={{
-                flex: 1,
-                backgroundColor: "#00000066",
-                justifyContent: "center",
-                padding: 24,
-              }}
-            >
-              <View
-                accessibilityViewIsModal
-                style={{
-                  backgroundColor: ui.bg,
-                  padding: 22,
-                  borderRadius: 18,
-                }}
-              >
-                <H>이 챕터를 삭제할까요?</H>
-                <P>
-                  {trip.name}의 일정과 저장한 장소도 함께 목록에서 숨겨져요.
-                  여행 목록의 ‘삭제한 챕터’에서 다시 복원할 수 있어요.
-                </P>
-                <Action
-                  title="삭제하고 목록으로"
-                  onPress={() => {
-                    const result = deleteTrip(tripId);
-                    if (result.ok) router.dismissTo("/chapters");
-                    else {
-                      setError(result.message);
-                      setConfirmDelete(false);
-                    }
-                  }}
-                />
-                <Action
-                  title="취소"
-                  secondary
-                  onPress={() => setConfirmDelete(false)}
-                />
-              </View>
-            </View>
-          </Modal>
-        )}
       </Page>
     </KeyboardAvoidingView>
   );

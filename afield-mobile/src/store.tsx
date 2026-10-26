@@ -30,6 +30,7 @@ type Store = {
   trips: Trip[];
   deletedTrips: Trip[];
   deleteTrip: (id: string) => Result;
+  deleteTrips: (ids: string[]) => Result;
   restoreTrip: (id: string) => Result;
   ready: boolean;
   loadFailed: boolean;
@@ -229,19 +230,31 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         ),
       );
   }
+  function trash(ids: string[]): Result {
+    const selected = new Set(ids);
+    if (
+      !selected.size ||
+      [...selected].some(
+        (id) => !current.current.some((t) => t.id === id && !t.deletedAt),
+      )
+    )
+      return { ok: false, message: "삭제할 챕터를 다시 선택해 주세요." };
+    const deletedAt = new Date().toISOString();
+    update(
+      current.current.map((t) =>
+        selected.has(t.id) ? { ...t, deletedAt } : t,
+      ),
+    );
+    return {
+      ok: true,
+      message: `${selected.size}개 챕터를 삭제했어요. ‘삭제한 챕터’에서 복원할 수 있어요.`,
+    };
+  }
   const value: Store = {
     trips: list.filter((t) => !t.deletedAt),
     deletedTrips: list.filter((t) => !!t.deletedAt),
-    deleteTrip: (id) => {
-      if (!current.current.some((t) => t.id === id && !t.deletedAt))
-        return { ok: false, message: "챕터를 찾을 수 없어요." };
-      update(
-        current.current.map((t) =>
-          t.id === id ? { ...t, deletedAt: new Date().toISOString() } : t,
-        ),
-      );
-      return { ok: true, message: "삭제한 챕터에서 복원할 수 있어요." };
-    },
+    deleteTrip: (id) => trash([id]),
+    deleteTrips: trash,
     restoreTrip: (id) => {
       if (!current.current.some((t) => t.id === id && t.deletedAt))
         return { ok: false, message: "복원할 챕터를 찾을 수 없어요." };

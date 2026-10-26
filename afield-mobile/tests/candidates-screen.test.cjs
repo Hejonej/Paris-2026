@@ -65,6 +65,7 @@ function harness(params, initialRaw = null, options = {}) {
     replace: (target) => navigation.push(target),
     back: () => navigation.push({ back: true }),
     push: (x) => navigation.push(x),
+    navigate: (x) => navigation.push(x),
     dismissTo: (x) => navigation.push(x),
   };
   function load(file) {
@@ -103,12 +104,14 @@ function harness(params, initialRaw = null, options = {}) {
             }
           },
         };
+      if (name === "@expo/vector-icons") return { Ionicons: "Icon" };
       if (name === "react-native") return native;
       if (name === "expo-router")
         return {
           useLocalSearchParams: () => params,
           useGlobalSearchParams: () => params,
           useRouter: () => router,
+          useFocusEffect: (callback) => React.useEffect(callback, [callback]),
         };
       if (name === "@react-native-async-storage/async-storage") return storage;
       if (name.endsWith(".jpg")) return 1;
@@ -904,42 +907,96 @@ test("new chapter offers Sydney with one creation action and a separate visual g
   assert.equal(view.tree.root.findAllByType("Modal").length, 0);
   await act(async () => view.tree.unmount());
 });
-test("chapter deletion requires its confirmation and can be restored from the list", async () => {
-  const h = harness({ tripId: "paris" });
-  const view = await mountScreen(h, "src/app/trip/[tripId]/edit.tsx");
-  await act(async () =>
+test("list edit mode selects without opening, confirms bulk delete, and restores chapters", async () => {
+  const h = harness({});
+  const view = await mountScreen(h, "src/app/chapters.tsx");
+  const trips = [...view.store.trips];
+  const pressText = async (text) =>
+    act(async () =>
+      view.tree.root
+        .findAll((n) => n.type === "Text" && n.children.includes(text))[0]
+        .parent.props.onPress(),
+    );
+  await pressText("편집");
+  const select = async (trip) =>
+    act(async () =>
+      view.tree.root
+        .findAll(
+          (n) =>
+            n.type === "Pressable" &&
+            n.props.accessibilityLabel === `${trip.name} 선택`,
+        )[0]
+        .props.onPress(),
+    );
+  await select(trips[0]);
+  await select(trips[1]);
+  assert.equal(h.navigation.length, 0);
+  const remove = view.tree.root.findAll(
+    (n) =>
+      n.type === "Pressable" &&
+      n.props.accessibilityLabel === "선택한 2개 챕터 삭제",
+  )[0];
+  await act(async () => remove.props.onPress());
+  await pressText("취소");
+  assert.equal(view.store.trips.length, trips.length);
+  await act(async () => remove.props.onPress());
+  await pressText("선택한 챕터 삭제");
+  assert.equal(view.store.trips.length, trips.length - 2);
+  assert.equal(view.store.deletedTrips.length, 2);
+  await pressText("삭제한 챕터 2개 보기");
+  await pressText(`${trips[0].name} 복원`);
+  assert.ok(view.store.trips.some((t) => t.id === trips[0].id));
+  await act(async () => view.tree.unmount());
+});
+test("list edit mode supports select all, clears selection on done, and edits only one chapter", async () => {
+  const h = harness({});
+  const view = await mountScreen(h, "src/app/chapters.tsx");
+  const trip = view.store.trips[0];
+  const press = async (text) =>
+    act(async () =>
+      view.tree.root
+        .findAll((n) => n.type === "Text" && n.children.includes(text))[0]
+        .parent.props.onPress(),
+    );
+  await press("편집");
+  await press("전체 선택");
+  assert.equal(
     view.tree.root
       .findAll(
-        (n) => n.type === "Text" && n.children.includes("이 챕터 삭제"),
-      )[0]
-      .parent.props.onPress(),
-  );
-  assert.ok(view.store.trips.some((t) => t.id === "paris"));
-  await act(async () =>
-    view.tree.root
-      .findAll((n) => n.type === "Text" && n.children.includes("취소"))[0]
-      .parent.props.onPress(),
-  );
-  assert.ok(view.store.trips.some((t) => t.id === "paris"));
-  await act(async () =>
-    view.tree.root
-      .findAll(
-        (n) => n.type === "Text" && n.children.includes("이 챕터 삭제"),
-      )[0]
-      .parent.props.onPress(),
-  );
-  await act(async () =>
-    view.tree.root
-      .findAll(
-        (n) => n.type === "Text" && n.children.includes("삭제하고 목록으로"),
-      )[0]
-      .parent.props.onPress(),
+        (n) =>
+          n.type === "Pressable" && n.props.accessibilityRole === "checkbox",
+      )
+      .every((n) => n.props.accessibilityState.checked),
+    true,
   );
   assert.equal(
-    view.store.trips.some((t) => t.id === "paris"),
+    view.tree.root.findAll(
+      (n) => n.type === "Text" && n.children.includes("정보 수정"),
+    )[0].parent.props.disabled,
+    true,
+  );
+  await press("완료");
+  await press("편집");
+  assert.equal(
+    view.tree.root
+      .findAll(
+        (n) =>
+          n.type === "Pressable" && n.props.accessibilityRole === "checkbox",
+      )
+      .some((n) => n.props.accessibilityState.checked),
     false,
   );
-  assert.ok(h.navigation.includes("/chapters"));
+  await act(async () =>
+    view.tree.root
+      .findAll(
+        (n) =>
+          n.type === "Pressable" &&
+          n.props.accessibilityLabel === `${trip.name} 선택`,
+      )[0]
+      .props.onPress(),
+  );
+  await press("정보 수정");
+  assert.equal(h.navigation.at(-1).params.tripId, trip.id);
   await act(async () => view.tree.unmount());
 });
 test("file import recovers from native reading failure and explains unsupported export files", async () => {
@@ -1086,4 +1143,195 @@ test("manual place entry goes directly to location confirmation without silently
   );
   assert.equal(JSON.stringify(detail.store.trips[0].days), before);
   await act(async () => detail.tree.unmount());
+});
+
+test("imported-post landing makes choosing a place primary and skips already reviewed posts", async () => {
+  const seed = harness({ tripId: "paris" });
+  const base = await mountScreen(
+    seed,
+    "src/app/trip/[tripId]/(tabs)/candidates.tsx",
+  );
+  await act(async () =>
+    base.store.importInstagram("paris", [
+      {
+        id: "first",
+        url: "https://instagram.com/p/OldLanding01/",
+        name: "Old reviewed post",
+        caption: "Old Cafe",
+        owner: "",
+        username: "",
+        collection: "Test",
+        category: "기타",
+        candidates: [
+          {
+            id: "old-place",
+            name: "Old Cafe",
+            kind: "manual",
+            confidence: "medium",
+          },
+        ],
+      },
+      {
+        id: "second",
+        url: "https://instagram.com/p/NewLanding01/",
+        name: "New post to review",
+        caption: "",
+        owner: "",
+        username: "",
+        collection: "Test",
+        category: "기타",
+        candidates: [],
+      },
+    ]),
+  );
+  const [oldPost, newPost] = base.store.trips[0].inspirations;
+  await act(async () =>
+    base.store.confirmInstagram("paris", [
+      { postId: oldPost.id, candidateId: "old-place" },
+    ]),
+  );
+  const placeId = base.store.trips[0].importedPlaces[0].id;
+  await act(async () => {
+    base.store.confirmPlace("paris", placeId, {
+      name: "Old Cafe",
+      query: "Old Cafe, Paris",
+      address: "Test Address",
+    });
+    base.store.place("paris", placeId, "Old Cafe", "2026-11-14", "11:00");
+  });
+  const raw = seed.raw;
+  await act(async () => base.tree.unmount());
+  const h = harness(
+    { tripId: "paris", section: "inspiration", startPost: oldPost.id },
+    raw,
+  );
+  const view = await mountScreen(
+    h,
+    "src/app/trip/[tripId]/(tabs)/candidates.tsx",
+  );
+  assert.ok(words(view.tree).includes("게시물을 가져왔어요"));
+  const primary = view.tree.root.findAll(
+    (n) =>
+      n.type === "Text" && n.children.includes("게시물 열고 장소 고르기 →"),
+  )[0];
+  assert.ok(primary);
+  await act(async () => primary.parent.props.onPress());
+  assert.equal(h.navigation.at(-1).params.postId, newPost.id);
+  assert.ok(
+    words(view.tree).indexOf("게시물 열고 장소 고르기") <
+      words(view.tree).indexOf("다른 Instagram JSON 가져오기"),
+  );
+  await act(async () => view.tree.unmount());
+});
+
+test("ten imported posts resume as nine remaining after one is scheduled, while all stays available", async () => {
+  const seed = harness({ tripId: "paris" });
+  const base = await mountScreen(
+    seed,
+    "src/app/trip/[tripId]/(tabs)/candidates.tsx",
+  );
+  await act(async () =>
+    base.store.importInstagram(
+      "paris",
+      Array.from({ length: 10 }, (_, i) => ({
+        id: `source${i}`,
+        url: `https://instagram.com/p/Progress${i}/`,
+        name: `Test post ${i}`,
+        caption: `Test Cafe ${i}`,
+        owner: "",
+        username: "",
+        collection: "Test",
+        category: "카페",
+        candidates: [
+          {
+            id: `candidate${i}`,
+            name: `Test Cafe ${i}`,
+            kind: "manual",
+            confidence: "medium",
+          },
+        ],
+      })),
+    ),
+  );
+  const post = base.store.trips[0].inspirations[0];
+  await act(async () =>
+    base.store.confirmInstagram("paris", [
+      { postId: post.id, candidateId: post.candidates[0].id },
+    ]),
+  );
+  const place = base.store.trips[0].importedPlaces[0];
+  // Saving alone leaves all ten posts pending.
+  const progress = seed.load("src/inspirationProgress.ts").inspirationProgress;
+  assert.equal(progress(base.store.trips[0]).pendingPosts.length, 10);
+  await act(async () =>
+    base.store.confirmPlace("paris", place.id, {
+      name: place.name,
+      query: "Test Cafe, Paris",
+      address: "Test Street",
+    }),
+  );
+  assert.equal(progress(base.store.trips[0]).pendingPosts.length, 10);
+  await act(async () =>
+    base.store.place("paris", place.id, place.name, "2026-11-14", "11:00"),
+  );
+  assert.equal(progress(base.store.trips[0]).pendingPosts.length, 9);
+  const raw = seed.raw;
+  await act(async () => base.tree.unmount());
+  const h = harness(
+    { tripId: "paris", date: "2026-11-14", addedPlace: place.id },
+    raw,
+  );
+  const itinerary = await mountScreen(
+    h,
+    "src/app/trip/[tripId]/(tabs)/itinerary.tsx",
+  );
+  await act(async () =>
+    itinerary.tree.root
+      .findAll(
+        (n) =>
+          n.type === "Text" &&
+          n.children.includes("남은 게시물 9개 계속 보기 →"),
+      )[0]
+      .parent.props.onPress(),
+  );
+  assert.equal(h.navigation.at(-1).params.postFilter, "pending");
+  await act(async () => itinerary.tree.unmount());
+  const list = await mountScreen(
+    harness(h.navigation.at(-1).params, raw),
+    "src/app/trip/[tripId]/(tabs)/candidates.tsx",
+  );
+  assert.equal(list.tree.root.findByType("FlatList").parent.props.data.length, 9);
+  assert.equal(
+    list.tree.root
+      .findByType("FlatList")
+      .parent.props.data.some((r) => r.id === post.id),
+    false,
+  );
+  await act(async () =>
+    list.tree.root
+      .findAll((n) => n.type === "Text" && n.children.includes("전체 10"))[0]
+      .parent.props.onPress(),
+  );
+  assert.equal(list.tree.root.findByType("FlatList").parent.props.data.length, 10);
+  assert.ok(words(list.tree).includes("일정에 연결됨"));
+  await act(async () => list.tree.unmount());
+});
+test("activity pill is compact beside the place title with a separate larger touch target", async () => {
+  const view = await mountScreen(
+    harness({ tripId: "paris" }),
+    "src/app/trip/[tripId]/(tabs)/itinerary.tsx",
+  );
+  const component = view.tree.root.findAll(
+    (n) => typeof n.type === "function" && n.type.name === "ActivityButton",
+  )[0];
+  assert.equal(component.parent.props.style.flexDirection, "row");
+  const touch = component.findAll((n) => n.type === "Pressable")[0];
+  assert.equal(touch.props.style.minHeight, 44);
+  assert.equal(touch.props.style.backgroundColor, undefined);
+  const pill = touch.findAll(
+    (n) => n.type === "View" && n.props.style.backgroundColor === "#E7EBE2",
+  )[0];
+  assert.equal(pill.props.style.minHeight, 26);
+  assert.equal(pill.findByType("Text").props.style.fontSize, 13);
+  await act(async () => view.tree.unmount());
 });

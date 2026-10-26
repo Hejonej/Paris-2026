@@ -387,3 +387,33 @@ test("chapter deletion and restoration persist all schedules and leave other cha
   assert.equal(restored.current.deleteTrip("missing").ok, false);
   await restored.close();
 });
+
+test("bulk deletion validates all selected IDs before a single persistent update", async () => {
+  let raw = null,
+    writes = 0;
+  const storage = {
+    getItem: async () => raw,
+    setItem: async (k, v) => {
+      raw = v;
+      writes++;
+    },
+  };
+  const view = await mount(storage);
+  const ids = view.current.trips.slice(0, 2).map((t) => t.id);
+  const before = JSON.stringify(view.current.trips);
+  assert.equal(view.current.deleteTrips([ids[0], "missing"]).ok, false);
+  assert.equal(JSON.stringify(view.current.trips), before);
+  assert.equal(writes, 0);
+  await act(async () =>
+    assert.equal(view.current.deleteTrips([...ids, ids[0]]).ok, true),
+  );
+  await view.close();
+  assert.equal(writes, 1);
+  const restored = await mount(storage);
+  assert.equal(restored.current.deletedTrips.length, 2);
+  assert.equal(
+    restored.current.trips.some((t) => ids.includes(t.id)),
+    false,
+  );
+  await restored.close();
+});
