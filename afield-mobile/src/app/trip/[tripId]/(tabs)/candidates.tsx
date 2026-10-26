@@ -35,9 +35,10 @@ export default function Candidates() {
       <Label>
         {trip?.name || "여행"} · 저장한 장소 {list.length}
       </Label>
-      <H>가보고 싶은 곳</H>
+      <H>가고 싶은 곳</H>
       <P>
-        원본 게시물과 실제 장소를 나누어 모아 둬요. 일정 배치는 별도로 선택해요.
+        가고 싶은 장소를 모아 두는 목록이에요. 저장만으로 일정에 들어가지는
+        않아요. 장소를 열어 ‘일정에 추가’를 눌러 주세요.
       </P>
       <Action
         title="Instagram JSON 가져오기"
@@ -85,7 +86,7 @@ export default function Candidates() {
         <P>
           {tab === "posts"
             ? "가져온 게시물이 없어요. 저장 컬렉션 JSON을 선택해 주세요."
-            : "아직 후보가 없어요. 게시물에서 장소를 확인하거나 새로운 곳을 발견해 보세요."}
+            : "아직 저장한 장소가 없어요. Instagram 저장 목록을 가져오거나 아래 예시 장소를 둘러보고 저장해 보세요."}
         </P>
       ) : null}
     </View>
@@ -100,7 +101,7 @@ export default function Candidates() {
       ListFooterComponent={
         tab === "places" ? (
           <Action
-            title="장소 발견하기"
+            title="예시 장소 둘러보기"
             secondary
             onPress={() =>
               router.push({

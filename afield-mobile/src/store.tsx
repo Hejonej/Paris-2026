@@ -59,6 +59,7 @@ type Store = {
     date: string,
     entryId: string,
     tag: ActivityTag,
+    customTag?: string,
   ) => Result;
   bindLocation: (
     tripId: string,
@@ -168,6 +169,10 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
                         typeof x.id === "string" &&
                         typeof x.name === "string" &&
                         typeof x.time === "string" &&
+                        (x.customTag === undefined ||
+                          (typeof x.customTag === "string" &&
+                            x.customTag.trim().length > 0 &&
+                            x.customTag.length <= 20)) &&
                         (x.tag === undefined ||
                           [
                             "shopping",
@@ -262,8 +267,15 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       if (result.ok) update(result.trips);
       return { ok: result.ok, message: result.message };
     },
-    setTag: (id, date, entryId, tag) => {
-      const result = setEntryTag(current.current, id, date, entryId, tag);
+    setTag: (id, date, entryId, tag, customTag) => {
+      const result = setEntryTag(
+        current.current,
+        id,
+        date,
+        entryId,
+        tag,
+        customTag,
+      );
       if (result.ok) update(result.trips);
       return { ok: result.ok, message: result.message };
     },
@@ -299,7 +311,8 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       update(addCandidate(current.current, id, p));
       return {
         ok: true,
-        message: "여행 후보에 담았어요. 후보 탭에서 확인할 수 있어요.",
+        message:
+          "가고 싶은 곳에 저장했어요. 하단 ‘가고 싶은 곳’에서 볼 수 있어요. 일정 추가는 별도로 선택해 주세요.",
       };
     },
     place: (id, p, name, date, time) => {

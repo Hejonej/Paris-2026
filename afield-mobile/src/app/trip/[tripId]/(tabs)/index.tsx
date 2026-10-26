@@ -7,7 +7,6 @@ import {
   tripDates,
   tripState,
   dateLabel,
-  places,
   tripPlaces,
 } from "../../../../data";
 import { useTrips } from "../../../../store";
@@ -30,7 +29,7 @@ export default function Home() {
   const next =
     trip.days.find((d) => d.date >= localDate && d.items.length) ||
     trip.days.find((d) => d.items.length);
-  const go = (screen: "itinerary" | "recommend" | "journal") =>
+  const go = (screen: "itinerary" | "candidates" | "journal") =>
     router.navigate({
       pathname: `/trip/[tripId]/${screen}`,
       params: { tripId },
@@ -78,7 +77,7 @@ export default function Home() {
             ? "다녀온 장소와 기억을 돌아볼 시간이에요."
             : next
               ? `${dateLabel(next.date)} · ${next.items[0].time} ${next.items[0].name}`
-              : "마음에 드는 장소를 후보에 담고, 원하는 날짜에 직접 배치해요."}
+              : "마음에 드는 장소를 가고 싶은 곳에 저장하고, 원하는 날짜에 직접 배치해요."}
         </P>
         <Action
           title={
@@ -86,7 +85,7 @@ export default function Home() {
               ? "기록 열기"
               : count
                 ? "일정 펼치기"
-                : "장소 발견하기"
+                : "가고 싶은 곳 보기"
           }
           onPress={() =>
             go(
@@ -94,7 +93,7 @@ export default function Home() {
                 ? "journal"
                 : count
                   ? "itinerary"
-                  : "recommend",
+                  : "candidates",
             )
           }
         />
@@ -159,7 +158,7 @@ export default function Home() {
             marginBottom: 12,
           }}
         >
-          <Text style={s.title}>저장한 장소 {trip.candidates.length} →</Text>
+          <Text style={s.title}>가고 싶은 곳 {trip.candidates.length}곳 →</Text>
           <Text
             style={{
               fontSize: 15,
@@ -175,35 +174,27 @@ export default function Home() {
           </Text>
         </Pressable>
       )}
-      {(count > 0 || state === "다녀온 여행") && (
+      {trip.candidates.length === 0 && (
         <Pressable
           accessibilityRole="button"
-          onPress={() => go("recommend")}
-          style={{ paddingVertical: 16 }}
+          onPress={() =>
+            router.push({
+              pathname: "/trip/[tripId]/instagram",
+              params: { tripId },
+            })
+          }
+          style={{
+            paddingVertical: 16,
+            borderTopWidth: 1,
+            borderColor: "#E1E3D9",
+          }}
         >
-          <Text style={s.title}>이번 여행의 발견 ↗</Text>
-          <P>{trip.city}에서 취향에 맞는 장면을 찾아요.</P>
+          <Text style={s.title}>Instagram 저장 목록에서 가져오기 →</Text>
+          <P>가고 싶은 곳을 모아 두고, 날짜가 정해지면 일정에 넣어요.</P>
         </Pressable>
       )}
-      <Pressable
-        accessibilityRole="button"
-        onPress={() =>
-          router.push({
-            pathname: "/trip/[tripId]/instagram",
-            params: { tripId },
-          })
-        }
-        style={{
-          paddingVertical: 16,
-          borderTopWidth: 1,
-          borderColor: "#E1E3D9",
-        }}
-      >
-        <Text style={s.title}>Instagram에 모아 둔 곳 가져오기 →</Text>
-        <P>저장 컬렉션 JSON에서 여행의 영감을 이어가요.</P>
-      </Pressable>
       <Label>
-        {count}개의 일정 · {trip.candidates.length}개의 후보
+        {count}개의 일정 · {trip.candidates.length}곳 저장
       </Label>
     </Page>
   );

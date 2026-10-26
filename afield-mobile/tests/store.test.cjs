@@ -299,3 +299,49 @@ test("user activity tags survive restart alongside existing MUST and route prefe
   assert.equal(restored.current.trips[1].days.length, 0);
   await restored.close();
 });
+
+test("custom activity labels survive restart, reject invalid input and clear on standard selection", async () => {
+  let raw = null;
+  const storage = {
+    getItem: async () => raw,
+    setItem: async (k, v) => {
+      raw = v;
+    },
+  };
+  const view = await mount(storage);
+  await act(async () => {
+    assert.equal(
+      view.current.setTag(
+        "paris",
+        "2026-11-12",
+        "original-1",
+        "sightseeing",
+        "  야경  ",
+      ).ok,
+      true,
+    );
+    assert.equal(
+      view.current.setTag("paris", "2026-11-12", "original-1", "other", " ").ok,
+      false,
+    );
+    assert.equal(
+      view.current.setTag(
+        "paris",
+        "2026-11-12",
+        "original-1",
+        "other",
+        "a".repeat(21),
+      ).ok,
+      false,
+    );
+  });
+  await view.close();
+  const restored = await mount(storage);
+  assert.equal(restored.current.trips[0].days[0].items[0].customTag, "야경");
+  assert.equal(restored.current.trips[0].days[0].items[0].must, true);
+  await act(async () =>
+    restored.current.setTag("paris", "2026-11-12", "original-1", "shopping"),
+  );
+  assert.equal(restored.current.trips[0].days[0].items[0].customTag, undefined);
+  await restored.close();
+});

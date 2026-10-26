@@ -72,7 +72,8 @@ export function suggestWalkStart(
       location: {
         label: previousLocation.label + " 앞 · 산책 시작",
         query: previousLocation.query,
-        description: "앞 일정을 마친 곳의 바깥에서 골목 산책을 이어가요.",
+        description:
+          "앞 일정을 마친 뒤 마레의 골목과 작은 상점을 둘러보는 자유 산책이에요. 정해진 도착점 없이 걷다가 마음에 드는 곳에서 쉬어도 좋아요.",
       },
       basis: "previous",
       linkedEntryId: previous.id,

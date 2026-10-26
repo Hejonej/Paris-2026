@@ -20,6 +20,7 @@ export type Entry = {
   placeId?: string;
   must?: boolean;
   tag?: ActivityTag;
+  customTag?: string;
   location?: EntryLocation;
 };
 export type Day = {

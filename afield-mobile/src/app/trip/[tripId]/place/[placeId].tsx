@@ -174,7 +174,7 @@ export default function Place() {
             disabled={!manualQuery.trim()}
           />
           <Action
-            title="위치를 확인했어요 · 후보에 반영"
+            title="위치를 확인했어요 · 저장한 장소에 반영"
             secondary
             disabled={!manualName.trim() || !manualQuery.trim()}
             onPress={() =>
@@ -212,7 +212,7 @@ export default function Place() {
       )}
 
       <Action
-        title={saved ? "✓ 여행 후보에 저장됨" : "후보에 저장"}
+        title={saved ? "✓ 가고 싶은 곳에 저장됨" : "가고 싶은 곳에 저장"}
         disabled={saved}
         secondary
         onPress={() => {
@@ -222,7 +222,7 @@ export default function Place() {
       />
       {saved && (
         <Action
-          title="저장한 후보 보기 →"
+          title="가고 싶은 곳 보기 →"
           secondary
           onPress={() =>
             router.dismissTo({
@@ -234,9 +234,17 @@ export default function Place() {
       )}
       {confirmed && (
         <Pressable
-          accessibilityRole="link"
+          accessibilityRole="button"
           accessibilityLabel={`${info.name} 현재 위치에서 경로 찾기`}
-          style={{ paddingVertical: 18 }}
+          style={{
+            minHeight: 56,
+            padding: 14,
+            marginVertical: 12,
+            backgroundColor: "#E7EBE2",
+            borderWidth: 1,
+            borderColor: ui.line,
+            borderRadius: 16,
+          }}
           onPress={() =>
             Linking.openURL(
               navigationUrl({

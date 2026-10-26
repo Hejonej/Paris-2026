@@ -183,9 +183,9 @@ for (const arrayParams of [false, true])
     );
     const view = await mount(h);
     const before = JSON.stringify(view.store.trips[0].days);
-    assert.ok(words(view.tree).includes("아직 후보가 없어요"));
+    assert.ok(words(view.tree).includes("아직 저장한 장소가 없어요"));
     const save = view.tree.root.findAll(
-      (x) => x.type === "Text" && x.children.includes("후보에 저장"),
+      (x) => x.type === "Text" && x.children.includes("가고 싶은 곳에 저장"),
     )[0].parent;
     await act(async () => save.props.onPress());
     const candidate = view.tree.root.findByType("CandidateScreen");
@@ -198,7 +198,7 @@ for (const arrayParams of [false, true])
     assert.equal(JSON.stringify(view.store.trips[0].days), before);
     assert.equal(view.store.trips[1].candidates.length, 0);
     const go = view.tree.root.findAll(
-      (x) => x.type === "Text" && x.children.includes("저장한 후보 보기 →"),
+      (x) => x.type === "Text" && x.children.includes("가고 싶은 곳 보기 →"),
     )[0].parent;
     await act(async () => go.props.onPress());
     assert.equal(h.navigation[0].params.tripId, "paris");
@@ -405,7 +405,7 @@ test("entry editor binds a selected place without replacing the user schedule na
   assert.equal(entry.name, "Le Marais 탐색");
   assert.equal(entry.must, true);
   assert.equal(entry.location.placeId, "ofr");
-  assert.equal(h.navigation[0].back, true);
+  assert.equal(h.navigation[0].params.updatedEntry, "original-1");
   await act(async () => view.tree.unmount());
 });
 test("detail back button has a trip-home fallback when opened without history", async () => {
@@ -570,7 +570,8 @@ test("JSON screen imports only on approval and exposes imported posts after rest
     reviewed.tree.root
       .findAll(
         (n) =>
-          n.type === "Text" && n.children.includes("선택한 1개를 여행 후보로"),
+          n.type === "Text" &&
+          n.children.includes("선택한 1개를 가고 싶은 곳에 저장"),
       )[0]
       .parent.props.onPress(),
   );
@@ -652,7 +653,7 @@ test("an imported candidate requires explicit location confirmation before sched
       .findAll(
         (n) =>
           n.type === "Text" &&
-          n.children.includes("위치를 확인했어요 · 후보에 반영"),
+          n.children.includes("위치를 확인했어요 · 저장한 장소에 반영"),
       )[0]
       .parent.props.onPress(),
   );
@@ -772,5 +773,75 @@ test("activity badge opens choices and persists the user selection in the schedu
         n.props.accessibilityLabel === "Le Marais 탐색 분류: 카페/디저트",
     ).length,
   );
+  await act(async () => view.tree.unmount());
+});
+
+test("custom tag entry updates the schedule and returns to its larger button", async () => {
+  const view = await mountScreen(
+    harness({ tripId: "paris" }),
+    "src/app/trip/[tripId]/(tabs)/itinerary.tsx",
+  );
+  const badge = view.tree.root.findAll(
+    (n) =>
+      n.type === "Pressable" &&
+      n.props.accessibilityLabel === "Le Marais 탐색 분류: 관광",
+  )[0];
+  assert.ok(badge.props.style.minHeight >= 44);
+  await act(async () => badge.props.onPress());
+  const input = view.tree.root
+    .findAllByType("TextInput")
+    .find((n) => n.props.accessibilityLabel === "직접 입력할 태그");
+  await act(async () => input.props.onChangeText("  빈티지  "));
+  await act(async () =>
+    view.tree.root
+      .findAll(
+        (n) => n.type === "Text" && n.children.includes("내 태그 저장"),
+      )[0]
+      .parent.props.onPress(),
+  );
+  assert.equal(view.store.trips[0].days[0].items[0].customTag, "빈티지");
+  assert.ok(
+    view.tree.root.findAll(
+      (n) =>
+        n.type === "Pressable" &&
+        n.props.accessibilityLabel === "Le Marais 탐색 분류: 빈티지",
+    ).length,
+  );
+  await act(async () => view.tree.unmount());
+});
+test("home focuses on saved places and keeps examples and import off a populated home", async () => {
+  const view = await mountScreen(
+    harness({ tripId: "paris" }),
+    "src/app/trip/[tripId]/(tabs)/index.tsx",
+  );
+  assert.ok(words(view.tree).includes("Instagram 저장 목록에서 가져오기"));
+  await act(async () => view.store.saveCandidate("paris", "ofr"));
+  assert.ok(words(view.tree).includes("가고 싶은 곳"));
+  assert.equal(words(view.tree).includes("이번 여행의 발견"), false);
+  assert.equal(
+    words(view.tree).includes("Instagram 저장 목록에서 가져오기"),
+    false,
+  );
+  await act(async () => view.tree.unmount());
+});
+test("selected next stop explains the actual preceding recommended start", async () => {
+  const h = harness({
+    tripId: "paris",
+    date: "2026-11-12",
+    updatedEntry: "original-2",
+  });
+  const view = await mountScreen(
+    h,
+    "src/app/trip/[tripId]/(tabs)/itinerary.tsx",
+  );
+  await act(async () =>
+    view.store.bindLocation("paris", "2026-11-12", "original-2", {
+      label: "Ofr.",
+      query: "Ofr Paris",
+      description: "서점",
+      placeId: "ofr",
+    }),
+  );
+  assert.ok(words(view.tree).includes("앞 산책은 Square du Temple"));
   await act(async () => view.tree.unmount());
 });

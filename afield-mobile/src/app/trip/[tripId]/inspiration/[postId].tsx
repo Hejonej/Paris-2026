@@ -110,7 +110,7 @@ export default function Inspiration() {
         />
       </View>
       <Action
-        title={`선택한 ${selected.size}개를 여행 후보로`}
+        title={`선택한 ${selected.size}개를 가고 싶은 곳에 저장`}
         disabled={!selected.size}
         onPress={() => {
           const result = confirmInstagram(
@@ -135,7 +135,7 @@ export default function Inspiration() {
         </Text>
       )}
       <Action
-        title="여행 후보에서 장소 확인하기 →"
+        title="가고 싶은 곳에서 위치 확인하기 →"
         secondary
         onPress={() =>
           router.dismissTo({

@@ -59,7 +59,10 @@ export default function TripTabs() {
       />
       <Tabs.Screen
         name="candidates"
-        options={{ title: "후보", tabBarIcon: icon("bookmark-outline") }}
+        options={{
+          title: "가고 싶은 곳",
+          tabBarIcon: icon("bookmark-outline"),
+        }}
       />
       <Tabs.Screen
         name="journal"

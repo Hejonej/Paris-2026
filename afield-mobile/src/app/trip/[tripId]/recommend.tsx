@@ -21,10 +21,11 @@ export default function Recommend() {
     (trip.city.toLowerCase().includes("paris") || trip.city.includes("파리"));
   return (
     <Page>
-      <Label>취향을 따라 발견하는 장소</Label>
-      <H>이번 여행의 발견</H>
+      <Label>Paris 예시 장소</Label>
+      <H>예시 장소 둘러보기</H>
       <P>
-        직접 고른 예시 장소예요. 후보 저장과 일정 추가는 각각 선택할 수 있어요.
+        사용 방법을 살펴볼 수 있는 예시 목록이에요. 장소를 열어 ‘가고 싶은 곳에
+        저장’하거나 날짜를 골라 ‘일정에 추가’할 수 있어요.
       </P>
       {paris ? (
         places.map((p) => (
@@ -59,7 +60,9 @@ export default function Recommend() {
               <Text style={s.title}>{p.name} ›</Text>
               <Text style={{ fontSize: 12, color: ui.muted, marginTop: 7 }}>
                 {p.area} ·{" "}
-                {trip.candidates.includes(p.id) ? "후보에 저장됨" : "둘러보기"}
+                {trip.candidates.includes(p.id)
+                  ? "가고 싶은 곳에 저장됨"
+                  : "둘러보기"}
               </Text>
             </View>
           </Pressable>

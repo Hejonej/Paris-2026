@@ -53,7 +53,11 @@ export default function EntryPlace() {
       description,
       placeId,
     });
-    if (result.ok) router.back();
+    if (result.ok)
+      router.replace({
+        pathname: "/trip/[tripId]/itinerary",
+        params: { tripId, date, updatedEntry: entryId },
+      });
     else setError(result.message);
   }
   return (
@@ -67,8 +71,11 @@ export default function EntryPlace() {
         </Label>
         <H>{entry.name}</H>
         <P>
-          실제로 찾아갈 장소나 산책 시작 지점을 정해 주세요. 일정 이름과 시간은
-          그대로 유지돼요.
+          {entryLocation(entry)
+            ? "연결한 장소나 설명을 바꿀 수 있어요. 일정 이름과 시간, MUST는 유지돼요."
+            : stop?.suggestion
+              ? "산책을 시작할 위치를 추천해 미리 채웠어요. 그대로 저장하거나 원하는 시작점으로 바꿔 주세요."
+              : "방문할 곳이 아직 비어 있는 일정이에요. 이름만 정해 둔 활동에 실제 장소를 연결하면 길을 찾을 수 있어요. 앞에 추천 산책이 있으면 선택한 장소에 맞춰 시작점도 다시 제안해요. 일정 이름과 시간, MUST는 유지돼요."}
         </P>
         {stop?.suggestion && (
           <View

@@ -31,7 +31,7 @@ import {
 } from "../../../../routing";
 import { ui } from "../../../../theme";
 export default function Itinerary() {
-  const { tripId, date } = useTripParams();
+  const { tripId, date, updatedEntry } = useTripParams();
   const { trips, setMode, setTag } = useTrips();
   const trip = trips.find((t) => t.id === tripId);
   const [selection, setSelection] = useState(date || "");
@@ -42,6 +42,11 @@ export default function Itinerary() {
     setError("");
   }, [date, tripId]);
   const day = trip?.days.find((d) => d.date === selection) || trip?.days[0];
+  const updatedIndex = day?.items.findIndex((e) => e.id === updatedEntry) ?? -1;
+  const updatedWalk =
+    trip && day && updatedIndex > 0
+      ? journeyStop(trip, day, updatedIndex - 1).suggestion
+      : undefined;
   const editLocation = (item: Entry) =>
     router.push({
       pathname: "/trip/[tripId]/entry/[entryId]",
@@ -116,6 +121,23 @@ export default function Itinerary() {
           <P>
             {day.items.length}개의 일정 · 경로 찾기는 현재 위치에서 출발해요.
           </P>
+          {!!updatedEntry && day.items.some((e) => e.id === updatedEntry) && (
+            <View
+              accessibilityRole="alert"
+              style={{
+                padding: 14,
+                backgroundColor: "#E7EBE2",
+                borderRadius: 12,
+                marginBottom: 12,
+              }}
+            >
+              <Text style={{ color: ui.accent, fontSize: 15, lineHeight: 23 }}>
+                {updatedWalk?.linkedEntryId === updatedEntry
+                  ? `방문할 장소를 연결했어요. 앞 산책은 ${updatedWalk.location.label}에서 시작하도록 추천했어요.`
+                  : "방문할 장소를 연결했어요. 이제 경로 찾기로 이동할 수 있어요."}
+              </Text>
+            </View>
+          )}
           {day.items.map((item, index) => {
             const stop = journeyStop(trip!, day, index);
             const location = stop.location;
@@ -164,14 +186,21 @@ export default function Itinerary() {
                       <ActivityButton
                         name={item.name}
                         value={entryActivity(item, trip)}
-                        onChange={(tag) => {
-                          const result = setTag(tripId, day.date, item.id, tag);
+                        customValue={item.customTag}
+                        onChange={(tag, customTag) => {
+                          const result = setTag(
+                            tripId,
+                            day.date,
+                            item.id,
+                            tag,
+                            customTag,
+                          );
                           if (!result.ok) setError(result.message);
                         }}
                       />
                     </View>
-                    <Text style={styles.description} numberOfLines={2}>
-                      {entryDescription(item)}
+                    <Text style={styles.description}>
+                      {entryDescription(stop.suggestion ? stop.entry : item)}
                     </Text>
                     {location && (
                       <Text style={styles.location} numberOfLines={1}>
@@ -191,6 +220,12 @@ export default function Itinerary() {
                         {stop.suggestion.reason}
                       </Text>
                     )}
+                    {!location && (
+                      <Text style={styles.description}>
+                        방문할 곳 미정 · 활동 이름만 정해 둔 상태예요. 실제
+                        장소를 고르면 길을 찾을 수 있어요.
+                      </Text>
+                    )}
                     <View style={styles.actions}>
                       {item.must && <Text style={styles.must}>MUST</Text>}
                       <Pressable
@@ -204,7 +239,11 @@ export default function Itinerary() {
                         style={styles.smallButton}
                       >
                         <Text style={styles.link}>
-                          {location ? "경로 찾기 ↗" : "방문할 곳 선택 ＋"}
+                          {location
+                            ? "경로 찾기 ↗"
+                            : /서점/.test(item.name)
+                              ? "서점 고르기 ＋"
+                              : "방문할 곳 고르기 ＋"}
                         </Text>
                       </Pressable>
                       {location && (
@@ -357,7 +396,7 @@ export default function Itinerary() {
       )}
       <View style={{ marginTop: 20 }}>
         <Action
-          title={day ? "이 날짜에 갈 장소 찾기" : "여행 후보 찾기"}
+          title={day ? "이 날짜에 갈 장소 찾기" : "예시 장소 둘러보기"}
           secondary
           onPress={() =>
             router.push({
@@ -399,8 +438,16 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 5,
   },
-  smallButton: { minHeight: 44, justifyContent: "center" },
-  link: { fontSize: 14, fontWeight: "600", color: ui.accent },
+  smallButton: {
+    minHeight: 48,
+    justifyContent: "center",
+    paddingHorizontal: 14,
+    backgroundColor: "#E7EBE2",
+    borderWidth: 1,
+    borderColor: "#CFD8C8",
+    borderRadius: 24,
+  },
+  link: { fontSize: 15, fontWeight: "600", color: ui.accent },
   mutedLink: { fontSize: 13, color: ui.muted },
   leg: {
     marginLeft: 58,
@@ -422,5 +469,15 @@ const styles = StyleSheet.create({
     borderRadius: 9,
   },
   duration: { fontSize: 13, lineHeight: 20, color: ui.muted, marginTop: 10 },
-  routeButton: { minHeight: 44, justifyContent: "center" },
+  routeButton: {
+    minHeight: 48,
+    justifyContent: "center",
+    alignSelf: "flex-start",
+    paddingHorizontal: 14,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: "#B8C6B4",
+    borderRadius: 24,
+    backgroundColor: "#E2E8DB",
+  },
 });

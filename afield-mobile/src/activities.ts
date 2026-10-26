@@ -27,7 +27,12 @@ export function inferActivity(name: string, category = ""): ActivityTag {
       )
     )
       return "stay";
-    if (/카페|커피|디저트|베이커리|caf[eé]|coffee|dessert|patisserie|pâtisserie|bakery|tea.?room/i.test(text)) return "cafe";
+    if (
+      /카페|커피|디저트|베이커리|caf[eé]|coffee|dessert|patisserie|pâtisserie|bakery|tea.?room/i.test(
+        text,
+      )
+    )
+      return "cafe";
     if (
       /식사|점심|저녁|아침 ?식사|브런치|레스토랑|식당|restaurant|lunch|dinner|breakfast|brunch/i.test(
         text,
@@ -70,6 +75,7 @@ export function setEntryTag(
   date: string,
   entryId: string,
   tag: ActivityTag,
+  customTag?: string,
 ) {
   const fail = (message: string) => ({ trips, ok: false, message });
   const day = trips
@@ -77,6 +83,11 @@ export function setEntryTag(
     ?.days.find((d) => d.date === date);
   if (!day?.items.some((e) => e.id === entryId))
     return fail("분류할 일정을 찾을 수 없어요.");
+  if (
+    customTag !== undefined &&
+    (!customTag.trim() || customTag.trim().length > 20)
+  )
+    return fail("태그는 1~20자로 입력해 주세요.");
   if (!activityTags.includes(tag)) return fail("분류를 다시 선택해 주세요.");
   return {
     ok: true,
@@ -90,7 +101,9 @@ export function setEntryTag(
                 ? {
                     ...d,
                     items: d.items.map((e) =>
-                      e.id === entryId ? { ...e, tag } : e,
+                      e.id === entryId
+                        ? { ...e, tag, customTag: customTag?.trim() }
+                        : e,
                     ),
                   }
                 : d,
