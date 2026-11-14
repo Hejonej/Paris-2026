@@ -455,3 +455,54 @@ test("every nonempty transport combination persists and reaches the AI request w
   delete t.planning.modes; t.planning.mode = "driving";
   assert.equal(planner.routeMode(t.planning), "driving");
 });
+
+test("undecided visits get one automatic AI repair request, keeping accepted rows protected", async () => {
+  const t = trip(); t.planning.selectedIds = ["p1", "p2"]; t.planning.mustIds = ["p2"];
+  const before = JSON.stringify(t);
+  const requests = [];
+  const draft = await ai.generatePlan(t, undefined, async (_, options) => {
+    const payload = JSON.parse(options.body); requests.push(payload);
+    return { ok: true, json: async () => ({ suggestions: requests.length === 1
+      ? [suggestion("p1", "09:00"), { type: "ADD", action: "Test Shop 나중에 방문" }]
+      : [suggestion("p2", "10:30")] }) };
+  });
+  assert.equal(requests.length, 2);
+  assert.deepEqual(requests[1].places.map((p) => p.id), ["p2"]);
+  assert.ok(requests[1].itinerary[0].existing.some((e) => e.placeId === "p1" && e.immutable));
+  assert.equal(draft.rows.length, 2); assert.equal(draft.unplaced.length, 0);
+  assert.equal(JSON.stringify(t), before);
+  assert.ok(requests[1].request.includes("choose dates and times yourself"));
+  assert.equal(planner.applyDraft([{ ...t, planDraft: draft }], t.id, draft.rows.map((r) => r.id)).ok, true);
+});
+
+test("empty AI responses retry only once and never imply the user must supply visit times", async () => {
+  const t = trip(); let calls = 0;
+  const draft = await ai.generatePlan(t, undefined, async () => {
+    calls++; return { ok: true, json: async () => ({ suggestions: [] }) };
+  });
+  assert.equal(calls, 2); assert.equal(draft.rows.length, 0);
+  assert.equal(draft.unplaced.length, t.planning.selectedIds.length);
+  assert.ok(draft.unplaced.every((p) => p.reason.includes("미정으로 저장한 것은 문제가 아니에요")));
+});
+
+test("repair network failure retains a valid first proposal and never creates a local fallback", async () => {
+  const t = trip(); t.planning.selectedIds = ["p1", "p2"]; let calls = 0;
+  const draft = await ai.generatePlan(t, undefined, async () => {
+    if (++calls === 2) throw Error("network failure");
+    return { ok: true, json: async () => ({ suggestions: [suggestion("p1", "09:00")] }) };
+  });
+  assert.equal(calls, 2); assert.equal(draft.rows.length, 1);
+  assert.equal(draft.rows[0].placeId, "p1"); assert.equal(draft.unplaced[0].id, "p2");
+  assert.ok(draft.issues.some((issue) => issue.includes("재시도를 완료하지 못했어요")));
+});
+
+
+test("real server ID(name) action syntax is accepted only for an exact selected ID and exact matching name", () => {
+  const t = trip();
+  const decode = (action) => ai.decodePlan(t, { suggestions: [{ type: "ADD", action }] });
+  assert.equal(decode("2027-02-02 09:00에 p2(Test Shop) 추가").rows[0].placeId, "p2");
+  assert.equal(decode("2027-02-02 09:00에 p2 추가").rows[0].placeId, "p2");
+  assert.equal(decode("2027-02-02 09:00에 wrong(Test Shop) 추가").rows.length, 0);
+  assert.equal(decode("2027-02-02 09:00에 p2(Wrong Shop) 추가").rows.length, 0);
+  assert.equal(decode("2027-02-02 09:00에 p2(Test Shop) 추가 그리고 p1 방문").rows.length, 0);
+});

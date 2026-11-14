@@ -206,7 +206,7 @@ export default function Plan() {
         {!draft.rows.length && (
           <View style={{ padding: 16, borderRadius: 14, backgroundColor: ui.warm, marginBottom: 20 }}>
             <Text style={s.title}>선택한 {trip.planning?.selectedIds.length || 0}곳 중 배치된 장소가 없어요</Text>
-            <P>장소가 삭제된 것은 아니에요. 아래 장소별 이유를 확인해 주세요.</P>
+            <P>미정으로 저장한 것은 문제가 아니에요. AI 자동 배치가 완료되지 않았고, 장소는 그대로 보관돼요.</P>
             <Action title="조건 수정하고 다시 시도" tone="primary" onPress={() => { setReview(false); setSection("places"); setFeedbackKey((v) => v + 1); }} />
           </View>
         )}
@@ -355,7 +355,7 @@ export default function Plan() {
           {!!eligible.length && <Action title="미배치 장소 모두 선택" tone="secondary" onPress={() => { setC((prev) => ({ ...prev, selectedIds: eligible.slice(0, 100).map((p) => p.id), knownPlaceIds: eligible.map((p) => p.id) })); setSection("places"); }} />}
         </View>
         {!!error && <Text accessibilityRole="alert" style={{ color: ui.danger, backgroundColor: ui.dangerSoft, padding: 14, borderRadius: 12, marginBottom: 16 }}>{error}</Text>}
-        {busy && <View style={{ padding: 16, backgroundColor: ui.blueSoft, borderRadius: 12, marginBottom: 16 }}><ActivityIndicator /><P>AI가 선택한 {active.length}곳을 배치하고 있어요.</P><Action title="제안 생성 취소" tone="link" onPress={() => controller.current?.abort()} /></View>}
+        {busy && <View style={{ padding: 16, backgroundColor: ui.blueSoft, borderRadius: 12, marginBottom: 16 }}><ActivityIndicator /><P>AI가 선택한 {active.length}곳의 날짜와 시간을 정하고 있어요. 빠진 장소는 자동으로 한 번 더 시도해요.</P><Action title="제안 생성 취소" tone="link" onPress={() => controller.current?.abort()} /></View>}
         {!trip.days.length && (
           <Action
             title="먼저 여행 날짜 정하기"
