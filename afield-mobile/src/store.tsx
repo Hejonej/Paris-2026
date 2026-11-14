@@ -130,6 +130,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
                 typeof t.id === "string" &&
                 typeof t.name === "string" &&
                 typeof t.city === "string" &&
+                (t.coverUri === undefined || (typeof t.coverUri === "string" && (t.coverUri === "" || /^file:\/\//.test(t.coverUri)))) &&
                 (t.planning === undefined || validConditions(t.planning)) &&
                 (t.planDraft === undefined || validDraft(t.planDraft)) &&
                 (t.deletedAt === undefined ||

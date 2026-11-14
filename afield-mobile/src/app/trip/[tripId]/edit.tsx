@@ -1,8 +1,10 @@
+import { chooseTripPhoto } from "../../../tripPhoto";
+import { cover } from "../../../data";
 import { CitySearch, TripDates } from "../../../tripFields";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "expo-router";
-import { KeyboardAvoidingView, Platform, Text, View } from "react-native";
-import { Page, H, P, Label, Field, Action } from "../../../ui";
+import { Text, View } from "react-native";
+import { Page, H, P, Label, Field, Action, Photo } from "../../../ui";
 import { useTripParams } from "../../../route";
 import { useTrips } from "../../../store";
 import { editTrip } from "../../../tripEditing";
@@ -10,15 +12,25 @@ import { ui } from "../../../theme";
 export default function EditTrip() {
   const { tripId } = useTripParams();
   const router = useRouter();
-  const { trips, edit } = useTrips();
+  const { trips, edit, ready } = useTrips();
   const trip = trips.find((t) => t.id === tripId);
   const [name, setName] = useState(trip?.name || "");
   const [city, setCity] = useState(trip?.city || "");
   const [country, setCountry] = useState(trip?.country || "");
   const [start, setStart] = useState(trip?.start || "");
   const [end, setEnd] = useState(trip?.end || "");
+  const [coverUri, setCoverUri] = useState(trip?.coverUri || "");
+  const [picking, setPicking] = useState(false);
+  const pickingRef = useRef(false);
   const [error, setError] = useState("");
   const submitting = useRef(false);
+  const initialized = useRef(false);
+  useEffect(() => {
+    if (!ready || !trip || initialized.current) return;
+    initialized.current = true;
+    setName(trip.name); setCity(trip.city); setCountry(trip.country || "");
+    setStart(trip.start); setEnd(trip.end); setCoverUri(trip.coverUri || "");
+  }, [ready, trip]);
   if (!trip)
     return (
       <Page>
@@ -29,8 +41,9 @@ export default function EditTrip() {
         />
       </Page>
     );
-  const details = { name, city, country, start, end };
+  const details = { name, city, country, start, end, coverUri };
   const changed =
+    coverUri !== (trip.coverUri || "") ||
     name !== trip.name ||
     city !== trip.city ||
     country !== (trip.country || "") ||
@@ -38,7 +51,7 @@ export default function EditTrip() {
     end !== trip.end;
   const preview = editTrip(trips, tripId, details);
   function save() {
-    if (submitting.current) return;
+    if (submitting.current || pickingRef.current) return;
     const result = edit(tripId, details);
     if (!result.ok) {
       setError(result.message);
@@ -48,13 +61,20 @@ export default function EditTrip() {
     router.back();
   }
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
       <Page>
         <H>챕터 수정</H>
         <P>날짜가 정해졌거나 여행 계획이 바뀌었나요?</P>
+        <Label>대표 사진</Label>
+        <Photo uri={coverUri || cover(city)} height={180} />
+        <Action title={picking ? "사진 불러오는 중…" : "사진 보관함에서 선택"} tone="secondary" disabled={picking} onPress={async () => {
+          if (pickingRef.current) return;
+          pickingRef.current = true; setPicking(true); setError("");
+          try { const uri = await chooseTripPhoto(); if (uri) setCoverUri(uri); }
+          catch (e) { setError(e instanceof Error ? e.message : "사진을 가져오지 못했어요. 사진 접근 설정을 확인하거나 다른 사진을 선택해 주세요."); }
+          finally { pickingRef.current = false; setPicking(false); }
+        }} />
+        {!!coverUri && <Action title="기본 사진으로 되돌리기" tone="link" disabled={picking} onPress={() => setCoverUri("")} />}
+        <P>여행 목록과 여행 홈에 표시해요. 변경사항을 저장하면 적용돼요.</P>
         <Label>여행 이름</Label>
         <Field
           accessibilityLabel="여행 이름"
@@ -118,8 +138,7 @@ export default function EditTrip() {
             {error}
           </Text>
         )}
-        <Action title="변경사항 저장" disabled={!changed} onPress={save} />
+        <Action title="변경사항 저장" disabled={!changed || picking} onPress={save} />
       </Page>
-    </KeyboardAvoidingView>
   );
 }

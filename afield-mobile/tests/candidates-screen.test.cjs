@@ -82,6 +82,7 @@ function harness(params, initialRaw = null, options = {}) {
       },
     }).outputText;
     const resolver = (name) => {
+      if (name === "expo-image-picker") return { launchImageLibraryAsync: async () => options.photoResult || { canceled: true } };
       if (name === "expo-document-picker")
         return {
           getDocumentAsync: async () =>
@@ -89,6 +90,9 @@ function harness(params, initialRaw = null, options = {}) {
         };
       if (name === "expo-file-system/legacy")
         return {
+          documentDirectory: "file:///test-documents/",
+          makeDirectoryAsync: async () => {},
+          copyAsync: async () => { if (options.photoCopyError) throw Error("사진을 저장하지 못했어요."); },
           readAsStringAsync: async () => {
             if (options.legacyError) throw Error("legacy read error");
             return options.fileText || "";
@@ -1501,4 +1505,47 @@ test("default date and suggested time add without editing; a conflict is visible
   assert.equal(detail.store.trips[0].days[0].items.length, initialCount + 1);
   assert.equal(h.navigation.at(-1).params.date, day.date);
   await act(async () => detail.tree.unmount());
+});
+
+
+test("trip cover selection previews, saves persistently and can restore the default without altering itinerary", async () => {
+  const h = harness({ tripId: "paris" }, null, { photoResult: { canceled: false, assets: [{ uri: "file:///cache/chosen.jpg", fileSize: 3000 }] } });
+  const form = await mountScreen(h, "src/app/trip/[tripId]/edit.tsx");
+  const before = JSON.stringify(form.store.trips[0].days);
+  const click = async (view, label) => act(async () => view.tree.root.findAll((n) => n.type === "Text" && n.children.includes(label))[0].parent.props.onPress());
+  await click(form, "사진 보관함에서 선택");
+  assert.equal(form.store.trips[0].coverUri, undefined);
+  await click(form, "변경사항 저장");
+  assert.match(form.store.trips[0].coverUri, /^file:\/\/\/test-documents\/trip-covers\//);
+  const saved = form.store.trips[0].coverUri;
+  assert.equal(h.load("src/images.ts").imageSource(saved).uri, saved);
+  assert.equal(JSON.stringify(form.store.trips[0].days), before);
+  const raw = h.raw;
+  await act(async () => form.tree.unmount());
+  const restarted = await mountScreen(harness({ tripId: "paris" }, raw), "src/app/trip/[tripId]/edit.tsx");
+  assert.equal(restarted.store.trips[0].coverUri, saved);
+  await click(restarted, "기본 사진으로 되돌리기");
+  await click(restarted, "변경사항 저장");
+  assert.equal(restarted.store.trips[0].coverUri, "");
+  assert.equal(JSON.stringify(restarted.store.trips[0].days), before);
+  await act(async () => restarted.tree.unmount());
+});
+
+test("cancelling photo picker keeps the existing cover", async () => {
+  const h = harness({ tripId: "paris" }, null, { photoResult: { canceled: true } });
+  const form = await mountScreen(h, "src/app/trip/[tripId]/edit.tsx");
+  await act(async () => form.tree.root.findAll((n) => n.type === "Text" && n.children.includes("사진 보관함에서 선택"))[0].parent.props.onPress());
+  assert.equal(form.store.trips[0].coverUri, undefined);
+  assert.equal(form.tree.root.findAll((n) => n.type === "Text" && n.children.includes("변경사항 저장"))[0].parent.props.disabled, true);
+  await act(async () => form.tree.unmount());
+});
+
+
+test("photo copy failure leaves saved cover unchanged and displays an error", async () => {
+  const h = harness({ tripId: "paris" }, null, { photoResult: { canceled: false, assets: [{ uri: "file:///cache/photo.jpg" }] }, photoCopyError: true });
+  const view = await mountScreen(h, "src/app/trip/[tripId]/edit.tsx");
+  await act(async () => view.tree.root.findAll((n) => n.type === "Text" && n.children.includes("사진 보관함에서 선택"))[0].parent.props.onPress());
+  assert.equal(view.store.trips[0].coverUri, undefined);
+  assert.ok(words(view.tree).includes("사진을 가져오지 못했어요."));
+  await act(async () => view.tree.unmount());
 });

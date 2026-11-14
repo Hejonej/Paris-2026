@@ -33,6 +33,7 @@ export type Day = {
   travelModes?: Record<string, TravelMode>;
 };
 export type Trip = {
+  coverUri?: string;
   planning?: PlanningConditions;
   planDraft?: PlanDraft;
   deletedAt?: string;

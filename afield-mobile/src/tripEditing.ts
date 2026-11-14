@@ -2,13 +2,15 @@ import { makeDays } from "./data";
 import type { Trip } from "./data";
 export type TripDetails = Pick<
   Trip,
-  "name" | "city" | "start" | "end" | "country"
+  "name" | "city" | "start" | "end" | "country" | "coverUri"
 >;
 export const validDate = (value: string) =>
   /^\d{4}-\d{2}-\d{2}$/.test(value) &&
   Number.isFinite(Date.parse(value + "T00:00:00Z")) &&
   new Date(value + "T00:00:00Z").toISOString().slice(0, 10) === value;
 export function validateTripDetails(details: TripDetails): string {
+  if (details.coverUri !== undefined && (typeof details.coverUri !== "string" || details.coverUri.length > 2000 || (details.coverUri !== "" && !/^file:\/\//.test(details.coverUri))))
+    return "대표 사진을 다시 선택해 주세요.";
   if (!details.name.trim() || !details.city.trim())
     return "여행 이름과 도시를 입력해 주세요.";
   if (details.name.trim().length > 60 || details.city.trim().length > 60)

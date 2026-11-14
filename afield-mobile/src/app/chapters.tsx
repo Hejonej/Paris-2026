@@ -145,7 +145,7 @@ export default function Chapters() {
             >
               <View style={styles.photoWrap}>
                 <Image
-                  source={imageSource(cover(t.city))}
+                  source={imageSource(t.coverUri || cover(t.city))}
                   style={styles.photo}
                 />
                 <View style={styles.number}>
