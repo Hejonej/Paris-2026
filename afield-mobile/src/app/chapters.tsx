@@ -30,8 +30,8 @@ export default function Chapters() {
       <Page>
         <View style={styles.heading}>
           <View>
-            <Text style={styles.eyebrow}>떠나기 전부터, 돌아온 뒤까지</Text>
-            <Text style={styles.headingTitle}>나의 여행</Text>
+            <Text style={styles.eyebrow}>발견하고, 계획하고, 기록하는 여행</Text>
+            <Text style={styles.headingTitle}>Chapters</Text>
           </View>
           <Pressable
             accessibilityRole="button"
@@ -107,7 +107,6 @@ export default function Chapters() {
         </View>
         {trips.map((t, i) => {
           const count = t.days.reduce((n, d) => n + d.items.length, 0);
-          const first = t.days.flatMap((d) => d.items)[0];
           return (
             <Pressable
               key={t.id}
@@ -138,7 +137,7 @@ export default function Chapters() {
                 editing &&
                   selection.has(t.id) && {
                     borderColor: ui.accent,
-                    backgroundColor: "#E7EBE2",
+                    backgroundColor: "#F1F1F1",
                   },
                 { opacity: pressed ? 0.78 : 1 },
               ]}
@@ -184,18 +183,6 @@ export default function Chapters() {
                     />
                   )}
                 </View>
-                {first && (
-                  <View style={styles.preview}>
-                    <Ionicons
-                      name="location-outline"
-                      size={15}
-                      color={ui.accent}
-                    />
-                    <Text numberOfLines={1} style={styles.previewText}>
-                      {first.name}
-                    </Text>
-                  </View>
-                )}
               </View>
             </Pressable>
           );
@@ -215,6 +202,7 @@ export default function Chapters() {
         {!editing && (
           <Action
             title="＋ 새 여행 만들기"
+            tone="primary"
             onPress={() => router.push("/new-trip")}
           />
         )}
@@ -370,14 +358,14 @@ const styles = StyleSheet.create({
   },
   eyebrow: { fontSize: 15, color: ui.muted, marginBottom: 7 },
   headingTitle: {
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: "700",
     letterSpacing: -1,
     color: ui.ink,
   },
   count: {
     borderRadius: 22,
-    backgroundColor: "#E1E8DB",
+    backgroundColor: "#F1F1F1",
     paddingHorizontal: 15,
     paddingVertical: 8,
   },
@@ -390,24 +378,18 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: ui.line,
     paddingVertical: 13,
-    marginBottom: 18,
+    marginBottom: 4,
   },
   summaryText: { fontSize: 14, color: ui.accent, flex: 1 },
   card: {
-    backgroundColor: ui.surface,
-    borderWidth: 1,
+    flexDirection: "row",
+    paddingVertical: 18,
+    borderBottomWidth: 1,
     borderColor: ui.line,
-    borderRadius: 18,
-    overflow: "hidden",
-    marginBottom: 16,
+    gap: 16,
   },
-  photoWrap: { width: "100%", height: 172 },
-  photo: {
-    position: "absolute",
-    width: "100%",
-    height: "100%",
-    backgroundColor: "#C9D3C0",
-  },
+  photoWrap: { width: 96, height: 120, borderRadius: 8, overflow: "hidden", flexShrink: 0 },
+  photo: { width: "100%", height: "100%", resizeMode: "cover", backgroundColor: ui.line },
   number: {
     position: "absolute",
     top: 12,
@@ -418,7 +400,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   numberText: { fontSize: 14, fontWeight: "700", color: ui.accent },
-  body: { flex: 1, padding: 15 },
+  body: { flex: 1, minWidth: 0, justifyContent: "center" },
   row: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -431,19 +413,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: "#EBEFE6",
+    backgroundColor: "#F1F1F1",
     paddingHorizontal: 8,
     paddingVertical: 5,
-    borderRadius: 8,
+    borderRadius: 4,
   },
   dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: ui.accent },
   statusText: { fontSize: 13, fontWeight: "600", color: ui.accent },
   title: {
-    fontSize: 26,
+    fontSize: 21,
     fontWeight: "700",
     color: ui.ink,
     letterSpacing: -0.6,
-    marginTop: 10,
+    marginTop: 8,
   },
   dates: { fontSize: 14, color: ui.muted, lineHeight: 21, marginTop: 5 },
   footer: {

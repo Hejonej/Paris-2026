@@ -94,7 +94,7 @@ export default function EditTrip() {
         <TripDates start={start} end={end} onStart={setStart} onEnd={setEnd} />
         <View
           style={{
-            backgroundColor: "#E7EBE2",
+            backgroundColor: "#F1F1F1",
             borderRadius: 14,
             padding: 16,
             marginBottom: 14,

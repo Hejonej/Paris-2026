@@ -1353,7 +1353,7 @@ test("activity pill is compact beside the place title with a separate larger tou
   assert.equal(touch.props.style.minHeight, 44);
   assert.equal(touch.props.style.backgroundColor, undefined);
   const pill = touch.findAll(
-    (n) => n.type === "View" && n.props.style.backgroundColor === "#E7EBE2",
+    (n) => n.type === "View" && n.props.style.backgroundColor === "#F1F1F1",
   )[0];
   assert.equal(pill.props.style.minHeight, 26);
   assert.equal(pill.findByType("Text").props.style.fontSize, 13);
@@ -1590,4 +1590,22 @@ test("legacy planning with unselected saved places exposes counts and explicit s
   await act(async () => tapText(view, "미배치 장소 모두 선택"));
   assert.equal(proposalButton().props.disabled, false);
   await act(async () => view.tree.unmount());
+});
+
+test("modern travel home routes its next action by state without changing trip data", async () => {
+  const source = harness({ tripId: "paris" }).load("src/data.ts").trips;
+  for (const kind of ["discover", "plan", "record"]) {
+    const data = JSON.parse(JSON.stringify(source));
+    const t = data[0];
+    t.days = []; t.start = ""; t.end = ""; t.candidates = [];
+    if (kind === "plan") t.candidates = ["ofr"];
+    if (kind === "record") { t.start = "2020-01-01"; t.end = "2020-01-02"; t.days = [{ date: t.start, items: [] }, { date: t.end, items: [] }]; }
+    const raw = JSON.stringify(data);
+    const h = harness({ tripId: "paris" }, raw);
+    const view = await mountScreen(h, "src/app/trip/[tripId]/(tabs)/index.tsx");
+    await act(async () => tapText(view, kind === "discover" ? "가고 싶은 곳 보기" : kind === "plan" ? "여행 조건 입력하고 AI로 계획" : "기록 열기"));
+    assert.equal(h.navigation.at(-1).pathname, kind === "discover" ? "/trip/[tripId]/candidates" : kind === "plan" ? "/trip/[tripId]/plan" : "/trip/[tripId]/journal");
+    assert.equal(JSON.stringify(view.store.trips), raw);
+    await act(async () => view.tree.unmount());
+  }
 });

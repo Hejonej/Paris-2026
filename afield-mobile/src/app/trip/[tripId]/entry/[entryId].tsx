@@ -81,7 +81,7 @@ export default function EntryPlace() {
           <View
             style={{
               padding: 14,
-              backgroundColor: "#E7EBE2",
+              backgroundColor: "#F1F1F1",
               borderRadius: 12,
               marginBottom: 18,
             }}

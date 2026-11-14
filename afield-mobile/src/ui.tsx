@@ -11,12 +11,13 @@ import {
   TextInputProps,
 } from "react-native";
 import { ui } from "./theme";
-export function Page({ children, resetKey }: { children: React.ReactNode; resetKey?: string }) {
+export function Page({ children, resetKey, stickyHeaderIndices }: { children: React.ReactNode; stickyHeaderIndices?: number[]; resetKey?: string }) {
   const scroll = useRef<ScrollView>(null);
   useEffect(() => { scroll.current?.scrollTo({ y: 0, animated: false }); }, [resetKey]);
   return (
     <ScrollView
       ref={scroll}
+      stickyHeaderIndices={stickyHeaderIndices}
       contentInsetAdjustmentBehavior="automatic"
       automaticallyAdjustKeyboardInsets
       keyboardDismissMode="interactive"
@@ -62,7 +63,7 @@ export function Action({
       style={({ pressed }) => [
         s.button,
         (secondary || tone === "secondary") && { backgroundColor: ui.surface, borderWidth: 1, borderColor: ui.line },
-        tone === "primary" && { backgroundColor: ui.blue },
+        tone === "primary" && { backgroundColor: ui.ink },
         tone === "link" && { backgroundColor: "transparent", alignItems: "flex-start", paddingHorizontal: 0 },
         { opacity: disabled ? 0.45 : pressed ? 0.7 : 1 },
       ]}
@@ -90,7 +91,7 @@ export function Photo({ uri, height = 160 }: { uri: string; height?: number }) {
         flexShrink: 0,
         resizeMode: "cover",
         width: "100%",
-        borderRadius: 14,
+        borderRadius: 8,
         backgroundColor: ui.line,
         marginBottom: 14,
       }}
@@ -137,7 +138,7 @@ export const s = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 13,
     paddingHorizontal: 16,
-    borderRadius: 12,
+    borderRadius: 10,
     minHeight: 48,
     marginTop: 6,
   },

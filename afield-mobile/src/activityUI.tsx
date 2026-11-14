@@ -50,7 +50,7 @@ export function ActivityButton({
             paddingHorizontal: 8,
             paddingVertical: 4,
             borderRadius: 7,
-            backgroundColor: "#E7EBE2",
+            backgroundColor: "#F1F1F1",
           }}
         >
           <Text
@@ -201,7 +201,7 @@ export function ActivityBadge({ value }: { value: ActivityTag }) {
     <View
       style={{
         alignSelf: "flex-start",
-        backgroundColor: "#E7EBE2",
+        backgroundColor: "#F1F1F1",
         paddingHorizontal: 9,
         paddingVertical: 5,
         borderRadius: 7,

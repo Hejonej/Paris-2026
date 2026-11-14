@@ -116,7 +116,7 @@ export function ImportGuide() {
                       padding: 15,
                       marginBottom: 8,
                       borderRadius: 12,
-                      backgroundColor: index === item.focus ? "#E1E8DB" : ui.bg,
+                      backgroundColor: index === item.focus ? "#F1F1F1" : ui.bg,
                       borderWidth: 1,
                       borderColor: index === item.focus ? ui.accent : ui.line,
                     }}

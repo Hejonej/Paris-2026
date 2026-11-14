@@ -211,7 +211,7 @@ export function DateField({
                         fontWeight: "500",
                         color:
                           minimum && date < minimum
-                            ? "#B5B9B0"
+                            ? "#D9D9D9"
                             : date === value
                               ? "white"
                               : ui.ink,

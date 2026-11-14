@@ -87,7 +87,7 @@ export default function Candidates() {
           style={{
             padding: 14,
             borderRadius: 12,
-            backgroundColor: "#E7EBE2",
+            backgroundColor: "#F1F1F1",
             marginBottom: 8,
           }}
         >
@@ -161,7 +161,7 @@ export default function Candidates() {
                   paddingHorizontal: 12,
                   borderRadius: 10,
                   backgroundColor:
-                    filter === option.id ? "#E7EBE2" : "transparent",
+                    filter === option.id ? "#F1F1F1" : "transparent",
                 }}
               >
                 <Text style={{ fontSize: 15, color: ui.accent }}>

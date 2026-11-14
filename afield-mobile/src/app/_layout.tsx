@@ -25,7 +25,7 @@ function Shell() {
       {!!error && (
         <Text
           accessibilityRole="alert"
-          style={{ padding: 16, paddingTop: 52, backgroundColor: "#FBE8CB" }}
+          style={{ padding: 16, paddingTop: 52, backgroundColor: "#F3F3F3" }}
         >
           {error}
         </Text>

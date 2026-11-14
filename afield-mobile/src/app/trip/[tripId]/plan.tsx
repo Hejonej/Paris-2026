@@ -557,7 +557,7 @@ export default function Plan() {
                       minHeight: 44,
                       alignItems: "center",
                       justifyContent: "center",
-                      backgroundColor: c.pace === p.id ? "#DCE6D6" : ui.line,
+                      backgroundColor: c.pace === p.id ? "#E8E8E8" : ui.line,
                       borderRadius: 10,
                     }}
                   >

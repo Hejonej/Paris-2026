@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { routeMode } from "../../../../planner";
 import { inspirationProgress } from "../../../../inspirationProgress";
 import { ActivityButton } from "../../../../activityUI";
@@ -39,6 +40,7 @@ export default function Itinerary() {
   const trip = trips.find((t) => t.id === tripId);
   const { pendingPosts } = inspirationProgress(trip);
   const [selection, setSelection] = useState(date || "");
+  const [expandedReasons, setExpandedReasons] = useState<Set<string>>(new Set());
   const [error, setError] = useState("");
   const router = useRouter();
   useEffect(() => {
@@ -61,36 +63,23 @@ export default function Itinerary() {
       setError("지도를 열지 못했어요. 연결을 확인한 뒤 다시 시도해 주세요."),
     );
   return (
-    <Page>
-      <Label>하루의 동선</Label>
+    <Page stickyHeaderIndices={[1]}>
+      <View style={{ paddingBottom: 12 }}>
+      <Label>{trip?.city} · {trip?.days.length || 0}일의 여행</Label>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
       <H>일정</H>
-      <Action
-        title="여행 조건 입력 · AI 일정 짜기"
-        tone="primary"
-        onPress={() =>
-          router.push({ pathname: "/trip/[tripId]/plan", params: { tripId } })
-        }
-      />
-      {!!pendingPosts.length && (
-        <Action
-          title={`남은 게시물 ${pendingPosts.length}개 계속 보기 →`}
-          tone="link"
-          onPress={() =>
-            router.navigate({
-              pathname: "/trip/[tripId]/candidates",
-              params: { tripId, section: "inspiration", postFilter: "pending" },
-            })
-          }
-        />
-      )}
+      <Pressable accessibilityRole="button" accessibilityLabel="여행 조건 입력 · AI 일정 짜기" onPress={() => router.push({ pathname: "/trip/[tripId]/plan", params: { tripId } })} style={{ flexDirection: "row", gap: 8, minHeight: 44, alignItems: "center", paddingHorizontal: 8 }}><Ionicons name="options-outline" size={18} color={ui.blue} /><Text style={{ color: ui.blue, fontSize: 15, fontWeight: "600" }}>AI 계획</Text></Pressable>
+      </View>
+      </View>
+      <View style={{ backgroundColor: ui.bg, paddingTop: 8, borderBottomWidth: 1, borderColor: ui.line, marginBottom: 20 }}>
       <FlatList
         data={trip?.days || []}
         keyExtractor={(d) => d.date}
         extraData={day?.date}
         horizontal
-        style={{ flexGrow: 0, flexShrink: 0, minHeight: 94, marginTop: 16 }}
+        style={{ flexGrow: 0, flexShrink: 0, height: 78, marginTop: 0 }}
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: 8, paddingBottom: 18 }}
+        contentContainerStyle={{ gap: 8, paddingBottom: 10 }}
         renderItem={({ item: d, index: i }) => (
           <Pressable
             accessibilityRole="button"
@@ -104,9 +93,10 @@ export default function Itinerary() {
             style={[
               s.chip,
               {
-                backgroundColor: day?.date === d.date ? ui.accent : ui.line,
+                backgroundColor: day?.date === d.date ? ui.ink : ui.surface,
                 alignItems: "center",
-                width: 64,
+                width: 56,
+                paddingHorizontal: 6, paddingVertical: 8, borderRadius: 8,
               },
             ]}
           >
@@ -116,7 +106,7 @@ export default function Itinerary() {
                 color: day?.date === d.date ? "white" : ui.muted,
               }}
             >
-              DAY {i + 1}
+              {["일", "월", "화", "수", "목", "금", "토"][new Date(d.date + "T12:00:00").getDay()]}
             </Text>
             <Text
               style={{
@@ -131,6 +121,7 @@ export default function Itinerary() {
           </Pressable>
         )}
       />
+      </View>
       {!!error && (
         <Text
           accessibilityRole="alert"
@@ -176,7 +167,7 @@ export default function Itinerary() {
               accessibilityRole="alert"
               style={{
                 padding: 14,
-                backgroundColor: "#E7EBE2",
+                backgroundColor: "#F1F1F1",
                 borderRadius: 12,
                 marginBottom: 12,
               }}
@@ -243,7 +234,7 @@ export default function Itinerary() {
                             : editLocation(item)
                         }
                       >
-                        <Text style={styles.title}>{item.name} ›</Text>
+                        <Text style={styles.title}>{item.name}</Text>
                       </Pressable>
                       <ActivityButton
                         name={item.name}
@@ -261,7 +252,7 @@ export default function Itinerary() {
                         }}
                       />
                     </View>
-                    <Text style={styles.description}>
+                    <Text style={styles.description} numberOfLines={2}>
                       {entryDescription(stop.suggestion ? stop.entry : item)}
                     </Text>
                     {location && (
@@ -270,18 +261,10 @@ export default function Itinerary() {
                         {location.label}
                       </Text>
                     )}
-                    {stop.suggestion && (
-                      <Text
-                        style={{
-                          fontSize: 13,
-                          lineHeight: 20,
-                          color: ui.muted,
-                          marginTop: 6,
-                        }}
-                      >
-                        {stop.suggestion.reason}
-                      </Text>
-                    )}
+                    {stop.suggestion && <>
+                      <Pressable accessibilityRole="button" accessibilityLabel={`${item.name} 시작점 추천 이유`} accessibilityState={{ expanded: expandedReasons.has(item.id) }} onPress={() => setExpandedReasons((old) => { const next = new Set(old); next.has(item.id) ? next.delete(item.id) : next.add(item.id); return next; })} style={{ minHeight: 44, justifyContent: "center" }}><Text style={{ fontSize: 13, color: ui.blue }}>시작점 추천 이유 {expandedReasons.has(item.id) ? "−" : "＋"}</Text></Pressable>
+                      {expandedReasons.has(item.id) && <Text style={{ fontSize: 13, lineHeight: 20, color: ui.muted, marginBottom: 8 }}>{stop.suggestion.reason}</Text>}
+                    </>}
                     {!location && (
                       <Text style={styles.description}>
                         {item.origin === "ai"
@@ -321,7 +304,7 @@ export default function Itinerary() {
                           accessibilityLabel={`${item.name} 연결 장소 변경`}
                           onPress={() => editLocation(item)}
                           hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}
-                          style={styles.smallButton}
+                          style={styles.textButton}
                         >
                           <Text style={styles.mutedLink}>
                             {isMaraisWalk(item, trip!)
@@ -336,7 +319,7 @@ export default function Itinerary() {
                 {next && (
                   <View style={styles.leg}>
                     <Text style={styles.legTitle}>
-                      {item.name} → {next.name}
+                      다음 장소까지
                     </Text>
                     {sameStart ? (
                       <Text style={styles.duration}>
@@ -460,7 +443,7 @@ export default function Itinerary() {
             );
           })}
           {!day.items.length && (
-            <P>아직 정해둔 일정이 없어요. 여백도 여행의 일부예요.</P>
+            <P>아직 정해둔 일정이 없어요. 장소를 직접 추가하거나 AI로 계획해 보세요.</P>
           )}
         </>
       ) : (
@@ -476,6 +459,18 @@ export default function Itinerary() {
             }
           />
         </>
+      )}
+      {!!pendingPosts.length && (
+        <Action
+          title={`남은 게시물 ${pendingPosts.length}개 계속 보기 →`}
+          tone="link"
+          onPress={() =>
+            router.navigate({
+              pathname: "/trip/[tripId]/candidates",
+              params: { tripId, section: "inspiration", postFilter: "pending" },
+            })
+          }
+        />
       )}
       <View style={{ marginTop: 20 }}>
         <Action
@@ -493,55 +488,56 @@ export default function Itinerary() {
   );
 }
 const styles = StyleSheet.create({
-  entry: { flexDirection: "row", gap: 12, paddingVertical: 16 },
+  entry: { flexDirection: "row", gap: 12, paddingTop: 12, paddingBottom: 12 },
   time: {
-    width: 46,
+    width: 44,
     color: ui.accent,
     fontSize: 14,
     fontWeight: "600",
-    paddingTop: 3,
+    paddingTop: 13,
+    fontVariant: ["tabular-nums"],
   },
-  content: { flex: 1 },
-  title: { fontSize: 20, fontWeight: "700", color: ui.ink },
-  description: { fontSize: 14, color: ui.muted, lineHeight: 21, marginTop: 6 },
+  content: { flex: 1, minWidth: 0, borderLeftWidth: 1, borderColor: ui.line, paddingLeft: 14 },
+  title: { fontSize: 18, fontWeight: "700", color: ui.ink },
+  description: { fontSize: 14, color: ui.muted, lineHeight: 20, marginTop: 3 },
   location: { fontSize: 13, color: ui.accent, marginTop: 5 },
   actions: {
     flexDirection: "row",
     alignItems: "center",
     flexWrap: "wrap",
-    gap: 10,
+    gap: 8,
     marginTop: 4,
   },
   must: {
     fontSize: 12,
     fontWeight: "700",
     color: ui.accent,
-    backgroundColor: "#E7EBE2",
+    backgroundColor: "#F1F1F1",
     paddingHorizontal: 7,
     paddingVertical: 4,
     borderRadius: 5,
   },
   smallButton: {
-    minHeight: 36,
+    minHeight: 44,
     justifyContent: "center",
     paddingHorizontal: 11,
-    backgroundColor: "#E7EBE2",
+    backgroundColor: ui.surface,
     borderWidth: 1,
-    borderColor: "#CFD8C8",
-    borderRadius: 18,
+    borderColor: ui.line,
+    borderRadius: 8,
   },
-  link: { fontSize: 14, fontWeight: "600", color: ui.accent },
+  textButton: { minHeight: 44, justifyContent: "center", paddingHorizontal: 4 },
+  link: { fontSize: 14, fontWeight: "600", color: ui.blue },
   mutedLink: { fontSize: 13, color: ui.muted },
   leg: {
-    marginLeft: 58,
-    borderLeftWidth: 2,
-    borderColor: "#CFD8C8",
+    marginLeft: 56,
+    borderLeftWidth: 1,
+    borderColor: ui.line,
     paddingLeft: 14,
-    paddingVertical: 12,
-    backgroundColor: "#EEF0E8",
+    paddingVertical: 8,
+    backgroundColor: "transparent",
     paddingRight: 12,
-    borderTopRightRadius: 12,
-    borderBottomRightRadius: 12,
+
   },
   legTitle: { fontSize: 13, color: ui.muted, marginBottom: 8 },
   modes: { flexDirection: "row", gap: 2, flexWrap: "wrap" },
@@ -551,16 +547,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 9,
   },
-  duration: { fontSize: 13, lineHeight: 20, color: ui.muted, marginTop: 10 },
+  duration: { fontSize: 12, lineHeight: 18, color: ui.muted, marginTop: 6 },
   routeButton: {
-    minHeight: 36,
+    minHeight: 44,
     justifyContent: "center",
     alignSelf: "flex-start",
     paddingHorizontal: 11,
     marginTop: 8,
     borderWidth: 1,
-    borderColor: "#B8C6B4",
-    borderRadius: 18,
-    backgroundColor: "#E2E8DB",
+    borderColor: ui.line,
+    borderRadius: 8,
+    backgroundColor: "#F1F1F1",
   },
 });

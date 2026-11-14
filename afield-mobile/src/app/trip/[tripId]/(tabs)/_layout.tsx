@@ -2,12 +2,14 @@ import React from "react";
 import { Tabs, useLocalSearchParams, useRouter } from "expo-router";
 import { Pressable, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ui } from "../../../../theme";
 import { useTrips } from "../../../../store";
 import { Redirect } from "expo-router";
 export default function TripTabs() {
   const { tripId } = useLocalSearchParams<{ tripId: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { trips } = useTrips();
   const trip = trips.find((t) => t.id === tripId);
   const icon =
@@ -36,12 +38,18 @@ export default function TripTabs() {
           </Pressable>
         ),
         headerStyle: { backgroundColor: ui.bg },
+        headerTitleAlign: "center",
+        tabBarLabelStyle: { fontSize: 11, lineHeight: 14, marginTop: 2, fontWeight: "500" },
+        tabBarIconStyle: { width: 24, height: 24 },
+        tabBarItemStyle: { minHeight: 44 },
         headerTitleStyle: { fontWeight: "700" },
         tabBarActiveTintColor: ui.ink,
         tabBarInactiveTintColor: ui.muted,
         tabBarStyle: {
           backgroundColor: ui.surface,
           borderTopColor: ui.line,
+          height: 60 + insets.bottom,
+          paddingBottom: Math.max(insets.bottom, 8),
           paddingTop: 6,
         },
       }}
