@@ -24,7 +24,7 @@ export function DetailBack() {
         minHeight: 48,
         minWidth: 80,
         justifyContent: "center",
-        paddingHorizontal: 12,
+        paddingHorizontal: 16,
       }}
     >
       <Text style={{ fontSize: 18, fontWeight: "600", color: ui.accent }}>

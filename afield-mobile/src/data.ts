@@ -32,7 +32,9 @@ export type Day = {
   items: Entry[];
   travelModes?: Record<string, TravelMode>;
 };
+export type JournalEntry = { id: string; entryId: string; date: string; placeName: string; note: string; photoUri?: string; createdAt: string };
 export type Trip = {
+  journal?: JournalEntry[];
   coverUri?: string;
   planning?: PlanningConditions;
   planDraft?: PlanDraft;

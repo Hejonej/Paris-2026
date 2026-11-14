@@ -19,6 +19,8 @@ function moduleFor(path, storage) {
   const resolver = (name) =>
     name === "@react-native-async-storage/async-storage"
       ? storage
+      : name === "./journal"
+        ? moduleFor("src/journal.ts", storage)
       : name === "./planner"
         ? moduleFor("src/planner.ts", storage)
         : name === "./data"

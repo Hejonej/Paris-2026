@@ -467,11 +467,12 @@ test("undecided visits get one automatic AI repair request, keeping accepted row
       : [suggestion("p2", "10:30")] }) };
   });
   assert.equal(requests.length, 2);
-  assert.deepEqual(requests[1].places.map((p) => p.id), ["p2"]);
+  assert.deepEqual(requests[1].places.map((p) => p.name), ["Test Shop"]);
+  assert.deepEqual(requests[1].places.map((p) => p.id), ["AFIELD_001"]);
   assert.ok(requests[1].itinerary[0].existing.some((e) => e.placeId === "p1" && e.immutable));
   assert.equal(draft.rows.length, 2); assert.equal(draft.unplaced.length, 0);
   assert.equal(JSON.stringify(t), before);
-  assert.ok(requests[1].request.includes("choose dates and times yourself"));
+  assert.ok(requests[1].request.toLowerCase().includes("choose dates and times yourself"));
   assert.equal(planner.applyDraft([{ ...t, planDraft: draft }], t.id, draft.rows.map((r) => r.id)).ok, true);
 });
 
@@ -505,4 +506,34 @@ test("real server ID(name) action syntax is accepted only for an exact selected 
   assert.equal(decode("2027-02-02 09:00에 wrong(Test Shop) 추가").rows.length, 0);
   assert.equal(decode("2027-02-02 09:00에 p2(Wrong Shop) 추가").rows.length, 0);
   assert.equal(decode("2027-02-02 09:00에 p2(Test Shop) 추가 그리고 p1 방문").rows.length, 0);
+});
+
+
+test("wire IDs resolve translated names and prose variants without weakening unknown-ID or multi-operation rejection", () => {
+  const t = trip(); const wire = ai.encodePlanRequest(ai.buildPlanRequest(t));
+  assert.equal(wire.payload.places[0].id, "AFIELD_001");
+  assert.ok(wire.payload.request.includes("AFIELD_001"));
+  assert.equal(wire.payload.request.includes('"placeId":"p1"'),false);
+  const decode=(r)=>ai.decodePlan(t,ai.decodeWireResponse({suggestions:[r]},wire.ids));
+  const row={type:"ADD",action:"2027-02-01 09:00에 Gallery translation (AFIELD_001) 방문"};
+  assert.equal(decode(row).rows[0].placeId,"p1");
+  assert.equal(decode({...row,placeId:"AFIELD_001"}).rows[0].placeId,"p1");
+  assert.equal(decode({...row,placeId:"unknown"}).rows.length,0);
+  assert.equal(decode({...row,type:"MOVE"}).rows.length,0);
+  assert.equal(decode({...row,action:row.action+" AFIELD_002 추가"}).rows.length,0);
+  assert.equal(decode({...row,action:row.action+" 기존 예약 삭제"}).rows.length,0);
+  assert.equal(decode({...row,action:"2027-02-01 09:00 AFIELD_999 방문"}).rows.length,0);
+  assert.equal(decode({...row,action:"2027-02-01 09:00 AFIELD_001 방문 또는 10:00 방문"}).rows.length,0);
+});
+
+test("wire transport does not send local journal photos or private memo text to AI",()=>{
+ const t=trip();t.journal=[{id:"record",entryId:"entry",date:t.start,placeName:"Place",note:"PRIVATE JOURNAL",photoUri:"file:///private/photo.jpg",createdAt:new Date().toISOString()}];
+ const raw=JSON.stringify(ai.encodePlanRequest(ai.buildPlanRequest(t)).payload);
+ assert.equal(raw.includes("PRIVATE JOURNAL"),false);assert.equal(raw.includes("file:///private/photo.jpg"),false);
+});
+
+test("wire identifiers do not rewrite user notes or place names that happen to equal a local ID",()=>{
+ const t=trip();t.planning.notes="p1";t.importedPlaces[0].name="p1";
+ const payload=ai.encodePlanRequest(ai.buildPlanRequest(t)).payload;
+ assert.equal(payload.conditions.notes,"p1");assert.equal(payload.places[0].name,"p1");assert.equal(payload.places[0].id,"AFIELD_001");
 });

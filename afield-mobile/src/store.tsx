@@ -1,3 +1,4 @@
+import { saveJournal, deleteJournal, validJournalEntry } from "./journal";
 import {
   savePlanning,
   applyDraft,
@@ -35,6 +36,8 @@ type Result = {
   candidateId?: string;
 };
 type Store = {
+  saveJournal: (tripId: string, input: { id?: string; date: string; entryId: string; note: string; photoUri?: string }) => Result;
+  deleteJournal: (tripId: string, recordId: string) => Result;
   trips: Trip[];
   deletedTrips: Trip[];
   deleteTrip: (id: string) => Result;
@@ -130,6 +133,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
                 typeof t.id === "string" &&
                 typeof t.name === "string" &&
                 typeof t.city === "string" &&
+                (t.journal === undefined || (Array.isArray(t.journal) && t.journal.every(validJournalEntry))) &&
                 (t.coverUri === undefined || (typeof t.coverUri === "string" && (t.coverUri === "" || /^file:\/\//.test(t.coverUri)))) &&
                 (t.planning === undefined || validConditions(t.planning)) &&
                 (t.planDraft === undefined || validDraft(t.planDraft)) &&
@@ -278,6 +282,8 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     };
   }
   const value: Store = {
+    saveJournal: (tripId, input) => { const r = saveJournal(current.current, tripId, input); if (r.ok) update(r.trips); return { ok: r.ok, message: r.message }; },
+    deleteJournal: (tripId, recordId) => { const r = deleteJournal(current.current, tripId, recordId); if (r.ok) update(r.trips); return { ok: r.ok, message: r.message }; },
     trips: list.filter((t) => !t.deletedAt),
     deletedTrips: list.filter((t) => !!t.deletedAt),
     deleteTrip: (id) => trash([id]),

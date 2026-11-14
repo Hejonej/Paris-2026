@@ -1,11 +1,7 @@
+import { Sheet } from "../../../sheet";
 import { PlaceSearch } from "../../../placeSearch";
 import React, { useEffect, useRef, useState } from "react";
-import {
-  View,
-  Text,
-  Pressable,
-  ActivityIndicator,
-} from "react-native";
+import { View, Text, Pressable, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { Page, H, P, Label, Field, Action, s } from "../../../ui";
 import { DateField } from "../../../tripFields";
@@ -18,7 +14,7 @@ import {
   planningModes,
   syncPlanningPlaces,
 } from "../../../planner";
-import type { PlanningConditions } from "../../../planner";
+import type { PlanRow, PlanningConditions } from "../../../planner";
 import { generatePlan } from "../../../aiPlanner";
 import { dateLabel } from "../../../data";
 import { ui } from "../../../theme";
@@ -73,6 +69,7 @@ export default function Plan() {
   const [busy, setBusy] = useState(false);
   const [feedbackKey, setFeedbackKey] = useState(0);
   const [error, setError] = useState("");
+  const [reasonRow, setReasonRow] = useState<PlanRow | null>(null);
   const [showFailureNotes, setShowFailureNotes] = useState(false);
   const [message, setMessage] = useState("");
   const [manual, setManual] = useState(false);
@@ -83,11 +80,17 @@ export default function Plan() {
   const running = useRef(false);
   useEffect(() => () => controller.current?.abort(), []);
   useEffect(() => {
-    if (store.ready && trip) setC(syncPlanningPlaces(trip, trip.planning || defaultConditions(trip)));
+    if (store.ready && trip)
+      setC(syncPlanningPlaces(trip, trip.planning || defaultConditions(trip)));
   }, [store.ready, tripId]);
-  const readyKey = trip ? readyPlaces(trip).map((p) => p.id).join("|") : "";
+  const readyKey = trip
+    ? readyPlaces(trip)
+        .map((p) => p.id)
+        .join("|")
+    : "";
   useEffect(() => {
-    if (store.ready && trip) setC((previous) => syncPlanningPlaces(trip, previous));
+    if (store.ready && trip)
+      setC((previous) => syncPlanningPlaces(trip, previous));
   }, [readyKey]);
   useEffect(() => {
     if (trip?.planDraft) {
@@ -121,6 +124,7 @@ export default function Plan() {
   async function generate() {
     if (running.current) return;
     setFeedbackKey((v) => v + 1);
+    setShowFailureNotes(false);
     const result = store.savePlanning(tripId, c);
     if (!result.ok) {
       setError(result.message);
@@ -157,10 +161,10 @@ export default function Plan() {
   const panel = (key: string, title: string, children: React.ReactNode) => (
     <View
       style={{
-        backgroundColor: ui.surface,
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 12,
+        borderBottomWidth: 1,
+        borderColor: ui.line,
+        paddingVertical: 16,
+        marginBottom: 8,
       }}
     >
       <Pressable
@@ -191,20 +195,124 @@ export default function Plan() {
     );
     const mustIds = trip.planning?.mustIds || [];
     const missingMust = draft.unplaced.some((p) => mustIds.includes(p.id));
-    if (!draft.rows.length) return (
-      <Page resetKey={`empty-${draft.id}`}>
-        <Label>AI 일정 생성</Label><H>아직 일정을 완성하지 못했어요</H>
-        <P>최근 시도 · {new Date(draft.generatedAt).toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</P>
-        <P>선택한 {trip.planning?.selectedIds.length || 0}곳은 그대로 보관돼요. 기존 일정도 변경하지 않았어요.</P>
-        <View style={{ marginVertical: 12 }}>
-          {draft.unplaced.map((p) => <View key={p.id} style={{ paddingVertical: 16, borderBottomWidth: 1, borderColor: ui.line }}><Text style={{ fontSize: 16, lineHeight: 24, fontWeight: "600", color: ui.ink }}>{p.name}</Text><Text style={{ fontSize: 14, lineHeight: 22, color: ui.muted, marginTop: 8 }}>{/자동 배치를 완료하지 못했어요|유효한 날짜.*제안이 없/.test(p.reason) ? "이전에 저장된 결과에는 구체적인 실패 원인이 남아 있지 않아요. 같은 조건으로 새로 요청할 수 있어요." : p.reason}</Text></View>)}
-        </View>
-        <Action title="같은 조건으로 다시 만들기" tone="primary" onPress={() => { setReview(false); setShowFailureNotes(false); void generate(); }} />
-        <Action title="입력한 조건 보기" tone="link" onPress={() => { setReview(false); setSection("places"); setFeedbackKey((v) => v + 1); }} />
-        <Action title={showFailureNotes ? "참고 사항 접기" : "그 밖의 참고 사항 보기"} tone="link" onPress={() => setShowFailureNotes(!showFailureNotes)} />
-        {showFailureNotes && draft.issues.map((issue, index) => <P key={index}>{issue}</P>)}
-      </Page>
+    const context = (
+      <View
+        style={{
+          paddingVertical: 16,
+          borderTopWidth: 1,
+          borderBottomWidth: 1,
+          borderColor: ui.line,
+          marginBottom: 20,
+        }}
+      >
+        <Text style={{ fontSize: 14, lineHeight: 22, color: ui.ink }}>
+          {trip.city} · {trip.planning?.rangeStart || trip.start} —{" "}
+          {trip.planning?.rangeEnd || trip.end}
+        </Text>
+        <Text
+          style={{
+            fontSize: 13,
+            lineHeight: 22,
+            color: ui.muted,
+            marginTop: 4,
+          }}
+        >
+          선택 장소 {trip.planning?.selectedIds.length || 0}곳 · 숙소{" "}
+          {trip.planning?.stays.length || 0} · 항공편{" "}
+          {trip.planning?.flights.length || 0} · 예약{" "}
+          {trip.planning?.fixed.length || 0}
+        </Text>
+        <Text style={{ fontSize: 13, lineHeight: 22, color: ui.muted }}>
+          기존 일정 {trip.days.reduce((n, d) => n + d.items.length, 0)}개 유지 ·
+          선택한 제안만 적용
+        </Text>
+      </View>
     );
+    if (!draft.rows.length)
+      return (
+        <Page resetKey={`empty-${draft.id}`}>
+          <Label>AI 일정 생성</Label>
+          <H>아직 일정을 완성하지 못했어요</H>
+          <P>
+            최근 시도 ·{" "}
+            {new Date(draft.generatedAt).toLocaleString("ko-KR", {
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </P>
+          <P>
+            선택한 {trip.planning?.selectedIds.length || 0}곳은 그대로 보관돼요.
+            기존 일정도 변경하지 않았어요.
+          </P>
+          {context}
+          <View style={{ marginVertical: 12 }}>
+            {draft.unplaced.map((p) => (
+              <View
+                key={p.id}
+                style={{
+                  paddingVertical: 16,
+                  borderBottomWidth: 1,
+                  borderColor: ui.line,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 16,
+                    lineHeight: 24,
+                    fontWeight: "600",
+                    color: ui.ink,
+                  }}
+                >
+                  {p.name}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    lineHeight: 22,
+                    color: ui.muted,
+                    marginTop: 8,
+                  }}
+                >
+                  {/자동 배치를 완료하지 못했어요|유효한 날짜.*제안이 없/.test(
+                    p.reason,
+                  )
+                    ? "이전에 저장된 결과에는 구체적인 실패 원인이 남아 있지 않아요. 같은 조건으로 새로 요청할 수 있어요."
+                    : p.reason}
+                </Text>
+              </View>
+            ))}
+          </View>
+          <Action
+            title="같은 조건으로 다시 만들기"
+            tone="primary"
+            onPress={() => {
+              setReview(false);
+              setShowFailureNotes(false);
+              void generate();
+            }}
+          />
+          <Action
+            title="입력한 조건 보기"
+            tone="link"
+            onPress={() => {
+              setReview(false);
+              setSection("places");
+              setFeedbackKey((v) => v + 1);
+            }}
+          />
+          <Action
+            title={
+              showFailureNotes ? "참고 사항 접기" : "그 밖의 참고 사항 보기"
+            }
+            tone="link"
+            onPress={() => setShowFailureNotes(!showFailureNotes)}
+          />
+          {showFailureNotes &&
+            draft.issues.map((issue, index) => <P key={index}>{issue}</P>)}
+        </Page>
+      );
     return (
       <Page resetKey={`review-${draft.id}`}>
         <Label>2 · AI 제안 검토</Label>
@@ -213,6 +321,21 @@ export default function Plan() {
           기존 일정과 MUST는 그대로예요. 체크한 장소와 아래 식사·휴식·고정
           일정만 추가합니다.
         </P>
+        {context}
+        {missingMust && (
+          <Text
+            accessibilityRole="alert"
+            style={{
+              fontSize: 14,
+              lineHeight: 22,
+              color: ui.danger,
+              marginBottom: 16,
+            }}
+          >
+            꼭 가기로 선택한 장소가 일부 빠졌어요. 조건을 확인해 다시 제안받아야
+            적용할 수 있어요.
+          </Text>
+        )}
         {stale && (
           <P>
             기존 일정이나 조건이 바뀌었어요. 최신 조건으로 다시 제안받아 주세요.
@@ -233,55 +356,74 @@ export default function Plan() {
                 .sort((a, b) => a.time.localeCompare(b.time))
                 .map((row) =>
                   row.kind === "place" ? (
-                    <Pressable
-                      accessibilityRole="checkbox"
-                      accessibilityLabel={`${row.name} 제안 선택`}
-                      accessibilityState={{
-                        checked: selected.has(row.id),
-                        disabled: mustIds.includes(row.placeId!),
-                      }}
-                      disabled={mustIds.includes(row.placeId!)}
+                    <View
                       key={row.id}
-                      onPress={() => {
-                        if (mustIds.includes(row.placeId!)) return;
-                        setSelected((current) => {
-                          const next = new Set(current);
-                          next.has(row.id)
-                            ? next.delete(row.id)
-                            : next.add(row.id);
-                          return next;
-                        });
-                      }}
-                      style={{
-                        paddingVertical: 14,
-                        borderBottomWidth: 1,
-                        borderColor: ui.line,
-                      }}
+                      style={{ borderBottomWidth: 1, borderColor: ui.line }}
                     >
-                      <Text
+                      <Pressable
+                        accessibilityRole="checkbox"
+                        accessibilityLabel={`${row.name} 제안 선택`}
+                        accessibilityState={{
+                          checked: selected.has(row.id),
+                          disabled: mustIds.includes(row.placeId!),
+                        }}
+                        disabled={mustIds.includes(row.placeId!)}
+                        key={row.id}
+                        onPress={() => {
+                          if (mustIds.includes(row.placeId!)) return;
+                          setSelected((current) => {
+                            const next = new Set(current);
+                            next.has(row.id)
+                              ? next.delete(row.id)
+                              : next.add(row.id);
+                            return next;
+                          });
+                        }}
                         style={{
-                          fontSize: 18,
-                          fontWeight: "600",
-                          color: ui.ink,
+                          paddingVertical: 14,
+                          borderBottomWidth: 1,
+                          borderColor: ui.line,
                         }}
                       >
-                        {selected.has(row.id) ? "☑" : "□"} {row.time} ·{" "}
-                        {row.name}
-                      </Text>
-                      <Text
+                        <Text
+                          style={{
+                            fontSize: 18,
+                            fontWeight: "600",
+                            color: ui.ink,
+                          }}
+                        >
+                          {selected.has(row.id) ? "☑" : "□"} {row.time} ·{" "}
+                          {row.name}
+                        </Text>
+                        <Text
+                          style={{
+                            fontSize: 15,
+                            lineHeight: 23,
+                            color: ui.muted,
+                            marginTop: 6,
+                          }}
+                        >
+                          {row.duration}분 체류 가정{" "}
+                          {mustIds.includes(row.placeId!) ? "· 꼭 가기" : ""}
+                          {"\n"}
+                          {row.reason}
+                        </Text>
+                      </Pressable>
+                      <Pressable
                         style={{
-                          fontSize: 15,
-                          lineHeight: 23,
-                          color: ui.muted,
-                          marginTop: 6,
+                          minHeight: 44,
+                          justifyContent: "center",
+                          alignSelf: "flex-start",
                         }}
+                        onPress={() => setReasonRow(row)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${row.name} 제안 이유 자세히`}
                       >
-                        {row.duration}분 체류 가정{" "}
-                        {mustIds.includes(row.placeId!) ? "· 꼭 가기" : ""}
-                        {"\n"}
-                        {row.reason}
-                      </Text>
-                    </Pressable>
+                        <Text style={{ fontSize: 13, color: ui.blue }}>
+                          제안 이유 자세히
+                        </Text>
+                      </Pressable>
+                    </View>
                   ) : (
                     <View key={row.id} style={{ paddingVertical: 10 }}>
                       <Text style={{ fontSize: 16, color: ui.accent }}>
@@ -305,16 +447,71 @@ export default function Plan() {
           <View style={{ marginVertical: 12 }}>
             <Text style={s.title}>이번에 넣지 못한 장소</Text>
             {draft.unplaced.map((p) => (
-              <P key={p.id}>
-                {p.name} · {p.reason}
-              </P>
+              <View
+                key={p.id}
+                style={{
+                  paddingVertical: 14,
+                  borderBottomWidth: 1,
+                  borderColor: ui.line,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 16,
+                    lineHeight: 24,
+                    fontWeight: "600",
+                    color: ui.ink,
+                  }}
+                >
+                  {p.name}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    lineHeight: 22,
+                    color: ui.muted,
+                    marginTop: 6,
+                  }}
+                >
+                  {p.reason}
+                </Text>
+              </View>
             ))}
           </View>
         )}
-        <Text style={s.title}>적용 전에 확인해 주세요</Text>
-        {draft.issues.map((message, index) => (
-          <P key={index}>{message}</P>
-        ))}
+        <P>영업시간·날씨·실제 이동은 자동 확인하지 않았어요.</P>
+        <Action
+          title={
+            showFailureNotes
+              ? "적용 전 참고 사항 접기"
+              : "적용 전 참고 사항 보기"
+          }
+          tone="link"
+          onPress={() => setShowFailureNotes(!showFailureNotes)}
+        />
+        {showFailureNotes &&
+          draft.issues.map((message, index) => <P key={index}>{message}</P>)}
+        <Sheet
+          visible={!!reasonRow}
+          title="이 장소를 제안한 이유"
+          onClose={() => setReasonRow(null)}
+        >
+          {reasonRow && (
+            <>
+              <Label>
+                {dateLabel(reasonRow.date)} · {reasonRow.time}
+              </Label>
+              <Text style={s.title}>{reasonRow.name}</Text>
+              <View style={{ marginTop: 16 }}>
+                <P>{reasonRow.reason}</P>
+              </View>
+              <P>
+                입력한 여행 조건을 참고한 제안이에요. 영업시간·예약·실제 이동은
+                별도 확인이 필요해요.
+              </P>
+            </>
+          )}
+        </Sheet>
         {!!error && (
           <Text
             accessibilityRole="alert"
@@ -352,606 +549,744 @@ export default function Plan() {
     );
   }
   return (
-      <Page resetKey={`form-${feedbackKey}`}>
-        <Label>1 · 여행 조건</Label>
-        <H>모아 둔 곳을 하나의 여행으로</H>
-        <P>장소를 고르고, 필요한 여행 조건만 더해 주세요.</P>
-        <View style={{ backgroundColor: ui.blueSoft, borderRadius: 16, padding: 16, marginBottom: 20 }}>
-          <Text style={s.title}>주소 확인 {eligible.length}곳 · 이번 계획에 {active.length}곳</Text>
-          <P>{eligible.length - active.length > 0 ? `저장한 곳 중 ${eligible.length - active.length}곳은 아직 선택되지 않았어요.` : "선택한 장소를 바탕으로 날짜와 시간을 제안해요."}</P>
-          <Action title="계획할 장소 확인" tone="link" onPress={() => setSection("places")} />
-          {!!eligible.length && <Action title="미배치 장소 모두 선택" tone="secondary" onPress={() => { setC((prev) => ({ ...prev, selectedIds: eligible.slice(0, 100).map((p) => p.id), knownPlaceIds: eligible.map((p) => p.id) })); setSection("places"); }} />}
-        </View>
-        {!!error && <Text accessibilityRole="alert" style={{ color: ui.danger, backgroundColor: ui.dangerSoft, padding: 14, borderRadius: 12, marginBottom: 16 }}>{error}</Text>}
-        {busy && <View style={{ padding: 16, backgroundColor: ui.blueSoft, borderRadius: 12, marginBottom: 16 }}><ActivityIndicator /><P>AI가 선택한 {active.length}곳의 날짜와 시간을 정하고 있어요. 빠진 장소는 자동으로 한 번 더 시도해요.</P><Action title="제안 생성 취소" tone="link" onPress={() => controller.current?.abort()} /></View>}
-        {!trip.days.length && (
+    <Page resetKey={`form-${feedbackKey}`}>
+      <Label>1 · 여행 조건</Label>
+      <H>모아 둔 곳을 하나의 여행으로</H>
+      <P>장소를 고르고, 필요한 여행 조건만 더해 주세요.</P>
+      <View
+        style={{
+          borderLeftWidth: 2,
+          borderColor: ui.ink,
+          paddingLeft: 14,
+          paddingVertical: 8,
+          marginBottom: 20,
+        }}
+      >
+        <Text style={s.title}>
+          주소 확인 {eligible.length}곳 · 이번 계획에 {active.length}곳
+        </Text>
+        <P>
+          {eligible.length - active.length > 0
+            ? `저장한 곳 중 ${eligible.length - active.length}곳은 아직 선택되지 않았어요.`
+            : "선택한 장소를 바탕으로 날짜와 시간을 제안해요."}
+        </P>
+        <Action
+          title="계획할 장소 확인"
+          tone="link"
+          onPress={() => setSection("places")}
+        />
+        {!!eligible.length && (
           <Action
-            title="먼저 여행 날짜 정하기"
-            onPress={() =>
-              router.push({
-                pathname: "/trip/[tripId]/edit",
-                params: { tripId },
-              })
-            }
+            title="미배치 장소 모두 선택"
+            tone="secondary"
+            onPress={() => {
+              setC((prev) => ({
+                ...prev,
+                selectedIds: eligible.slice(0, 100).map((p) => p.id),
+                knownPlaceIds: eligible.map((p) => p.id),
+              }));
+              setSection("places");
+            }}
           />
         )}
-        <View
-          pointerEvents={busy ? "none" : "auto"}
-          style={{ opacity: busy ? 0.6 : 1 }}
+      </View>
+      {!!error && (
+        <Text
+          accessibilityRole="alert"
+          style={{
+            color: ui.danger,
+            backgroundColor: ui.dangerSoft,
+            padding: 14,
+            borderRadius: 12,
+            marginBottom: 16,
+          }}
         >
-          {panel(
-            "places",
-            `새로 넣을 장소 ${active.length}곳`,
-            <>
-              <P>
-                한 번에 최대 100곳을 제안받을 수 있어요. 위치가 확인된 저장 장소
-                중에서 골라 주세요. 이미 일정에 들어간 곳은 유지합니다. ‘꼭
-                가기’로 표시한 장소가 빠지면 적용을 막아요.
-              </P>
-              {eligible.map((place) => (
-                <View
-                  key={place.id}
-                  style={{
-                    paddingVertical: 12,
-                    borderBottomWidth: 1,
-                    borderColor: ui.line,
+          {error}
+        </Text>
+      )}
+      {busy && (
+        <View
+          style={{
+            padding: 16,
+            backgroundColor: ui.blueSoft,
+            borderRadius: 12,
+            marginBottom: 16,
+          }}
+        >
+          <ActivityIndicator />
+          <P>
+            AI가 선택한 {active.length}곳의 날짜와 시간을 정하고 있어요. 빠진
+            장소는 자동으로 한 번 더 시도해요.
+          </P>
+          <Action
+            title="제안 생성 취소"
+            tone="link"
+            onPress={() => controller.current?.abort()}
+          />
+        </View>
+      )}
+      {!trip.days.length && (
+        <Action
+          title="먼저 여행 날짜 정하기"
+          onPress={() =>
+            router.push({
+              pathname: "/trip/[tripId]/edit",
+              params: { tripId },
+            })
+          }
+        />
+      )}
+      <View
+        pointerEvents={busy ? "none" : "auto"}
+        style={{ opacity: busy ? 0.6 : 1 }}
+      >
+        {panel(
+          "places",
+          `새로 넣을 장소 ${active.length}곳`,
+          <>
+            <P>
+              한 번에 최대 100곳을 제안받을 수 있어요. 위치가 확인된 저장 장소
+              중에서 골라 주세요. 이미 일정에 들어간 곳은 유지합니다. ‘꼭
+              가기’로 표시한 장소가 빠지면 적용을 막아요.
+            </P>
+            {eligible.map((place) => (
+              <View
+                key={place.id}
+                style={{
+                  paddingVertical: 12,
+                  borderBottomWidth: 1,
+                  borderColor: ui.line,
+                }}
+              >
+                <Pressable
+                  accessibilityRole="checkbox"
+                  accessibilityLabel={`${place.name} 계획에 선택`}
+                  accessibilityState={{
+                    checked: c.selectedIds.includes(place.id),
                   }}
+                  onPress={() => {
+                    const chosen = c.selectedIds.includes(place.id);
+                    setC((prev) => ({
+                      ...prev,
+                      selectedIds: chosen
+                        ? prev.selectedIds.filter((id) => id !== place.id)
+                        : [
+                            ...prev.selectedIds.filter((id) => !used.has(id)),
+                            place.id,
+                          ],
+                      mustIds: chosen
+                        ? prev.mustIds.filter((id) => id !== place.id)
+                        : prev.mustIds.filter((id) => !used.has(id)),
+                    }));
+                  }}
+                  style={{ minHeight: 44, justifyContent: "center" }}
                 >
-                  <Pressable
-                    accessibilityRole="checkbox"
-                    accessibilityLabel={`${place.name} 계획에 선택`}
-                    accessibilityState={{
-                      checked: c.selectedIds.includes(place.id),
-                    }}
-                    onPress={() => {
-                      const chosen = c.selectedIds.includes(place.id);
+                  <Text style={{ fontSize: 18, color: ui.ink }}>
+                    {c.selectedIds.includes(place.id) ? "☑" : "□"} {place.name}
+                  </Text>
+                </Pressable>
+                {c.selectedIds.includes(place.id) && (
+                  <>
+                    <Action
+                      title={`${c.mustIds.includes(place.id) ? "✓ 꼭 가기" : "꼭 가기로 표시"} · ${place.name}`}
+                      secondary
+                      onPress={() =>
+                        update(
+                          "mustIds",
+                          c.mustIds.includes(place.id)
+                            ? c.mustIds.filter((id) => id !== place.id)
+                            : [...c.mustIds, place.id],
+                        )
+                      }
+                    />
+                    <Label>예상 체류 · 분</Label>
+                    <Field
+                      accessibilityLabel={`${place.name} 체류 시간`}
+                      value={String(c.durations[place.id] || 60)}
+                      keyboardType="number-pad"
+                      onChangeText={(v) =>
+                        update("durations", {
+                          ...c.durations,
+                          [place.id]: Number(v),
+                        })
+                      }
+                      maxLength={3}
+                    />
+                  </>
+                )}
+              </View>
+            ))}
+            {!eligible.length && (
+              <P>
+                먼저 가고 싶은 곳에서 위치를 확인하거나 아래에서 장소를 직접
+                추가해 주세요.
+              </P>
+            )}
+            <Action
+              title="가고 싶은 곳에서 위치 확인"
+              secondary
+              onPress={() =>
+                router.push({
+                  pathname: "/trip/[tripId]/candidates",
+                  params: { tripId, section: "places" },
+                })
+              }
+            />
+            <Action
+              title="장소 직접 추가"
+              secondary
+              onPress={() => setManual(!manual)}
+            />
+            {manual && (
+              <>
+                <Field
+                  accessibilityLabel="직접 추가할 장소 이름"
+                  value={manualName}
+                  onChangeText={setManualName}
+                  placeholder="장소 이름"
+                  maxLength={80}
+                />
+                <Field
+                  accessibilityLabel="직접 추가할 장소 주소"
+                  value={manualQuery}
+                  onChangeText={setManualQuery}
+                  placeholder="지도에서 확인한 주소 · 도시 포함"
+                  maxLength={300}
+                />
+                <Field
+                  accessibilityLabel="직접 추가할 장소 분류"
+                  value={manualCategory}
+                  onChangeText={setManualCategory}
+                  placeholder="관광 · 식사 · 카페/디저트"
+                  maxLength={40}
+                />
+                <Action
+                  title="확인한 주소로 장소 저장"
+                  onPress={() => {
+                    const r = store.addManualPlace(
+                      tripId,
+                      manualName,
+                      manualQuery,
+                      manualCategory,
+                    );
+                    if (!r.ok) setError(r.message);
+                    else {
                       setC((prev) => ({
                         ...prev,
-                        selectedIds: chosen
-                          ? prev.selectedIds.filter((id) => id !== place.id)
-                          : [
-                              ...prev.selectedIds.filter((id) => !used.has(id)),
-                              place.id,
-                            ],
-                        mustIds: chosen
-                          ? prev.mustIds.filter((id) => id !== place.id)
-                          : prev.mustIds.filter((id) => !used.has(id)),
+                        selectedIds: [
+                          ...prev.selectedIds.filter((id) => !used.has(id)),
+                          ...(r.placeIds || []),
+                        ],
+                        mustIds: prev.mustIds.filter((id) => !used.has(id)),
                       }));
+                      setManualName("");
+                      setManualQuery("");
+                      setManual(false);
+                    }
+                  }}
+                />
+              </>
+            )}
+          </>,
+        )}
+        {panel(
+          "rhythm",
+          "하루의 속도와 식사",
+          <>
+            <Label>이번에 제안받을 기간</Label>
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <DateField
+                label="제안 시작일"
+                value={c.rangeStart || trip.start}
+                minimum={trip.start}
+                onChange={(v) => update("rangeStart", v)}
+              />
+              <DateField
+                label="제안 종료일"
+                value={c.rangeEnd || trip.end}
+                minimum={c.rangeStart || trip.start}
+                onChange={(v) => update("rangeEnd", v)}
+              />
+            </View>
+            <Label>여행 속도</Label>
+            <View
+              style={{
+                flexDirection: "row",
+                gap: 8,
+                marginTop: 6,
+                marginBottom: 24,
+              }}
+            >
+              {[
+                { id: "relaxed" as const, name: "여유롭게" },
+                { id: "balanced" as const, name: "적당히" },
+                { id: "active" as const, name: "알차게" },
+              ].map((p) => (
+                <Pressable
+                  key={p.id}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: c.pace === p.id }}
+                  onPress={() => update("pace", p.id)}
+                  style={{
+                    flex: 1,
+                    minHeight: 44,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: c.pace === p.id ? "#E8E8E8" : ui.line,
+                    borderRadius: 10,
+                  }}
+                >
+                  <Text style={{ fontSize: 16, color: ui.ink }}>{p.name}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              <TimeInput
+                label="하루 시작"
+                value={c.start}
+                onChange={(v) => update("start", v)}
+              />
+              <TimeInput
+                label="하루 마무리"
+                value={c.end}
+                onChange={(v) => update("end", v)}
+              />
+            </View>
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              <TimeInput
+                label="점심"
+                value={c.lunch}
+                onChange={(v) => update("lunch", v)}
+              />
+              <TimeInput
+                label="저녁"
+                value={c.dinner}
+                onChange={(v) => update("dinner", v)}
+              />
+              <TimeInput
+                label="휴식"
+                value={c.rest}
+                onChange={(v) => update("rest", v)}
+              />
+            </View>
+            <P>
+              점심·저녁은 60분, 휴식은 30분을 비워요. 고정 일정과 겹치면
+              제안에서 알려드려요.
+            </P>
+            <Label>이동 방식 · 여러 개 선택 가능</Label>
+            <View
+              style={{
+                flexDirection: "row",
+                gap: 8,
+                marginTop: 4,
+                marginBottom: 24,
+              }}
+            >
+              {(
+                [
+                  { id: "walking", name: "도보" },
+                  { id: "transit", name: "대중교통" },
+                  { id: "driving", name: "차" },
+                ] as const
+              ).map((m) => {
+                const checked = planningModes(c).includes(m.id);
+                return (
+                  <Pressable
+                    key={m.id}
+                    accessibilityRole="checkbox"
+                    accessibilityLabel={`${m.name} 이용`}
+                    accessibilityState={{ checked }}
+                    onPress={() => {
+                      const previous = planningModes(c);
+                      if (checked && previous.length === 1) {
+                        setError("이동 방식은 하나 이상 선택해 주세요.");
+                        setFeedbackKey((v) => v + 1);
+                        return;
+                      }
+                      const modes = checked
+                        ? previous.filter((id) => id !== m.id)
+                        : [...previous, m.id];
+                      setC((p) => ({
+                        ...p,
+                        modes,
+                        mode: modes.length === 1 ? modes[0] : "mixed",
+                      }));
+                      setError("");
                     }}
-                    style={{ minHeight: 44, justifyContent: "center" }}
+                    style={{
+                      flex: 1,
+                      minHeight: 48,
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: checked ? ui.blue : ui.line,
+                      backgroundColor: checked ? ui.blueSoft : ui.surface,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
                   >
-                    <Text style={{ fontSize: 18, color: ui.ink }}>
-                      {c.selectedIds.includes(place.id) ? "☑" : "□"}{" "}
-                      {place.name}
+                    <Text
+                      style={{
+                        color: checked ? ui.blue : ui.ink,
+                        fontSize: 16,
+                        fontWeight: "600",
+                      }}
+                    >
+                      {checked ? "✓ " : ""}
+                      {m.name}
                     </Text>
                   </Pressable>
-                  {c.selectedIds.includes(place.id) && (
-                    <>
-                      <Action
-                        title={`${c.mustIds.includes(place.id) ? "✓ 꼭 가기" : "꼭 가기로 표시"} · ${place.name}`}
-                        secondary
-                        onPress={() =>
-                          update(
-                            "mustIds",
-                            c.mustIds.includes(place.id)
-                              ? c.mustIds.filter((id) => id !== place.id)
-                              : [...c.mustIds, place.id],
-                          )
-                        }
-                      />
-                      <Label>예상 체류 · 분</Label>
-                      <Field
-                        accessibilityLabel={`${place.name} 체류 시간`}
-                        value={String(c.durations[place.id] || 60)}
-                        keyboardType="number-pad"
-                        onChangeText={(v) =>
-                          update("durations", {
-                            ...c.durations,
-                            [place.id]: Number(v),
-                          })
-                        }
-                        maxLength={3}
-                      />
-                    </>
-                  )}
-                </View>
-              ))}
-              {!eligible.length && (
-                <P>
-                  먼저 가고 싶은 곳에서 위치를 확인하거나 아래에서 장소를 직접
-                  추가해 주세요.
-                </P>
-              )}
-              <Action
-                title="가고 싶은 곳에서 위치 확인"
-                secondary
-                onPress={() =>
-                  router.push({
-                    pathname: "/trip/[tripId]/candidates",
-                    params: { tripId, section: "places" },
-                  })
-                }
-              />
-              <Action
-                title="장소 직접 추가"
-                secondary
-                onPress={() => setManual(!manual)}
-              />
-              {manual && (
-                <>
+                );
+              })}
+            </View>
+            <Label>일정 사이에 비워둘 시간 · 분</Label>
+            <Field
+              accessibilityLabel="이동 여유 시간"
+              value={String(c.buffer)}
+              onChangeText={(v) => update("buffer", Number(v))}
+              keyboardType="number-pad"
+              maxLength={3}
+            />
+            <P>
+              장소를 옮기고 잠깐 쉬도록 비워두는 간격이에요. 실제 이동 시간은
+              경로 찾기에서 확인해 주세요.
+            </P>
+          </>,
+        )}
+        {panel(
+          "stays",
+          `숙소 ${c.stays.length}곳`,
+          <>
+            <P>
+              날짜별 숙소를 하루 출발·귀가 기준으로 참고해요. 체크인/아웃은 현지
+              시각입니다. 짐 보관 장소가 따로 있으면 요청에 적어 주세요.
+            </P>
+            {c.stays.map((stay, index) => {
+              const change = (field: string, value: string) =>
+                update(
+                  "stays",
+                  c.stays.map((s, i) =>
+                    i === index ? { ...s, [field]: value } : s,
+                  ),
+                );
+              return (
+                <View key={stay.id} style={{ paddingVertical: 14 }}>
+                  <Label>숙소 {index + 1}</Label>
+                  <PlaceSearch
+                    city={trip.city}
+                    country={trip.country}
+                    name={stay.name}
+                    onSelect={(m) =>
+                      update(
+                        "stays",
+                        c.stays.map((s) =>
+                          s.id === stay.id
+                            ? { ...s, name: m.name, query: m.address }
+                            : s,
+                        ),
+                      )
+                    }
+                  />
                   <Field
-                    accessibilityLabel="직접 추가할 장소 이름"
-                    value={manualName}
-                    onChangeText={setManualName}
-                    placeholder="장소 이름"
+                    accessibilityLabel={`숙소 ${index + 1} 이름`}
+                    value={stay.name}
+                    onChangeText={(v) => change("name", v)}
+                    placeholder="숙소 이름"
                     maxLength={80}
                   />
                   <Field
-                    accessibilityLabel="직접 추가할 장소 주소"
-                    value={manualQuery}
-                    onChangeText={setManualQuery}
-                    placeholder="지도에서 확인한 주소 · 도시 포함"
+                    accessibilityLabel={`숙소 ${index + 1} 주소`}
+                    value={stay.query}
+                    onChangeText={(v) => change("query", v)}
+                    placeholder="확인한 주소 · 도시 포함"
                     maxLength={300}
                   />
+                  <View style={{ flexDirection: "row", gap: 10 }}>
+                    <DateField
+                      label={`숙소 ${index + 1} 체크인 날짜`}
+                      value={stay.checkIn}
+                      onChange={(v) => change("checkIn", v)}
+                    />
+                    <DateField
+                      label={`숙소 ${index + 1} 체크아웃 날짜`}
+                      value={stay.checkOut}
+                      minimum={stay.checkIn}
+                      onChange={(v) => change("checkOut", v)}
+                    />
+                  </View>
+                  <View style={{ flexDirection: "row", gap: 10 }}>
+                    <TimeInput
+                      label={`숙소 ${index + 1} 체크인 가능 시각`}
+                      value={stay.inTime}
+                      onChange={(v) => change("inTime", v)}
+                    />
+                    <TimeInput
+                      label={`숙소 ${index + 1} 체크아웃 마감`}
+                      value={stay.outTime}
+                      onChange={(v) => change("outTime", v)}
+                    />
+                  </View>
+                  <Action
+                    title={`숙소 ${index + 1} 입력 삭제`}
+                    secondary
+                    onPress={() =>
+                      update(
+                        "stays",
+                        c.stays.filter((_, i) => i !== index),
+                      )
+                    }
+                  />
+                </View>
+              );
+            })}
+            <Action
+              title="＋ 숙소 추가"
+              secondary
+              onPress={() =>
+                update("stays", [
+                  ...c.stays,
+                  {
+                    id: uid(),
+                    name: "",
+                    query: "",
+                    checkIn: trip.start,
+                    checkOut: trip.end,
+                    inTime: "15:00",
+                    outTime: "11:00",
+                  },
+                ])
+              }
+            />
+          </>,
+        )}
+        {panel(
+          "flights",
+          `항공편 ${c.flights.length}개`,
+          <>
+            <P>
+              이 여행지의 현지 날짜·시각으로 입력하세요. 도착 후와 출발 전 준비
+              시간을 비워 둡니다.
+            </P>
+            {c.flights.map((flight, index) => {
+              const change = (field: string, value: string | number) =>
+                update(
+                  "flights",
+                  c.flights.map((f, i) =>
+                    i === index ? { ...f, [field]: value } : f,
+                  ),
+                );
+              return (
+                <View key={flight.id} style={{ paddingVertical: 14 }}>
+                  <Label>항공편 {index + 1}</Label>
+                  <Action
+                    title={
+                      flight.kind === "arrival"
+                        ? "여행지 도착편 · 눌러 출발편으로 변경"
+                        : "여행지 출발편 · 눌러 도착편으로 변경"
+                    }
+                    secondary
+                    onPress={() =>
+                      change(
+                        "kind",
+                        flight.kind === "arrival" ? "departure" : "arrival",
+                      )
+                    }
+                  />
+                  <DateField
+                    label={`항공편 ${index + 1} 날짜`}
+                    value={flight.date}
+                    onChange={(v) => change("date", v)}
+                  />
+                  <TimeInput
+                    label={`항공편 ${index + 1} 시각`}
+                    value={flight.time}
+                    onChange={(v) => change("time", v)}
+                  />
                   <Field
-                    accessibilityLabel="직접 추가할 장소 분류"
-                    value={manualCategory}
-                    onChangeText={setManualCategory}
-                    placeholder="관광 · 식사 · 카페/디저트"
-                    maxLength={40}
+                    accessibilityLabel={`항공편 ${index + 1} 공항`}
+                    placeholder="공항 이름 · 터미널 또는 주소"
+                    value={flight.query}
+                    onChangeText={(v) => change("query", v)}
+                    maxLength={300}
+                  />
+                  <Label>도착 후 / 출발 전 여유 · 분</Label>
+                  <Field
+                    accessibilityLabel={`항공편 ${index + 1} 여유`}
+                    value={String(flight.buffer)}
+                    keyboardType="number-pad"
+                    onChangeText={(v) => change("buffer", Number(v))}
+                    maxLength={3}
                   />
                   <Action
-                    title="확인한 주소로 장소 저장"
-                    onPress={() => {
-                      const r = store.addManualPlace(
-                        tripId,
-                        manualName,
-                        manualQuery,
-                        manualCategory,
-                      );
-                      if (!r.ok) setError(r.message);
-                      else {
-                        setC((prev) => ({
-                          ...prev,
-                          selectedIds: [
-                            ...prev.selectedIds.filter((id) => !used.has(id)),
-                            ...(r.placeIds || []),
-                          ],
-                          mustIds: prev.mustIds.filter((id) => !used.has(id)),
-                        }));
-                        setManualName("");
-                        setManualQuery("");
-                        setManual(false);
-                      }
-                    }}
+                    title={`항공편 ${index + 1} 입력 삭제`}
+                    secondary
+                    onPress={() =>
+                      update(
+                        "flights",
+                        c.flights.filter((_, i) => i !== index),
+                      )
+                    }
                   />
-                </>
-              )}
-            </>,
-          )}
-          {panel(
-            "rhythm",
-            "하루의 속도와 식사",
-            <>
-              <Label>이번에 제안받을 기간</Label>
-              <View style={{ flexDirection: "row", gap: 10 }}>
-                <DateField
-                  label="제안 시작일"
-                  value={c.rangeStart || trip.start}
-                  minimum={trip.start}
-                  onChange={(v) => update("rangeStart", v)}
-                />
-                <DateField
-                  label="제안 종료일"
-                  value={c.rangeEnd || trip.end}
-                  minimum={c.rangeStart || trip.start}
-                  onChange={(v) => update("rangeEnd", v)}
-                />
-              </View>
-              <Label>여행 속도</Label>
-              <View style={{ flexDirection: "row", gap: 8, marginTop: 6, marginBottom: 24 }}>
-                {[
-                  { id: "relaxed" as const, name: "여유롭게" },
-                  { id: "balanced" as const, name: "적당히" },
-                  { id: "active" as const, name: "알차게" },
-                ].map((p) => (
-                  <Pressable
-                    key={p.id}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: c.pace === p.id }}
-                    onPress={() => update("pace", p.id)}
-                    style={{
-                      flex: 1,
-                      minHeight: 44,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor: c.pace === p.id ? "#E8E8E8" : ui.line,
-                      borderRadius: 10,
-                    }}
-                  >
-                    <Text style={{ fontSize: 16, color: ui.ink }}>
-                      {p.name}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-              <View style={{ flexDirection: "row", gap: 12 }}>
-                <TimeInput
-                  label="하루 시작"
-                  value={c.start}
-                  onChange={(v) => update("start", v)}
-                />
-                <TimeInput
-                  label="하루 마무리"
-                  value={c.end}
-                  onChange={(v) => update("end", v)}
-                />
-              </View>
-              <View style={{ flexDirection: "row", gap: 12 }}>
-                <TimeInput
-                  label="점심"
-                  value={c.lunch}
-                  onChange={(v) => update("lunch", v)}
-                />
-                <TimeInput
-                  label="저녁"
-                  value={c.dinner}
-                  onChange={(v) => update("dinner", v)}
-                />
-                <TimeInput
-                  label="휴식"
-                  value={c.rest}
-                  onChange={(v) => update("rest", v)}
-                />
-              </View>
-              <P>
-                점심·저녁은 60분, 휴식은 30분을 비워요. 고정 일정과 겹치면
-                제안에서 알려드려요.
-              </P>
-              <Label>이동 방식 · 여러 개 선택 가능</Label>
-              <View style={{ flexDirection: "row", gap: 8, marginTop: 4, marginBottom: 24 }}>
-                {([{ id: "walking", name: "도보" }, { id: "transit", name: "대중교통" }, { id: "driving", name: "차" }] as const).map((m) => {
-                  const checked = planningModes(c).includes(m.id);
-                  return <Pressable key={m.id} accessibilityRole="checkbox" accessibilityLabel={`${m.name} 이용`} accessibilityState={{ checked }} onPress={() => {
-                    const previous = planningModes(c);
-                    if (checked && previous.length === 1) { setError("이동 방식은 하나 이상 선택해 주세요."); setFeedbackKey((v) => v + 1); return; }
-                    const modes = checked ? previous.filter((id) => id !== m.id) : [...previous, m.id];
-                    setC((p) => ({ ...p, modes, mode: modes.length === 1 ? modes[0] : "mixed" })); setError("");
-                  }} style={{ flex: 1, minHeight: 48, borderRadius: 12, borderWidth: 1, borderColor: checked ? ui.blue : ui.line, backgroundColor: checked ? ui.blueSoft : ui.surface, alignItems: "center", justifyContent: "center" }}><Text style={{ color: checked ? ui.blue : ui.ink, fontSize: 16, fontWeight: "600" }}>{checked ? "✓ " : ""}{m.name}</Text></Pressable>;
-                })}
-              </View>
-              <Label>일정 사이에 비워둘 시간 · 분</Label>
-              <Field
-                accessibilityLabel="이동 여유 시간"
-                value={String(c.buffer)}
-                onChangeText={(v) => update("buffer", Number(v))}
-                keyboardType="number-pad"
-                maxLength={3}
-              />
-              <P>
-                장소를 옮기고 잠깐 쉬도록 비워두는 간격이에요. 실제 이동 시간은 경로 찾기에서 확인해 주세요.
-              </P>
-            </>,
-          )}
-          {panel(
-            "stays",
-            `숙소 ${c.stays.length}곳`,
-            <>
-              <P>
-                날짜별 숙소를 하루 출발·귀가 기준으로 참고해요. 체크인/아웃은
-                현지 시각입니다. 짐 보관 장소가 따로 있으면 요청에 적어 주세요.
-              </P>
-              {c.stays.map((stay, index) => {
-                const change = (field: string, value: string) =>
-                  update(
-                    "stays",
-                    c.stays.map((s, i) =>
-                      i === index ? { ...s, [field]: value } : s,
-                    ),
-                  );
-                return (
-                  <View key={stay.id} style={{ paddingVertical: 14 }}>
-                    <Label>숙소 {index + 1}</Label>
-                    <PlaceSearch city={trip.city} country={trip.country} name={stay.name}
-                      onSelect={(m) => update("stays", c.stays.map((s) => s.id === stay.id ? { ...s, name: m.name, query: m.address } : s))} />
-                    <Field
-                      accessibilityLabel={`숙소 ${index + 1} 이름`}
-                      value={stay.name}
-                      onChangeText={(v) => change("name", v)}
-                      placeholder="숙소 이름"
-                      maxLength={80}
-                    />
-                    <Field
-                      accessibilityLabel={`숙소 ${index + 1} 주소`}
-                      value={stay.query}
-                      onChangeText={(v) => change("query", v)}
-                      placeholder="확인한 주소 · 도시 포함"
-                      maxLength={300}
-                    />
-                    <View style={{ flexDirection: "row", gap: 10 }}>
-                      <DateField
-                        label={`숙소 ${index + 1} 체크인 날짜`}
-                        value={stay.checkIn}
-                        onChange={(v) => change("checkIn", v)}
-                      />
-                      <DateField
-                        label={`숙소 ${index + 1} 체크아웃 날짜`}
-                        value={stay.checkOut}
-                        minimum={stay.checkIn}
-                        onChange={(v) => change("checkOut", v)}
-                      />
-                    </View>
-                    <View style={{ flexDirection: "row", gap: 10 }}>
-                      <TimeInput
-                        label={`숙소 ${index + 1} 체크인 가능 시각`}
-                        value={stay.inTime}
-                        onChange={(v) => change("inTime", v)}
-                      />
-                      <TimeInput
-                        label={`숙소 ${index + 1} 체크아웃 마감`}
-                        value={stay.outTime}
-                        onChange={(v) => change("outTime", v)}
-                      />
-                    </View>
-                    <Action
-                      title={`숙소 ${index + 1} 입력 삭제`}
-                      secondary
-                      onPress={() =>
-                        update(
-                          "stays",
-                          c.stays.filter((_, i) => i !== index),
-                        )
-                      }
-                    />
-                  </View>
-                );
-              })}
-              <Action
-                title="＋ 숙소 추가"
-                secondary
-                onPress={() =>
-                  update("stays", [
-                    ...c.stays,
-                    {
-                      id: uid(),
-                      name: "",
-                      query: "",
-                      checkIn: trip.start,
-                      checkOut: trip.end,
-                      inTime: "15:00",
-                      outTime: "11:00",
-                    },
-                  ])
-                }
-              />
-            </>,
-          )}
-          {panel(
-            "flights",
-            `항공편 ${c.flights.length}개`,
-            <>
-              <P>
-                이 여행지의 현지 날짜·시각으로 입력하세요. 도착 후와 출발 전
-                준비 시간을 비워 둡니다.
-              </P>
-              {c.flights.map((flight, index) => {
-                const change = (field: string, value: string | number) =>
-                  update(
-                    "flights",
-                    c.flights.map((f, i) =>
-                      i === index ? { ...f, [field]: value } : f,
-                    ),
-                  );
-                return (
-                  <View key={flight.id} style={{ paddingVertical: 14 }}>
-                    <Label>항공편 {index + 1}</Label>
-                    <Action
-                      title={
-                        flight.kind === "arrival"
-                          ? "여행지 도착편 · 눌러 출발편으로 변경"
-                          : "여행지 출발편 · 눌러 도착편으로 변경"
-                      }
-                      secondary
-                      onPress={() =>
-                        change(
-                          "kind",
-                          flight.kind === "arrival" ? "departure" : "arrival",
-                        )
-                      }
-                    />
-                    <DateField
-                      label={`항공편 ${index + 1} 날짜`}
-                      value={flight.date}
-                      onChange={(v) => change("date", v)}
-                    />
-                    <TimeInput
-                      label={`항공편 ${index + 1} 시각`}
-                      value={flight.time}
-                      onChange={(v) => change("time", v)}
-                    />
-                    <Field
-                      accessibilityLabel={`항공편 ${index + 1} 공항`}
-                      placeholder="공항 이름 · 터미널 또는 주소"
-                      value={flight.query}
-                      onChangeText={(v) => change("query", v)}
-                      maxLength={300}
-                    />
-                    <Label>도착 후 / 출발 전 여유 · 분</Label>
-                    <Field
-                      accessibilityLabel={`항공편 ${index + 1} 여유`}
-                      value={String(flight.buffer)}
-                      keyboardType="number-pad"
-                      onChangeText={(v) => change("buffer", Number(v))}
-                      maxLength={3}
-                    />
-                    <Action
-                      title={`항공편 ${index + 1} 입력 삭제`}
-                      secondary
-                      onPress={() =>
-                        update(
-                          "flights",
-                          c.flights.filter((_, i) => i !== index),
-                        )
-                      }
-                    />
-                  </View>
-                );
-              })}
-              <Action
-                title="＋ 항공편 추가"
-                secondary
-                onPress={() =>
-                  update("flights", [
-                    ...c.flights,
-                    {
-                      id: uid(),
-                      kind: "arrival",
-                      date: trip.start,
-                      time: "10:00",
-                      query: "",
-                      buffer: 120,
-                    },
-                  ])
-                }
-              />
-            </>,
-          )}
-          {panel(
-            "fixed",
-            `예약·고정 일정 ${c.fixed.length}개`,
-            <>
-              {c.fixed.map((event, index) => {
-                const change = (field: string, value: string | number) =>
-                  update(
-                    "fixed",
-                    c.fixed.map((f, i) =>
-                      i === index ? { ...f, [field]: value } : f,
-                    ),
-                  );
-                return (
-                  <View key={event.id} style={{ paddingVertical: 14 }}>
-                    <Field
-                      accessibilityLabel={`고정 일정 ${index + 1} 이름`}
-                      value={event.name}
-                      onChangeText={(v) => change("name", v)}
-                      placeholder="예약한 전시 · 식사 · 투어"
-                      maxLength={80}
-                    />
-                    <DateField
-                      label={`고정 일정 ${index + 1} 날짜`}
-                      value={event.date}
-                      onChange={(v) => change("date", v)}
-                    />
-                    <TimeInput
-                      label={`고정 일정 ${index + 1} 시각`}
-                      value={event.time}
-                      onChange={(v) => change("time", v)}
-                    />
-                    <Label>머무를 시간 · 분</Label>
-                    <Field
-                      accessibilityLabel={`고정 일정 ${index + 1} 체류`}
-                      value={String(event.duration)}
-                      keyboardType="number-pad"
-                      onChangeText={(v) => change("duration", Number(v))}
-                    />
-                    <Field
-                      accessibilityLabel={`고정 일정 ${index + 1} 주소`}
-                      value={event.query}
-                      onChangeText={(v) => change("query", v)}
-                      placeholder="장소 주소 · 선택"
-                      maxLength={300}
-                    />
-                    <Action
-                      title={`고정 일정 ${index + 1} 입력 삭제`}
-                      secondary
-                      onPress={() =>
-                        update(
-                          "fixed",
-                          c.fixed.filter((_, i) => i !== index),
-                        )
-                      }
-                    />
-                  </View>
-                );
-              })}
-              <Action
-                title="＋ 예약·고정 일정 추가"
-                secondary
-                onPress={() =>
-                  update("fixed", [
-                    ...c.fixed,
-                    {
-                      id: uid(),
-                      name: "",
-                      date: trip.start,
-                      time: "14:00",
-                      duration: 60,
-                      query: "",
-                    },
-                  ])
-                }
-              />
-            </>,
-          )}
-          <View style={{ marginTop: 18 }}>
-            <Label>여행 취향·짐 보관·추가 요청 · 선택</Label>
-            <Field
-              accessibilityLabel="AI에게 전할 여행 요청"
-              value={c.notes}
-              onChangeText={(v) => update("notes", v)}
-              multiline
-              style={{ minHeight: 100 }}
-              maxLength={1000}
-              placeholder="많이 걷지 않기, 마지막 날 짐 보관 장소 등"
-            />
-          </View>
-        </View>
-        <P>선택한 장소·주소·여행 조건·기존 일정만 AI에 보내요. 영업시간·날씨·실제 이동은 별도 확인이 필요해요. 제안을 검토한 뒤 적용합니다.</P>
-        {!active.length && (
-          <P>
-            제안할 장소가 없어요. ‘새로 넣을 장소’에서 위치가 확인된 곳을
-            선택하거나 직접 추가해 주세요.
-          </P>
-        )}
-        {!!message && (
-          <Text
-            accessibilityRole="alert"
-            style={{ fontSize: 16, color: ui.accent, marginVertical: 12 }}
-          >
-            {message}
-          </Text>
-        )}
-        {busy ? (
-          <P>제안을 생성하고 있어요. 위에서 취소할 수 있어요.</P>
-        ) : (
-          <>
+                </View>
+              );
+            })}
             <Action
-              title="조건 저장하고 AI 제안받기"
-              tone="primary"
-              disabled={!trip.days.length || !active.length}
-              onPress={generate}
-            />
-            <Action
-              title="조건만 저장"
+              title="＋ 항공편 추가"
               secondary
-              onPress={() => {
-                setFeedbackKey((v) => v + 1);
-                const r = store.savePlanning(tripId, c);
-                if (r.ok) {
-                  setError("");
-                  setMessage(r.message);
-                } else setError(r.message);
-              }}
+              onPress={() =>
+                update("flights", [
+                  ...c.flights,
+                  {
+                    id: uid(),
+                    kind: "arrival",
+                    date: trip.start,
+                    time: "10:00",
+                    query: "",
+                    buffer: 120,
+                  },
+                ])
+              }
             />
-          </>
+          </>,
         )}
-        {draft && (
-          <Action
-            title="저장한 제안 검토"
-            secondary
-            onPress={() => setReview(true)}
+        {panel(
+          "fixed",
+          `예약·고정 일정 ${c.fixed.length}개`,
+          <>
+            {c.fixed.map((event, index) => {
+              const change = (field: string, value: string | number) =>
+                update(
+                  "fixed",
+                  c.fixed.map((f, i) =>
+                    i === index ? { ...f, [field]: value } : f,
+                  ),
+                );
+              return (
+                <View key={event.id} style={{ paddingVertical: 14 }}>
+                  <Field
+                    accessibilityLabel={`고정 일정 ${index + 1} 이름`}
+                    value={event.name}
+                    onChangeText={(v) => change("name", v)}
+                    placeholder="예약한 전시 · 식사 · 투어"
+                    maxLength={80}
+                  />
+                  <DateField
+                    label={`고정 일정 ${index + 1} 날짜`}
+                    value={event.date}
+                    onChange={(v) => change("date", v)}
+                  />
+                  <TimeInput
+                    label={`고정 일정 ${index + 1} 시각`}
+                    value={event.time}
+                    onChange={(v) => change("time", v)}
+                  />
+                  <Label>머무를 시간 · 분</Label>
+                  <Field
+                    accessibilityLabel={`고정 일정 ${index + 1} 체류`}
+                    value={String(event.duration)}
+                    keyboardType="number-pad"
+                    onChangeText={(v) => change("duration", Number(v))}
+                  />
+                  <Field
+                    accessibilityLabel={`고정 일정 ${index + 1} 주소`}
+                    value={event.query}
+                    onChangeText={(v) => change("query", v)}
+                    placeholder="장소 주소 · 선택"
+                    maxLength={300}
+                  />
+                  <Action
+                    title={`고정 일정 ${index + 1} 입력 삭제`}
+                    secondary
+                    onPress={() =>
+                      update(
+                        "fixed",
+                        c.fixed.filter((_, i) => i !== index),
+                      )
+                    }
+                  />
+                </View>
+              );
+            })}
+            <Action
+              title="＋ 예약·고정 일정 추가"
+              secondary
+              onPress={() =>
+                update("fixed", [
+                  ...c.fixed,
+                  {
+                    id: uid(),
+                    name: "",
+                    date: trip.start,
+                    time: "14:00",
+                    duration: 60,
+                    query: "",
+                  },
+                ])
+              }
+            />
+          </>,
+        )}
+        <View style={{ marginTop: 18 }}>
+          <Label>여행 취향·짐 보관·추가 요청 · 선택</Label>
+          <Field
+            accessibilityLabel="AI에게 전할 여행 요청"
+            value={c.notes}
+            onChangeText={(v) => update("notes", v)}
+            multiline
+            style={{ minHeight: 100 }}
+            maxLength={1000}
+            placeholder="많이 걷지 않기, 마지막 날 짐 보관 장소 등"
           />
-        )}
-      </Page>
+        </View>
+      </View>
+      <P>
+        선택한 장소·주소·여행 조건·기존 일정만 AI에 보내요. 영업시간·날씨·실제
+        이동은 별도 확인이 필요해요. 제안을 검토한 뒤 적용합니다.
+      </P>
+      {!active.length && (
+        <P>
+          제안할 장소가 없어요. ‘새로 넣을 장소’에서 위치가 확인된 곳을
+          선택하거나 직접 추가해 주세요.
+        </P>
+      )}
+      {!!message && (
+        <Text
+          accessibilityRole="alert"
+          style={{ fontSize: 16, color: ui.accent, marginVertical: 12 }}
+        >
+          {message}
+        </Text>
+      )}
+      {busy ? (
+        <P>제안을 생성하고 있어요. 위에서 취소할 수 있어요.</P>
+      ) : (
+        <>
+          <Action
+            title="조건 저장하고 AI 제안받기"
+            tone="primary"
+            disabled={!trip.days.length || !active.length}
+            onPress={generate}
+          />
+          <Action
+            title="조건만 저장"
+            secondary
+            onPress={() => {
+              setFeedbackKey((v) => v + 1);
+              const r = store.savePlanning(tripId, c);
+              if (r.ok) {
+                setError("");
+                setMessage(r.message);
+              } else setError(r.message);
+            }}
+          />
+        </>
+      )}
+      {draft && (
+        <Action
+          title="저장한 제안 검토"
+          secondary
+          onPress={() => setReview(true)}
+        />
+      )}
+    </Page>
   );
 }

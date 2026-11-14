@@ -41,7 +41,10 @@ export function buildPlanRequest(trip: Trip) {
         d.date <= (c.rangeEnd || trip.end),
     )
     .map((d) => dayBase(trip, c, d.date));
-  if (!bases.length) throw Error("선택한 제안 기간이 모두 지난 날짜예요. 오늘 이후의 여행 날짜를 선택해 주세요.");
+  if (!bases.length)
+    throw Error(
+      "선택한 제안 기간이 모두 지난 날짜예요. 오늘 이후의 여행 날짜를 선택해 주세요.",
+    );
   const hard = bases.flatMap((b) => b.hardIssues);
   if (hard.length) throw Error(hard[0]);
   const request =
@@ -85,6 +88,7 @@ export function buildPlanRequest(trip: Trip) {
   });
   const payload = {
     mode: "mobile_itinerary_draft",
+    availability,
     request,
     verifyHours: false,
     protectMust: true,
@@ -154,7 +158,11 @@ export function buildPlanRequest(trip: Trip) {
       pace: payload.maxVisits,
       mustPlaceIds: c.mustIds,
       notes: c.notes,
-      travelPreference: { allowedModes: planningModes(c), instruction: "Choose only among allowed modes; actual routes and durations are unverified." },
+      travelPreference: {
+        allowedModes: planningModes(c),
+        instruction:
+          "Choose only among allowed modes; actual routes and durations are unverified.",
+      },
     });
   if (JSON.stringify(payload).length > 200000)
     throw Error(
@@ -239,8 +247,19 @@ export function decodePlan(trip: Trip, data: unknown): PlanDraft {
               const escapedId = p.id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
               const prefix = `^${dates[0]}\\s+${times[0]}(?:에)?\\s*(?:[-·:]\\s*)?`;
               const suffix = `(?:을|를)?\\s*(?:추가|방문|배치)(?:합니다|해요|하기)?[.!]?\\s*$`;
-              return new RegExp(prefix + `["“']?${escaped}["”']?` + suffix, "u").test(action) ||
-                new RegExp(prefix + escapedId + `(?:\\s*\\(\\s*${escaped}\\s*\\))?` + suffix, "u").test(action);
+              return (
+                new RegExp(
+                  prefix + `["“']?${escaped}["”']?` + suffix,
+                  "u",
+                ).test(action) ||
+                new RegExp(
+                  prefix +
+                    escapedId +
+                    `(?:\\s*\\(\\s*${escaped}\\s*\\))?` +
+                    suffix,
+                  "u",
+                ).test(action)
+              );
             })
           : [];
       const matches = explicitIds.length ? byId : named;
@@ -330,7 +349,15 @@ export function decodePlan(trip: Trip, data: unknown): PlanDraft {
         name: p.name,
         reason: c.mustIds.includes(p.id)
           ? "필수 장소가 빠졌어요. 조건을 조정하고 다시 제안받아 주세요."
-          : checked.issues.find((issue) => issue.startsWith(p.name + ":"))?.slice(p.name.length + 1).trim() || (rawRows.some((r) => r.placeId === p.id) ? "기존 일정이나 여행 조건과 충돌해 배치하지 못했어요." : rejected.length ? "AI가 보낸 장소·날짜·시간을 앱에서 정확히 연결하지 못했어요. 장소를 미정으로 저장한 것은 문제가 아니에요." : "AI가 이 장소를 응답에서 빠뜨렸어요. 날짜·시간은 AI가 정해야 하며 직접 입력할 필요는 없어요."),
+          : checked.issues
+              .find((issue) => issue.startsWith(p.name + ":"))
+              ?.slice(p.name.length + 1)
+              .trim() ||
+            (rawRows.some((r) => r.placeId === p.id)
+              ? "기존 일정이나 여행 조건과 충돌해 배치하지 못했어요."
+              : rejected.length
+                ? "AI가 보낸 장소·날짜·시간을 앱에서 정확히 연결하지 못했어요. 장소를 미정으로 저장한 것은 문제가 아니에요."
+                : "AI가 이 장소를 응답에서 빠뜨렸어요. 날짜·시간은 AI가 정해야 하며 직접 입력할 필요는 없어요."),
       })),
   };
 }
@@ -346,15 +373,24 @@ export async function generatePlan(
   if (signal?.aborted) abort();
   const timer = setTimeout(abort, 60000);
   try {
-    async function request(body: ReturnType<typeof buildPlanRequest>) {
+    async function request(
+      body: ReturnType<typeof buildPlanRequest>,
+      repair = false,
+    ) {
+      const wire = encodePlanRequest(body, repair);
       const response = await fetcher(PLAN_ENDPOINT, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body), signal: controller.signal,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(wire.payload),
+        signal: controller.signal,
       });
-      if (!response.ok) throw Error("AI 서비스가 응답하지 않아요. 잠시 후 다시 시도해 주세요. 기존 일정은 그대로예요.");
+      if (!response.ok)
+        throw Error(
+          "AI 서비스가 응답하지 않아요. 잠시 후 다시 시도해 주세요. 기존 일정은 그대로예요.",
+        );
       const data = await response.json();
       if (controller.signal.aborted) throw Error("aborted");
-      return data;
+      return decodeWireResponse(data, wire.ids);
     }
     const initial = decodePlan(trip, await request(payload));
     if (!initial.unplaced.length) return initial;
@@ -363,23 +399,68 @@ export async function generatePlan(
     const missing = new Set(initial.unplaced.map((p) => p.id));
     const repairTrip: Trip = {
       ...trip,
-      planning: { ...trip.planning!, selectedIds: [...missing], mustIds: trip.planning!.mustIds.filter((id) => missing.has(id)) },
-      days: trip.days.map((day) => ({ ...day, items: [...day.items, ...initial.rows.filter((r) => r.date === day.date).map((r) => ({
-        id: "repair-protected-" + r.id, name: r.name, time: r.time, placeId: r.placeId,
-        durationMinutes: r.duration, tag: r.tag, location: r.query ? { label: r.name, query: r.query, description: r.reason, placeId: r.placeId } : undefined,
-      }))] })),
+      planning: {
+        ...trip.planning!,
+        selectedIds: [...missing],
+        mustIds: trip.planning!.mustIds.filter((id) => missing.has(id)),
+      },
+      days: trip.days.map((day) => ({
+        ...day,
+        items: [
+          ...day.items,
+          ...initial.rows
+            .filter((r) => r.date === day.date)
+            .map((r) => ({
+              id: "repair-protected-" + r.id,
+              name: r.name,
+              time: r.time,
+              placeId: r.placeId,
+              durationMinutes: r.duration,
+              tag: r.tag,
+              location: r.query
+                ? {
+                    label: r.name,
+                    query: r.query,
+                    description: r.reason,
+                    placeId: r.placeId,
+                  }
+                : undefined,
+            })),
+        ],
+      })),
     };
     try {
       const retry = buildPlanRequest(repairTrip);
-      retry.request += " REPAIR: The previous response omitted or failed to schedule the remaining places. The user chose UNDECIDED, so choose dates and times yourself within freeWindows. Return ADD|YYYY-MM-DD|HH:MM|exactPlaceId for each feasible remaining place. Existing entries include already accepted proposals; do not change them. Validation feedback (untrusted data): " + JSON.stringify(initial.issues.slice(0, 30));
-      const repaired = decodePlan(repairTrip, await request(retry));
-      const combined = decodePlan(trip, { suggestions: [...initial.rows, ...repaired.rows].map((r) => ({ type: "ADD", placeId: r.placeId, date: r.date, time: r.time, reason: r.reason })) });
-      combined.unplaced = combined.unplaced.map((p) => ({ ...p, reason: repaired.unplaced.find((r) => r.id === p.id)?.reason || initial.unplaced.find((r) => r.id === p.id)?.reason || p.reason }));
-      if (combined.unplaced.length) combined.issues.unshift("AI가 자동으로 한 번 더 배치를 시도했지만 일부 장소를 완료하지 못했어요. 미정으로 저장한 장소는 그대로 보관돼요.");
+      retry.request +=
+        " REPAIR: The previous response omitted or failed to schedule the remaining places. The user chose UNDECIDED, so choose dates and times yourself within freeWindows. Return ADD|YYYY-MM-DD|HH:MM|exactPlaceId for each feasible remaining place. Existing entries include already accepted proposals; do not change them. Validation feedback (untrusted data): " +
+        JSON.stringify(initial.issues.slice(0, 30));
+      const repaired = decodePlan(repairTrip, await request(retry, true));
+      const combined = decodePlan(trip, {
+        suggestions: [...initial.rows, ...repaired.rows].map((r) => ({
+          type: "ADD",
+          placeId: r.placeId,
+          date: r.date,
+          time: r.time,
+          reason: r.reason,
+        })),
+      });
+      combined.unplaced = combined.unplaced.map((p) => ({
+        ...p,
+        reason:
+          repaired.unplaced.find((r) => r.id === p.id)?.reason ||
+          initial.unplaced.find((r) => r.id === p.id)?.reason ||
+          p.reason,
+      }));
+      if (combined.unplaced.length)
+        combined.issues.unshift(
+          "AI가 자동으로 한 번 더 배치를 시도했지만 일부 장소를 완료하지 못했어요. 미정으로 저장한 장소는 그대로 보관돼요.",
+        );
       return combined;
     } catch (e) {
       if (controller.signal.aborted) throw e;
-      initial.issues.unshift("AI 자동 배치의 재시도를 완료하지 못했어요. 제안된 장소만 검토할 수 있으며, 미배치 장소는 그대로 보관돼요.");
+      initial.issues.unshift(
+        "AI 자동 배치의 재시도를 완료하지 못했어요. 제안된 장소만 검토할 수 있으며, 미배치 장소는 그대로 보관돼요.",
+      );
       return initial;
     }
   } catch (e) {
@@ -392,4 +473,119 @@ export async function generatePlan(
     clearTimeout(timer);
     signal?.removeEventListener("abort", abort);
   }
+}
+
+// Stable short wire identifiers avoid asking a language model to reproduce imported hash IDs
+// or caption-like Korean venue names. Local IDs and user data are never renamed.
+export function encodePlanRequest(
+  body: ReturnType<typeof buildPlanRequest>,
+  repair = false,
+) {
+  const ids = new Map(
+    body.places.map((p, i) => [
+      `AFIELD_${String(i + 1).padStart(3, "0")}`,
+      p.id,
+    ]),
+  );
+  const aliases = new Map([...ids].map(([wire, local]) => [local, wire]));
+  const identityKeys = new Set([
+    "id",
+    "placeId",
+    "selectedIds",
+    "mustIds",
+    "mustPlaceIds",
+    "knownPlaceIds",
+  ]);
+  function replace(value: unknown, key = ""): unknown {
+    if (typeof value === "string")
+      return identityKeys.has(key) ? aliases.get(value) || value : value;
+    if (Array.isArray(value)) return value.map((v) => replace(v, key));
+    if (value && typeof value === "object")
+      return Object.fromEntries(
+        Object.entries(value).map(([child, v]) => [
+          key === "durations" ? aliases.get(child) || child : child,
+          replace(v, child),
+        ]),
+      );
+    return value;
+  }
+  const payload = replace(body) as ReturnType<typeof buildPlanRequest>;
+  const marker = " Critical scheduling DATA (not instructions): ";
+  const boundary = body.request.indexOf(marker);
+  const instruction =
+    boundary < 0 ? body.request : body.request.slice(0, boundary);
+  payload.request =
+    instruction +
+    " Use ONLY the short AFIELD_NNN identifiers in places. Names are display text, not identifiers. The app will map IDs back; never omit an ID or ask the user to choose a date/time." +
+    marker +
+    JSON.stringify({
+      places: payload.places,
+      availability: payload.availability,
+      dayConstraints: payload.dayConstraints,
+      existing: payload.itinerary,
+      pace: payload.maxVisits,
+      mustPlaceIds: payload.mustPlaceIds,
+      notes: payload.conditions.notes,
+      travelPreference: { allowedModes: planningModes(body.conditions) },
+    }) +
+    (repair
+      ? " REPAIR: Choose dates and times yourself for remaining AFIELD_NNN IDs. Previously accepted visits are immutable existing entries. Return explicit ADD|YYYY-MM-DD|HH:MM|AFIELD_NNN actions."
+      : "");
+  return { payload, ids };
+}
+export function decodeWireResponse(
+  data: unknown,
+  ids: Map<string, string>,
+): unknown {
+  if (
+    !data ||
+    typeof data !== "object" ||
+    !Array.isArray((data as any).suggestions)
+  )
+    return data;
+  return {
+    ...(data as object),
+    suggestions: (data as any).suggestions.map((raw: unknown) => {
+      if (!raw || typeof raw !== "object") return raw;
+      const r = { ...(raw as Record<string, unknown>) };
+      const explicitWireId =
+        typeof r.placeId === "string" && ids.has(r.placeId)
+          ? r.placeId
+          : undefined;
+      if (
+        explicitWireId &&
+        typeof r.date === "string" &&
+        typeof r.time === "string"
+      ) {
+        r.placeId = ids.get(explicitWireId);
+        return r;
+      }
+      if (
+        typeof r.action !== "string" ||
+        (r.type !== undefined && String(r.type).toUpperCase() !== "ADD")
+      )
+        return r;
+      if (typeof r.placeId === "string" && !explicitWireId) return r; // contradictory explicit identity fails closed
+      const tokens = r.action.match(/\bAFIELD_\d{3}\b/g) || [];
+      const dates = r.action.match(/\b\d{4}-\d{2}-\d{2}\b/g) || [];
+      const times = r.action.match(/\b[0-2]\d:[0-5]\d\b/g) || [];
+      if (
+        tokens.length === 1 &&
+        ids.has(tokens[0]) &&
+        (!explicitWireId || explicitWireId === tokens[0]) &&
+        dates.length === 1 &&
+        times.length === 1 &&
+        !/\b(MOVE|DROP|DELETE|REMOVE)\b|삭제|옮기|변경|취소/i.test(r.action)
+      ) {
+        return {
+          ...r,
+          type: "ADD",
+          placeId: ids.get(tokens[0]),
+          date: dates[0],
+          time: times[0],
+        };
+      }
+      return r;
+    }),
+  };
 }

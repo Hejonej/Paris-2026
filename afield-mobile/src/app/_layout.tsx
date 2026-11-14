@@ -1,4 +1,4 @@
-import { DetailBack } from "../back";
+import { AppHeader } from "../appHeader";
 import React from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -34,7 +34,12 @@ function Shell() {
         screenOptions={{
           headerStyle: { backgroundColor: ui.bg },
           headerTintColor: ui.ink,
-          headerLeft: () => <DetailBack />,
+          header: ({ options, route }) => (
+            <AppHeader
+              title={options.title || "Afield"}
+              back={route.name !== "chapters"}
+            />
+          ),
           headerShadowVisible: false,
           headerBackButtonDisplayMode: "minimal",
           contentStyle: { backgroundColor: ui.bg },
