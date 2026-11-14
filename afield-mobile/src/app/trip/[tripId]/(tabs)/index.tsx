@@ -60,7 +60,7 @@ export default function Home() {
           </Text>
         </Pressable>
       </View>
-      <Photo uri={trip.coverUri || cover(trip.city)} height={172} />
+      <Photo uri={trip.coverUri || cover(trip.city)} height={208} />
       <View style={[s.card, { backgroundColor: "#E8F0F7", borderColor: "#C6D8E7" }]}>
         <Label>여행 조건 · AI 일정</Label>
         <Text style={s.title}>모아 둔 장소로 하루를 짜요</Text>

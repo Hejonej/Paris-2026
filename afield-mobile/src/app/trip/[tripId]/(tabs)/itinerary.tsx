@@ -1,3 +1,4 @@
+import { routeMode } from "../../../../planner";
 import { inspirationProgress } from "../../../../inspirationProgress";
 import { ActivityButton } from "../../../../activityUI";
 import { entryActivity } from "../../../../activities";
@@ -298,7 +299,7 @@ export default function Itinerary() {
                             ? open(
                                 navigationUrl(
                                   location,
-                                  trip?.planning?.mode === "mixed" ? "transit" : trip?.planning?.mode || "walking",
+                                  routeMode(trip?.planning),
                                 ),
                               )
                             : editLocation(item)

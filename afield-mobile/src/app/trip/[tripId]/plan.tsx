@@ -15,6 +15,8 @@ import {
   defaultConditions,
   readyPlaces,
   planningSnapshot,
+  planningModes,
+  syncPlanningPlaces,
 } from "../../../planner";
 import type { PlanningConditions } from "../../../planner";
 import { generatePlan } from "../../../aiPlanner";
@@ -63,12 +65,13 @@ export default function Plan() {
         },
       ),
   );
-  const [section, setSection] = useState("rhythm");
+  const [section, setSection] = useState("places");
   const [review, setReview] = useState(!!trip?.planDraft);
   const [selected, setSelected] = useState<Set<string>>(
     new Set(trip?.planDraft?.rows.map((r) => r.id) || []),
   );
   const [busy, setBusy] = useState(false);
+  const [feedbackKey, setFeedbackKey] = useState(0);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [manual, setManual] = useState(false);
@@ -79,8 +82,12 @@ export default function Plan() {
   const running = useRef(false);
   useEffect(() => () => controller.current?.abort(), []);
   useEffect(() => {
-    if (store.ready && trip) setC(trip.planning || defaultConditions(trip));
+    if (store.ready && trip) setC(syncPlanningPlaces(trip, trip.planning || defaultConditions(trip)));
   }, [store.ready, tripId]);
+  const readyKey = trip ? readyPlaces(trip).map((p) => p.id).join("|") : "";
+  useEffect(() => {
+    if (store.ready && trip) setC((previous) => syncPlanningPlaces(trip, previous));
+  }, [readyKey]);
   useEffect(() => {
     if (trip?.planDraft) {
       setSelected(new Set(trip.planDraft.rows.map((r) => r.id)));
@@ -112,6 +119,7 @@ export default function Plan() {
   }
   async function generate() {
     if (running.current) return;
+    setFeedbackKey((v) => v + 1);
     const result = store.savePlanning(tripId, c);
     if (!result.ok) {
       setError(result.message);
@@ -141,15 +149,17 @@ export default function Plan() {
     } finally {
       running.current = false;
       setBusy(false);
+      setFeedbackKey((v) => v + 1);
     }
   }
   const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   const panel = (key: string, title: string, children: React.ReactNode) => (
     <View
       style={{
-        borderBottomWidth: 1,
-        borderColor: ui.line,
-        paddingVertical: 12,
+        backgroundColor: ui.surface,
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 12,
       }}
     >
       <Pressable
@@ -162,7 +172,7 @@ export default function Plan() {
           {title} {section === key ? "−" : "＋"}
         </Text>
       </Pressable>
-      {section === key && children}
+      {section === key && <View style={{ paddingTop: 16 }}>{children}</View>}
     </View>
   );
   if (review && draft) {
@@ -181,7 +191,7 @@ export default function Plan() {
     const mustIds = trip.planning?.mustIds || [];
     const missingMust = draft.unplaced.some((p) => mustIds.includes(p.id));
     return (
-      <Page>
+      <Page resetKey={`review-${draft.id}`}>
         <Label>2 · AI 제안 검토</Label>
         <H>이렇게 여행해 볼까요?</H>
         <P>
@@ -194,10 +204,11 @@ export default function Plan() {
           </P>
         )}
         {!draft.rows.length && (
-          <P>
-            조건에 맞춰 추가할 장소가 없어요. 아래 제외 이유를 확인하고 시간이나
-            장소 선택을 조정해 주세요.
-          </P>
+          <View style={{ padding: 16, borderRadius: 14, backgroundColor: ui.warm, marginBottom: 20 }}>
+            <Text style={s.title}>선택한 {trip.planning?.selectedIds.length || 0}곳 중 배치된 장소가 없어요</Text>
+            <P>장소가 삭제된 것은 아니에요. 아래 장소별 이유를 확인해 주세요.</P>
+            <Action title="조건 수정하고 다시 시도" tone="primary" onPress={() => { setReview(false); setSection("places"); setFeedbackKey((v) => v + 1); }} />
+          </View>
         )}
         {trip.days
           .filter(
@@ -333,13 +344,18 @@ export default function Plan() {
     );
   }
   return (
-      <Page>
+      <Page resetKey={`form-${feedbackKey}`}>
         <Label>1 · 여행 조건</Label>
-        <H>여행의 틀을 잡아요</H>
-        <P>
-          숙소·항공편·식사 시간을 고려해 빈 시간에 장소를 제안해요. 기존 일정과
-          MUST는 옮기거나 지우지 않습니다.
-        </P>
+        <H>모아 둔 곳을 하나의 여행으로</H>
+        <P>장소를 고르고, 필요한 여행 조건만 더해 주세요.</P>
+        <View style={{ backgroundColor: ui.blueSoft, borderRadius: 16, padding: 16, marginBottom: 20 }}>
+          <Text style={s.title}>주소 확인 {eligible.length}곳 · 이번 계획에 {active.length}곳</Text>
+          <P>{eligible.length - active.length > 0 ? `저장한 곳 중 ${eligible.length - active.length}곳은 아직 선택되지 않았어요.` : "선택한 장소를 바탕으로 날짜와 시간을 제안해요."}</P>
+          <Action title="계획할 장소 확인" tone="link" onPress={() => setSection("places")} />
+          {!!eligible.length && <Action title="미배치 장소 모두 선택" tone="secondary" onPress={() => { setC((prev) => ({ ...prev, selectedIds: eligible.slice(0, 100).map((p) => p.id), knownPlaceIds: eligible.map((p) => p.id) })); setSection("places"); }} />}
+        </View>
+        {!!error && <Text accessibilityRole="alert" style={{ color: ui.danger, backgroundColor: ui.dangerSoft, padding: 14, borderRadius: 12, marginBottom: 16 }}>{error}</Text>}
+        {busy && <View style={{ padding: 16, backgroundColor: ui.blueSoft, borderRadius: 12, marginBottom: 16 }}><ActivityIndicator /><P>AI가 선택한 {active.length}곳을 배치하고 있어요.</P><Action title="제안 생성 취소" tone="link" onPress={() => controller.current?.abort()} /></View>}
         {!trip.days.length && (
           <Action
             title="먼저 여행 날짜 정하기"
@@ -355,6 +371,156 @@ export default function Plan() {
           pointerEvents={busy ? "none" : "auto"}
           style={{ opacity: busy ? 0.6 : 1 }}
         >
+          {panel(
+            "places",
+            `새로 넣을 장소 ${active.length}곳`,
+            <>
+              <P>
+                한 번에 최대 100곳을 제안받을 수 있어요. 위치가 확인된 저장 장소
+                중에서 골라 주세요. 이미 일정에 들어간 곳은 유지합니다. ‘꼭
+                가기’로 표시한 장소가 빠지면 적용을 막아요.
+              </P>
+              {eligible.map((place) => (
+                <View
+                  key={place.id}
+                  style={{
+                    paddingVertical: 12,
+                    borderBottomWidth: 1,
+                    borderColor: ui.line,
+                  }}
+                >
+                  <Pressable
+                    accessibilityRole="checkbox"
+                    accessibilityLabel={`${place.name} 계획에 선택`}
+                    accessibilityState={{
+                      checked: c.selectedIds.includes(place.id),
+                    }}
+                    onPress={() => {
+                      const chosen = c.selectedIds.includes(place.id);
+                      setC((prev) => ({
+                        ...prev,
+                        selectedIds: chosen
+                          ? prev.selectedIds.filter((id) => id !== place.id)
+                          : [
+                              ...prev.selectedIds.filter((id) => !used.has(id)),
+                              place.id,
+                            ],
+                        mustIds: chosen
+                          ? prev.mustIds.filter((id) => id !== place.id)
+                          : prev.mustIds.filter((id) => !used.has(id)),
+                      }));
+                    }}
+                    style={{ minHeight: 44, justifyContent: "center" }}
+                  >
+                    <Text style={{ fontSize: 18, color: ui.ink }}>
+                      {c.selectedIds.includes(place.id) ? "☑" : "□"}{" "}
+                      {place.name}
+                    </Text>
+                  </Pressable>
+                  {c.selectedIds.includes(place.id) && (
+                    <>
+                      <Action
+                        title={`${c.mustIds.includes(place.id) ? "✓ 꼭 가기" : "꼭 가기로 표시"} · ${place.name}`}
+                        secondary
+                        onPress={() =>
+                          update(
+                            "mustIds",
+                            c.mustIds.includes(place.id)
+                              ? c.mustIds.filter((id) => id !== place.id)
+                              : [...c.mustIds, place.id],
+                          )
+                        }
+                      />
+                      <Label>예상 체류 · 분</Label>
+                      <Field
+                        accessibilityLabel={`${place.name} 체류 시간`}
+                        value={String(c.durations[place.id] || 60)}
+                        keyboardType="number-pad"
+                        onChangeText={(v) =>
+                          update("durations", {
+                            ...c.durations,
+                            [place.id]: Number(v),
+                          })
+                        }
+                        maxLength={3}
+                      />
+                    </>
+                  )}
+                </View>
+              ))}
+              {!eligible.length && (
+                <P>
+                  먼저 가고 싶은 곳에서 위치를 확인하거나 아래에서 장소를 직접
+                  추가해 주세요.
+                </P>
+              )}
+              <Action
+                title="가고 싶은 곳에서 위치 확인"
+                secondary
+                onPress={() =>
+                  router.push({
+                    pathname: "/trip/[tripId]/candidates",
+                    params: { tripId, section: "places" },
+                  })
+                }
+              />
+              <Action
+                title="장소 직접 추가"
+                secondary
+                onPress={() => setManual(!manual)}
+              />
+              {manual && (
+                <>
+                  <Field
+                    accessibilityLabel="직접 추가할 장소 이름"
+                    value={manualName}
+                    onChangeText={setManualName}
+                    placeholder="장소 이름"
+                    maxLength={80}
+                  />
+                  <Field
+                    accessibilityLabel="직접 추가할 장소 주소"
+                    value={manualQuery}
+                    onChangeText={setManualQuery}
+                    placeholder="지도에서 확인한 주소 · 도시 포함"
+                    maxLength={300}
+                  />
+                  <Field
+                    accessibilityLabel="직접 추가할 장소 분류"
+                    value={manualCategory}
+                    onChangeText={setManualCategory}
+                    placeholder="관광 · 식사 · 카페/디저트"
+                    maxLength={40}
+                  />
+                  <Action
+                    title="확인한 주소로 장소 저장"
+                    onPress={() => {
+                      const r = store.addManualPlace(
+                        tripId,
+                        manualName,
+                        manualQuery,
+                        manualCategory,
+                      );
+                      if (!r.ok) setError(r.message);
+                      else {
+                        setC((prev) => ({
+                          ...prev,
+                          selectedIds: [
+                            ...prev.selectedIds.filter((id) => !used.has(id)),
+                            ...(r.placeIds || []),
+                          ],
+                          mustIds: prev.mustIds.filter((id) => !used.has(id)),
+                        }));
+                        setManualName("");
+                        setManualQuery("");
+                        setManual(false);
+                      }
+                    }}
+                  />
+                </>
+              )}
+            </>,
+          )}
           {panel(
             "rhythm",
             "하루의 속도와 식사",
@@ -374,7 +540,8 @@ export default function Plan() {
                   onChange={(v) => update("rangeEnd", v)}
                 />
               </View>
-              <View style={{ flexDirection: "row", gap: 8, marginBottom: 14 }}>
+              <Label>여행 속도</Label>
+              <View style={{ flexDirection: "row", gap: 8, marginTop: 6, marginBottom: 24 }}>
                 {[
                   { id: "relaxed" as const, name: "여유롭게" },
                   { id: "balanced" as const, name: "적당히" },
@@ -433,21 +600,17 @@ export default function Plan() {
                 점심·저녁은 60분, 휴식은 30분을 비워요. 고정 일정과 겹치면
                 제안에서 알려드려요.
               </P>
-              <Label>이동 방식</Label>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                {[
-                  { id: "mixed" as const, name: "도보 + 대중교통" },
-                  { id: "walking" as const, name: "도보" },
-                  { id: "transit" as const, name: "대중교통" },
-                  { id: "driving" as const, name: "차" },
-                ].map((m) => (
-                  <Action
-                    key={m.id}
-                    title={`${c.mode === m.id ? "✓ " : ""}${m.name}`}
-                    secondary
-                    onPress={() => update("mode", m.id)}
-                  />
-                ))}
+              <Label>이동 방식 · 여러 개 선택 가능</Label>
+              <View style={{ flexDirection: "row", gap: 8, marginTop: 4, marginBottom: 24 }}>
+                {([{ id: "walking", name: "도보" }, { id: "transit", name: "대중교통" }, { id: "driving", name: "차" }] as const).map((m) => {
+                  const checked = planningModes(c).includes(m.id);
+                  return <Pressable key={m.id} accessibilityRole="checkbox" accessibilityLabel={`${m.name} 이용`} accessibilityState={{ checked }} onPress={() => {
+                    const previous = planningModes(c);
+                    if (checked && previous.length === 1) { setError("이동 방식은 하나 이상 선택해 주세요."); setFeedbackKey((v) => v + 1); return; }
+                    const modes = checked ? previous.filter((id) => id !== m.id) : [...previous, m.id];
+                    setC((p) => ({ ...p, modes, mode: modes.length === 1 ? modes[0] : "mixed" })); setError("");
+                  }} style={{ flex: 1, minHeight: 48, borderRadius: 12, borderWidth: 1, borderColor: checked ? ui.blue : ui.line, backgroundColor: checked ? ui.blueSoft : ui.surface, alignItems: "center", justifyContent: "center" }}><Text style={{ color: checked ? ui.blue : ui.ink, fontSize: 16, fontWeight: "600" }}>{checked ? "✓ " : ""}{m.name}</Text></Pressable>;
+                })}
               </View>
               <Label>일정 사이에 비워둘 시간 · 분</Label>
               <Field
@@ -458,7 +621,7 @@ export default function Plan() {
                 maxLength={3}
               />
               <P>
-                이전 장소에서 다음 장소로 이동하고 잠깐 쉬도록 비워두는 최소 간격이에요. 예: 30분이면 방문 일정 사이를 최소 30분 띄워요. 실제 이동 시간 계산값은 아니에요. 도보 + 대중교통은 두 방식을 함께 고려하며, 경로 찾기는 대중교통으로 열고 구간별로 바꿀 수 있어요.
+                장소를 옮기고 잠깐 쉬도록 비워두는 간격이에요. 실제 이동 시간은 경로 찾기에서 확인해 주세요.
               </P>
             </>,
           )}
@@ -722,156 +885,6 @@ export default function Plan() {
               />
             </>,
           )}
-          {panel(
-            "places",
-            `새로 넣을 장소 ${active.length}곳`,
-            <>
-              <P>
-                한 번에 최대 100곳을 제안받을 수 있어요. 위치가 확인된 저장 장소
-                중에서 골라 주세요. 이미 일정에 들어간 곳은 유지합니다. ‘꼭
-                가기’로 표시한 장소가 빠지면 적용을 막아요.
-              </P>
-              {eligible.map((place) => (
-                <View
-                  key={place.id}
-                  style={{
-                    paddingVertical: 12,
-                    borderBottomWidth: 1,
-                    borderColor: ui.line,
-                  }}
-                >
-                  <Pressable
-                    accessibilityRole="checkbox"
-                    accessibilityLabel={`${place.name} 계획에 선택`}
-                    accessibilityState={{
-                      checked: c.selectedIds.includes(place.id),
-                    }}
-                    onPress={() => {
-                      const chosen = c.selectedIds.includes(place.id);
-                      setC((prev) => ({
-                        ...prev,
-                        selectedIds: chosen
-                          ? prev.selectedIds.filter((id) => id !== place.id)
-                          : [
-                              ...prev.selectedIds.filter((id) => !used.has(id)),
-                              place.id,
-                            ],
-                        mustIds: chosen
-                          ? prev.mustIds.filter((id) => id !== place.id)
-                          : prev.mustIds.filter((id) => !used.has(id)),
-                      }));
-                    }}
-                    style={{ minHeight: 44, justifyContent: "center" }}
-                  >
-                    <Text style={{ fontSize: 18, color: ui.ink }}>
-                      {c.selectedIds.includes(place.id) ? "☑" : "□"}{" "}
-                      {place.name}
-                    </Text>
-                  </Pressable>
-                  {c.selectedIds.includes(place.id) && (
-                    <>
-                      <Action
-                        title={`${c.mustIds.includes(place.id) ? "✓ 꼭 가기" : "꼭 가기로 표시"} · ${place.name}`}
-                        secondary
-                        onPress={() =>
-                          update(
-                            "mustIds",
-                            c.mustIds.includes(place.id)
-                              ? c.mustIds.filter((id) => id !== place.id)
-                              : [...c.mustIds, place.id],
-                          )
-                        }
-                      />
-                      <Label>예상 체류 · 분</Label>
-                      <Field
-                        accessibilityLabel={`${place.name} 체류 시간`}
-                        value={String(c.durations[place.id] || 60)}
-                        keyboardType="number-pad"
-                        onChangeText={(v) =>
-                          update("durations", {
-                            ...c.durations,
-                            [place.id]: Number(v),
-                          })
-                        }
-                        maxLength={3}
-                      />
-                    </>
-                  )}
-                </View>
-              ))}
-              {!eligible.length && (
-                <P>
-                  먼저 가고 싶은 곳에서 위치를 확인하거나 아래에서 장소를 직접
-                  추가해 주세요.
-                </P>
-              )}
-              <Action
-                title="가고 싶은 곳에서 위치 확인"
-                secondary
-                onPress={() =>
-                  router.push({
-                    pathname: "/trip/[tripId]/candidates",
-                    params: { tripId, section: "places" },
-                  })
-                }
-              />
-              <Action
-                title="장소 직접 추가"
-                secondary
-                onPress={() => setManual(!manual)}
-              />
-              {manual && (
-                <>
-                  <Field
-                    accessibilityLabel="직접 추가할 장소 이름"
-                    value={manualName}
-                    onChangeText={setManualName}
-                    placeholder="장소 이름"
-                    maxLength={80}
-                  />
-                  <Field
-                    accessibilityLabel="직접 추가할 장소 주소"
-                    value={manualQuery}
-                    onChangeText={setManualQuery}
-                    placeholder="지도에서 확인한 주소 · 도시 포함"
-                    maxLength={300}
-                  />
-                  <Field
-                    accessibilityLabel="직접 추가할 장소 분류"
-                    value={manualCategory}
-                    onChangeText={setManualCategory}
-                    placeholder="관광 · 식사 · 카페/디저트"
-                    maxLength={40}
-                  />
-                  <Action
-                    title="확인한 주소로 장소 저장"
-                    onPress={() => {
-                      const r = store.addManualPlace(
-                        tripId,
-                        manualName,
-                        manualQuery,
-                        manualCategory,
-                      );
-                      if (!r.ok) setError(r.message);
-                      else {
-                        setC((prev) => ({
-                          ...prev,
-                          selectedIds: [
-                            ...prev.selectedIds.filter((id) => !used.has(id)),
-                            ...(r.placeIds || []),
-                          ],
-                          mustIds: prev.mustIds.filter((id) => !used.has(id)),
-                        }));
-                        setManualName("");
-                        setManualQuery("");
-                        setManual(false);
-                      }
-                    }}
-                  />
-                </>
-              )}
-            </>,
-          )}
           <View style={{ marginTop: 18 }}>
             <Label>여행 취향·짐 보관·추가 요청 · 선택</Label>
             <Field
@@ -885,27 +898,7 @@ export default function Plan() {
             />
           </View>
         </View>
-        <P>
-          제안받기를 누르면 선택한 장소 이름·주소, 여행 조건과 기존 일정만 기존
-          AI 서비스에 보내요. Instagram 원본 파일·캡션은 보내지 않습니다.
-        </P>
-        <P>
-          영업시간·예약·날씨와 실제 이동 시간은 자동 확인하지 않아요. 제안을
-          검토한 뒤에만 일정에 적용됩니다.
-        </P>
-        {!!error && (
-          <Text
-            accessibilityRole="alert"
-            style={{
-              color: "#A23C2B",
-              fontSize: 16,
-              lineHeight: 24,
-              marginVertical: 12,
-            }}
-          >
-            {error}
-          </Text>
-        )}
+        <P>선택한 장소·주소·여행 조건·기존 일정만 AI에 보내요. 영업시간·날씨·실제 이동은 별도 확인이 필요해요. 제안을 검토한 뒤 적용합니다.</P>
         {!active.length && (
           <P>
             제안할 장소가 없어요. ‘새로 넣을 장소’에서 위치가 확인된 곳을
@@ -921,19 +914,12 @@ export default function Plan() {
           </Text>
         )}
         {busy ? (
-          <>
-            <ActivityIndicator accessibilityLabel="AI 일정 제안 생성 중" />
-            <P>조건을 비교하고 있어요. 기존 일정은 아직 바뀌지 않았어요.</P>
-            <Action
-              title="제안 생성 취소"
-              secondary
-              onPress={() => controller.current?.abort()}
-            />
-          </>
+          <P>제안을 생성하고 있어요. 위에서 취소할 수 있어요.</P>
         ) : (
           <>
             <Action
               title="조건 저장하고 AI 제안받기"
+              tone="primary"
               disabled={!trip.days.length || !active.length}
               onPress={generate}
             />
@@ -941,6 +927,7 @@ export default function Plan() {
               title="조건만 저장"
               secondary
               onPress={() => {
+                setFeedbackKey((v) => v + 1);
                 const r = store.savePlanning(tripId, c);
                 if (r.ok) {
                   setError("");

@@ -32,6 +32,8 @@ export type PlanningConditions = {
   rangeStart?: string;
   rangeEnd?: string;
   pace: "relaxed" | "balanced" | "active";
+  modes?: ("walking" | "transit" | "driving")[];
+  knownPlaceIds?: string[];
   mode: "mixed" | "walking" | "transit" | "driving";
   start: string;
   end: string;
@@ -95,6 +97,8 @@ export function defaultConditions(trip: Trip): PlanningConditions {
     rangeEnd: trip.end,
     pace: "balanced",
     mode: "mixed",
+    modes: ["walking", "transit"],
+    knownPlaceIds: available.map((p) => p.id),
     start: "09:00",
     end: "20:00",
     lunch: "12:30",
@@ -120,6 +124,8 @@ export function validConditions(c: unknown): c is PlanningConditions {
       (typeof x.rangeEnd === "string" && validDate(x.rangeEnd))) &&
     ["relaxed", "balanced", "active"].includes(x.pace) &&
     ["mixed", "walking", "transit", "driving"].includes(x.mode) &&
+    (x.modes === undefined || (Array.isArray(x.modes) && x.modes.length > 0 && x.modes.length <= 3 && new Set(x.modes).size === x.modes.length && x.modes.every((m) => ["walking", "transit", "driving"].includes(m)))) &&
+    (x.knownPlaceIds === undefined || (Array.isArray(x.knownPlaceIds) && x.knownPlaceIds.length <= 10000 && x.knownPlaceIds.every((id) => typeof id === "string"))) &&
     [x.start, x.end, x.lunch, x.dinner, x.rest].every(
       (t) => typeof t === "string" && Number.isFinite(minutes(t)),
     ) &&
@@ -742,7 +748,7 @@ export function applyDraft(trips: Trip[], id: string, selected: string[]) {
         (addedIds.has(entry.id) || addedIds.has(after.id)) &&
         modes[key] === undefined
       )
-        modes[key] = c.mode === "mixed" ? "transit" : c.mode;
+        modes[key] = routeMode(c);
     });
     return {
       ...day,
@@ -796,4 +802,21 @@ export function validDraft(x: unknown): x is PlanDraft {
       (r) => r && [r.id, r.name, r.reason].every((v) => typeof v === "string"),
     )
   );
+}
+
+export function planningModes(c?: PlanningConditions): ("walking" | "transit" | "driving")[] {
+  return c?.modes?.length ? c.modes : c?.mode === "mixed" || !c ? ["walking", "transit"] : [c.mode];
+}
+export function routeMode(c?: PlanningConditions): "walking" | "transit" | "driving" {
+  const modes = planningModes(c);
+  return modes.includes("transit") ? "transit" : modes[0];
+}
+export function syncPlanningPlaces(trip: Trip, c: PlanningConditions): PlanningConditions {
+  const used = new Set(trip.days.flatMap((d) => d.items.map((e) => e.placeId || e.location?.placeId)));
+  const available = readyPlaces(trip).filter((p) => !used.has(p.id)).map((p) => p.id);
+  // Legacy settings did not record previously offered places: expose a select-all action instead of guessing user intent.
+  const known = c.knownPlaceIds || available;
+  const added = available.filter((id) => !known.includes(id));
+  const selectedIds = [...new Set([...c.selectedIds.filter((id) => available.includes(id)), ...added])];
+  return { ...c, knownPlaceIds: available, selectedIds: selectedIds.length <= 100 ? selectedIds : c.selectedIds.filter((id) => available.includes(id)), mustIds: c.mustIds.filter((id) => available.includes(id)) };
 }

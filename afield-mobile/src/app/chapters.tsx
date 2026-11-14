@@ -400,9 +400,8 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     overflow: "hidden",
     marginBottom: 16,
-    flexDirection: "row",
   },
-  photoWrap: { width: 112, minHeight: 190 },
+  photoWrap: { width: "100%", height: 172 },
   photo: {
     position: "absolute",
     width: "100%",

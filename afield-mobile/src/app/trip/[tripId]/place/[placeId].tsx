@@ -86,7 +86,7 @@ export default function Place() {
         {info.category} · {info.area}
       </Label>
       <ActivityBadge value={inferActivity(info.name, info.category)} />
-      <H>{info.name}</H>
+      <Text style={{ fontSize: 26, lineHeight: 34, fontWeight: "700", letterSpacing: -0.6, color: ui.ink, marginBottom: 20 }} numberOfLines={3}>{info.name}</Text>
       {!imported && <P>{info.description}</P>}
       {!!info.image && <P>사진은 분위기 참고용이에요.</P>}
       {imported &&
@@ -94,12 +94,13 @@ export default function Place() {
           <View
             style={{
               padding: 14,
-              backgroundColor: ui.successSoft,
+              backgroundColor: ui.surface,
+              borderLeftWidth: 3, borderLeftColor: ui.accent,
               borderRadius: 12,
               marginBottom: 16,
             }}
           >
-            <Text style={s.title}>가고 싶은 곳에 보관 중</Text>
+            <Text style={{ fontSize: 14, color: ui.accent, fontWeight: "600", marginBottom: 8 }}>✓ 가고 싶은 곳에 보관 중</Text>
             <P>{info.query}</P>
             <Action
               title="주소 수정"
@@ -185,11 +186,13 @@ export default function Place() {
           style={{ borderTopWidth: 1, borderColor: ui.line, paddingTop: 20 }}
         >
           <Text style={s.title}>언제 방문할까요?</Text>
-          <View style={{ flexDirection: "row", marginVertical: 12, gap: 8 }}>
-            {([{ id: "ai", label: "아직 미정 · AI가 배치" }, { id: "fixed", label: "날짜와 시간이 정해졌어요" }] as const).map((option) => <Pressable key={option.id} accessibilityRole="button" accessibilityState={{ selected: timing === option.id }} onPress={() => { setTiming(option.id); setMessage(""); }} style={{ flex: 1, padding: 12, minHeight: 56, borderWidth: 1, borderColor: timing === option.id ? ui.blue : ui.line, borderRadius: 12, backgroundColor: timing === option.id ? ui.blueSoft : ui.surface }}><Text style={{ color: timing === option.id ? ui.blue : ui.ink, fontSize: 16, fontWeight: "600" }}>{option.label}</Text></Pressable>)}
+          <View style={{ marginTop: 12, marginBottom: 20, borderWidth: 1, borderColor: ui.line, borderRadius: 14, overflow: "hidden" }}>
+            {([{ id: "ai", label: "아직 미정 · AI가 배치", description: "장소만 모아두고, 날짜는 AI와 정해요" }, { id: "fixed", label: "날짜와 시간이 정해졌어요", description: "예약한 시간에 직접 추가해요" }] as const).map((option, index) => <Pressable key={option.id} accessibilityRole="radio" accessibilityState={{ checked: timing === option.id }} onPress={() => { setTiming(option.id); setMessage(""); }} style={{ minHeight: 72, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: index ? 1 : 0, borderColor: ui.line, backgroundColor: timing === option.id ? ui.blueSoft : ui.surface }}>
+              <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: timing === option.id ? 6 : 1.5, borderColor: timing === option.id ? ui.blue : ui.muted }} />
+              <View style={{ flex: 1 }}><Text style={{ color: timing === option.id ? ui.blue : ui.ink, fontSize: 16, fontWeight: "600", lineHeight: 23 }}>{option.label}</Text><Text style={{ fontSize: 13, lineHeight: 20, color: ui.muted, marginTop: 3 }}>{option.description}</Text></View>
+            </Pressable>)}
           </View>
-          {timing === "ai" && <View style={{ backgroundColor: ui.blueSoft, padding: 16, borderRadius: 14, marginBottom: 16 }}>
-            <P>지금은 장소만 모아두세요. 여행 조건을 입력하면 AI가 모은 장소의 날짜와 시간을 제안해요.</P>
+          {timing === "ai" && <View style={{ marginBottom: 20 }}>
             <Action title="가고 싶은 곳으로 돌아가기" tone="primary" onPress={() => router.dismissTo({ pathname: "/trip/[tripId]/(tabs)/candidates", params: { tripId } })} />
             <Action title="여행 조건 입력 · AI 일정 짜기 →" tone="link" onPress={() => router.push({ pathname: "/trip/[tripId]/plan", params: { tripId } })} />
           </View>}
@@ -291,7 +294,7 @@ export default function Place() {
             경로 찾기 ↗
           </Text>
           <Text style={{ fontSize: 13, color: ui.muted, marginTop: 5 }}>
-            현재 위치에서 {info.name}까지
+            현재 위치에서 출발
           </Text>
         </Pressable>
       )}

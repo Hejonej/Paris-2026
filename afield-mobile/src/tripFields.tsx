@@ -105,7 +105,7 @@ export function DateField({
     setMonth({ year: d.getFullYear(), month: d.getMonth() });
   }
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, minWidth: 0, marginBottom: 16 }}>
       <Label>{label}</Label>
       <Pressable
         accessibilityRole="button"

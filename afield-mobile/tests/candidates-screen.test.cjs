@@ -157,6 +157,12 @@ function harness(params, initialRaw = null, options = {}) {
     openedUrls,
   };
 }
+function tapText(view, text) {
+  let n = view.tree.root.findAll((n) => n.type === "Text" && n.children.includes(text))[0];
+  while (n && typeof n.props.onPress !== "function") n = n.parent;
+  if (!n) throw Error("No action for " + text);
+  return n.props.onPress();
+}
 function words(tree) {
   return JSON.stringify(tree.toJSON());
 }
@@ -682,7 +688,7 @@ test("an imported candidate requires explicit location confirmation before sched
   );
   assert.equal(detail.store.trips[0].days[0].items.length, 2);
   assert.equal(detail.tree.root.findAll((n) => n.type === "Text" && n.children.includes("이 날짜와 시간에 일정 추가")).length, 0);
-  await act(async () => detail.tree.root.findAll((n) => n.type === "Text" && n.children.includes("날짜와 시간이 정해졌어요"))[0].parent.props.onPress());
+  await act(async () => tapText(detail, "날짜와 시간이 정해졌어요"));
   await act(async () =>
     detail.tree.root
       .findAll(
@@ -1383,7 +1389,6 @@ test("native planning flows from a manual saved place to review, then explicit a
         .findAll((n) => n.type === "Text" && n.children.includes(text))[0]
         .parent.props.onPress(),
     );
-  await press("새로 넣을 장소 0곳");
   await press("장소 직접 추가");
   await act(async () => {
     view.tree.root
@@ -1479,14 +1484,14 @@ test("default date and suggested time add without editing; a conflict is visible
   const plainHarness = harness({ tripId: "paris", placeId: "ofr" });
   const plain = await mountScreen(plainHarness, "src/app/trip/[tripId]/place/[placeId].tsx");
   const count = plain.store.trips[0].days[0].items.length;
-  await act(async () => plain.tree.root.findAll((n) => n.type === "Text" && n.children.includes("날짜와 시간이 정해졌어요"))[0].parent.props.onPress());
+  await act(async () => tapText(plain, "날짜와 시간이 정해졌어요"));
   await act(async () => plain.tree.root.findAll((n) => n.type === "Text" && n.children.includes("이 날짜와 시간에 일정 추가"))[0].parent.props.onPress());
   assert.equal(plain.store.trips[0].days[0].items.length, count + 1);
   assert.equal(plainHarness.navigation.at(-1).params.date, plain.store.trips[0].days[0].date);
   await act(async () => plain.tree.unmount());
   const h = harness({ tripId: "paris", placeId: "ofr" });
   const detail = await mountScreen(h, "src/app/trip/[tripId]/place/[placeId].tsx");
-  await act(async () => detail.tree.root.findAll((n) => n.type === "Text" && n.children.includes("날짜와 시간이 정해졌어요"))[0].parent.props.onPress());
+  await act(async () => tapText(detail, "날짜와 시간이 정해졌어요"));
   const field = () => detail.tree.root.findAllByType("TextInput").find((n) => n.props.accessibilityLabel === "일정 시간");
   const day = detail.store.trips[0].days[0];
   const initialCount = day.items.length;
@@ -1547,5 +1552,42 @@ test("photo copy failure leaves saved cover unchanged and displays an error", as
   await act(async () => view.tree.root.findAll((n) => n.type === "Text" && n.children.includes("사진 보관함에서 선택"))[0].parent.props.onPress());
   assert.equal(view.store.trips[0].coverUri, undefined);
   assert.ok(words(view.tree).includes("사진을 가져오지 못했어요."));
+  await act(async () => view.tree.unmount());
+});
+
+
+test("transport controls independently toggle and keep at least one mode", async () => {
+  const view = await mountScreen(harness({ tripId: "paris" }), "src/app/trip/[tripId]/plan.tsx");
+  await act(async () => tapText(view, "하루의 속도와 식사"));
+  const control = (mode) => view.tree.root.findAll((n) => n.type === "Pressable" && n.props.accessibilityLabel === `${mode} 이용`)[0];
+  assert.equal(control("도보").props.accessibilityState.checked, true);
+  assert.equal(control("대중교통").props.accessibilityState.checked, true);
+  await act(async () => control("차").props.onPress());
+  await act(async () => control("도보").props.onPress());
+  await act(async () => control("대중교통").props.onPress());
+  assert.equal(control("차").props.accessibilityState.checked, true);
+  await act(async () => control("차").props.onPress());
+  assert.equal(control("차").props.accessibilityState.checked, true);
+  assert.ok(words(view.tree).includes("하나 이상"));
+  await act(async () => view.tree.unmount());
+});
+
+
+test("legacy planning with unselected saved places exposes counts and explicit select-all recovery", async () => {
+  const h = harness({ tripId: "paris" });
+  const seed = await mount(h);
+  await act(async () => seed.store.addManualPlace("paris", "Saved Museum", "Street, Paris", "관광"));
+  const planner = h.load("src/planner.ts");
+  const c = planner.defaultConditions(seed.store.trips[0]);
+  c.selectedIds = []; delete c.knownPlaceIds;
+  await act(async () => seed.store.savePlanning("paris", c));
+  const raw = h.raw;
+  await act(async () => seed.tree.unmount());
+  const view = await mountScreen(harness({ tripId: "paris" }, raw), "src/app/trip/[tripId]/plan.tsx");
+  const proposalButton = () => view.tree.root.findAll((n) => n.type === "Text" && n.children.includes("조건 저장하고 AI 제안받기"))[0].parent;
+  assert.equal(proposalButton().props.disabled, true);
+  assert.ok(words(view.tree).includes("아직 선택되지 않았어요"));
+  await act(async () => tapText(view, "미배치 장소 모두 선택"));
+  assert.equal(proposalButton().props.disabled, false);
   await act(async () => view.tree.unmount());
 });

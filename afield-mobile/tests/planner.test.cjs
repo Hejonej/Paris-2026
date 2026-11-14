@@ -427,3 +427,31 @@ test("more than 100 available venues require an explicit subset rather than sile
   t.candidates = t.importedPlaces.map((p) => p.id);
   assert.equal(planner.defaultConditions(t).selectedIds.length, 0);
 });
+
+
+test("new unscheduled saved places enter future planning while deliberate deselection is preserved", () => {
+  const t = trip();
+  t.planning.selectedIds = t.planning.selectedIds.filter((id) => id !== "p2");
+  t.candidates.push("new");
+  t.importedPlaces.push({ ...t.importedPlaces[0], id: "new", name: "New Museum" });
+  const synced = planner.syncPlanningPlaces(t, t.planning);
+  assert.equal(synced.selectedIds.includes("new"), true);
+  assert.equal(synced.selectedIds.includes("p2"), false);
+  const next = planner.syncPlanningPlaces(t, synced);
+  assert.equal(JSON.stringify(next), JSON.stringify(synced));
+});
+
+test("every nonempty transport combination persists and reaches the AI request without invented combinations", () => {
+  for (let bits = 1; bits < 8; bits++) {
+    const t = trip();
+    t.planning.modes = ["walking", "transit", "driving"].filter((_, i) => bits & (1 << i));
+    assert.equal(planner.validConditions(t.planning), true);
+    const r = ai.buildPlanRequest(t);
+    assert.ok(r.request.includes(JSON.stringify(t.planning.modes)));
+    assert.deepEqual(Array.from(planner.planningModes(t.planning)), t.planning.modes);
+  }
+  const t = trip(); t.planning.modes = []; assert.equal(planner.validConditions(t.planning), false);
+  t.planning.modes = ["walking", "walking"]; assert.equal(planner.validConditions(t.planning), false);
+  delete t.planning.modes; t.planning.mode = "driving";
+  assert.equal(planner.routeMode(t.planning), "driving");
+});

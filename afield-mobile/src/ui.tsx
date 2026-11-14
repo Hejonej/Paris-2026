@@ -1,9 +1,7 @@
 import { imageSource } from "./images";
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import {
   ScrollView,
-  KeyboardAvoidingView,
-  Platform,
   Text,
   View,
   Pressable,
@@ -13,18 +11,21 @@ import {
   TextInputProps,
 } from "react-native";
 import { ui } from "./theme";
-export function Page({ children }: { children: React.ReactNode }) {
+export function Page({ children, resetKey }: { children: React.ReactNode; resetKey?: string }) {
+  const scroll = useRef<ScrollView>(null);
+  useEffect(() => { scroll.current?.scrollTo({ y: 0, animated: false }); }, [resetKey]);
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={96}>
     <ScrollView
-      keyboardDismissMode="on-drag"
+      ref={scroll}
+      contentInsetAdjustmentBehavior="automatic"
+      automaticallyAdjustKeyboardInsets
+      keyboardDismissMode="interactive"
       keyboardShouldPersistTaps="handled"
       style={{ backgroundColor: ui.bg, flex: 1 }}
-      contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+      contentContainerStyle={{ padding: 20, paddingBottom: 112 }}
     >
       {children}
     </ScrollView>
-    </KeyboardAvoidingView>
   );
 }
 export function H({ children }: { children: React.ReactNode }) {
@@ -85,6 +86,9 @@ export function Photo({ uri, height = 160 }: { uri: string; height?: number }) {
       accessibilityLabel="여행 분위기 참고 이미지"
       style={{
         height,
+        minHeight: height,
+        flexShrink: 0,
+        resizeMode: "cover",
         width: "100%",
         borderRadius: 14,
         backgroundColor: ui.line,
@@ -104,16 +108,16 @@ export function Field(props: TextInputProps) {
 }
 export const s = StyleSheet.create({
   h: {
-    fontSize: 30,
+    fontSize: 28,
     fontWeight: "700",
     color: ui.ink,
     letterSpacing: -0.7,
     marginBottom: 12,
   },
-  p: { color: ui.muted, fontSize: 17, lineHeight: 26, marginBottom: 12 },
+  p: { color: ui.muted, fontSize: 15, lineHeight: 23, marginBottom: 12 },
   label: {
     color: ui.accent,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
     letterSpacing: 0,
     marginBottom: 8,
@@ -131,7 +135,8 @@ export const s = StyleSheet.create({
     backgroundColor: ui.accent,
     alignItems: "center",
     justifyContent: "center",
-    padding: 13,
+    paddingVertical: 13,
+    paddingHorizontal: 16,
     borderRadius: 12,
     minHeight: 48,
     marginTop: 6,
@@ -143,7 +148,7 @@ export const s = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     backgroundColor: ui.surface,
-    fontSize: 18,
+    fontSize: 16,
     color: ui.ink,
     marginBottom: 12,
   },

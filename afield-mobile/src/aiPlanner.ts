@@ -1,3 +1,4 @@
+import { planningModes } from "./planner";
 import type { Trip } from "./data";
 import { inferActivity } from "./activities";
 import {
@@ -36,9 +37,11 @@ export function buildPlanRequest(trip: Trip) {
     .filter(
       (d) =>
         d.date >= (c.rangeStart || trip.start) &&
+        d.date >= localToday() &&
         d.date <= (c.rangeEnd || trip.end),
     )
     .map((d) => dayBase(trip, c, d.date));
+  if (!bases.length) throw Error("선택한 제안 기간이 모두 지난 날짜예요. 오늘 이후의 여행 날짜를 선택해 주세요.");
   const hard = bases.flatMap((b) => b.hardIssues);
   if (hard.length) throw Error(hard[0]);
   const request =
@@ -151,7 +154,7 @@ export function buildPlanRequest(trip: Trip) {
       pace: payload.maxVisits,
       mustPlaceIds: c.mustIds,
       notes: c.notes,
-      travelPreference: c.mode === "mixed" ? "Walk for short legs and use public transport for longer legs; actual routes and durations are unverified." : c.mode,
+      travelPreference: { allowedModes: planningModes(c), instruction: "Choose only among allowed modes; actual routes and durations are unverified." },
     });
   if (JSON.stringify(payload).length > 200000)
     throw Error(
@@ -326,7 +329,7 @@ export function decodePlan(trip: Trip, data: unknown): PlanDraft {
         name: p.name,
         reason: c.mustIds.includes(p.id)
           ? "필수 장소가 빠졌어요. 조건을 조정하고 다시 제안받아 주세요."
-          : "조건에 맞는 시간이 제안되지 않았거나 충돌해 제외했어요.",
+          : checked.issues.find((issue) => issue.startsWith(p.name + ":"))?.slice(p.name.length + 1).trim() || (rawRows.some((r) => r.placeId === p.id) ? "입력한 조건에 맞는 배치를 찾지 못했어요." : "AI 응답에 이 장소의 유효한 날짜·시간 제안이 없었어요. 다시 제안받아 주세요."),
       })),
   };
 }
