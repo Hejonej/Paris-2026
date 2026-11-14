@@ -73,6 +73,7 @@ export default function Plan() {
   const [busy, setBusy] = useState(false);
   const [feedbackKey, setFeedbackKey] = useState(0);
   const [error, setError] = useState("");
+  const [showFailureNotes, setShowFailureNotes] = useState(false);
   const [message, setMessage] = useState("");
   const [manual, setManual] = useState(false);
   const [manualName, setManualName] = useState("");
@@ -190,6 +191,20 @@ export default function Plan() {
     );
     const mustIds = trip.planning?.mustIds || [];
     const missingMust = draft.unplaced.some((p) => mustIds.includes(p.id));
+    if (!draft.rows.length) return (
+      <Page resetKey={`empty-${draft.id}`}>
+        <Label>AI 일정 생성</Label><H>아직 일정을 완성하지 못했어요</H>
+        <P>최근 시도 · {new Date(draft.generatedAt).toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</P>
+        <P>선택한 {trip.planning?.selectedIds.length || 0}곳은 그대로 보관돼요. 기존 일정도 변경하지 않았어요.</P>
+        <View style={{ marginVertical: 12 }}>
+          {draft.unplaced.map((p) => <View key={p.id} style={{ paddingVertical: 16, borderBottomWidth: 1, borderColor: ui.line }}><Text style={{ fontSize: 16, lineHeight: 24, fontWeight: "600", color: ui.ink }}>{p.name}</Text><Text style={{ fontSize: 14, lineHeight: 22, color: ui.muted, marginTop: 8 }}>{/자동 배치를 완료하지 못했어요|유효한 날짜.*제안이 없/.test(p.reason) ? "이전에 저장된 결과에는 구체적인 실패 원인이 남아 있지 않아요. 같은 조건으로 새로 요청할 수 있어요." : p.reason}</Text></View>)}
+        </View>
+        <Action title="같은 조건으로 다시 만들기" tone="primary" onPress={() => { setReview(false); setShowFailureNotes(false); void generate(); }} />
+        <Action title="입력한 조건 보기" tone="link" onPress={() => { setReview(false); setSection("places"); setFeedbackKey((v) => v + 1); }} />
+        <Action title={showFailureNotes ? "참고 사항 접기" : "그 밖의 참고 사항 보기"} tone="link" onPress={() => setShowFailureNotes(!showFailureNotes)} />
+        {showFailureNotes && draft.issues.map((issue, index) => <P key={index}>{issue}</P>)}
+      </Page>
+    );
     return (
       <Page resetKey={`review-${draft.id}`}>
         <Label>2 · AI 제안 검토</Label>
@@ -202,13 +217,6 @@ export default function Plan() {
           <P>
             기존 일정이나 조건이 바뀌었어요. 최신 조건으로 다시 제안받아 주세요.
           </P>
-        )}
-        {!draft.rows.length && (
-          <View style={{ padding: 16, borderRadius: 14, backgroundColor: ui.warm, marginBottom: 20 }}>
-            <Text style={s.title}>선택한 {trip.planning?.selectedIds.length || 0}곳 중 배치된 장소가 없어요</Text>
-            <P>미정으로 저장한 것은 문제가 아니에요. AI 자동 배치가 완료되지 않았고, 장소는 그대로 보관돼요.</P>
-            <Action title="조건 수정하고 다시 시도" tone="primary" onPress={() => { setReview(false); setSection("places"); setFeedbackKey((v) => v + 1); }} />
-          </View>
         )}
         {trip.days
           .filter(

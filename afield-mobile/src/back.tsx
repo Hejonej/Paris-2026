@@ -5,7 +5,7 @@ import { routeValue } from "./route";
 import { ui } from "./theme";
 export function DetailBack() {
   const router = useRouter();
-  const params = useGlobalSearchParams<{ tripId?: string | string[] }>();
+  const params = useGlobalSearchParams<{ tripId?: string | string[]; returnTo?: string | string[]; date?: string | string[] }>();
   const tripId = routeValue(params.tripId);
   return (
     <Pressable
@@ -14,6 +14,8 @@ export function DetailBack() {
       accessibilityLabel="뒤로"
       onPress={() => {
         if (router.canGoBack()) router.back();
+        else if (tripId && routeValue(params.returnTo) === "itinerary")
+          router.replace({ pathname: "/trip/[tripId]/itinerary", params: { tripId, date: routeValue(params.date) } });
         else if (tripId)
           router.replace({ pathname: "/trip/[tripId]", params: { tripId } });
         else router.replace("/chapters");

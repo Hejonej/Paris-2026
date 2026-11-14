@@ -52,6 +52,7 @@ function harness(params, initialRaw = null, options = {}) {
         ),
       ),
     );
+  native.useWindowDimensions = () => ({ width: 390, height: 844, scale: 2, fontScale: 1 });
   native.Platform = { OS: "ios" };
   native.StyleSheet = { create: (x) => x };
   native.Alert = { alert: () => {} };
@@ -110,8 +111,11 @@ function harness(params, initialRaw = null, options = {}) {
         };
       if (name === "@expo/vector-icons") return { Ionicons: "Icon" };
       if (name === "react-native") return native;
+      if (name === "react-native-safe-area-context") return { useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) };
       if (name === "expo-router")
         return {
+          usePathname: () => options.pathname || "",
+          Tabs: Object.assign((props) => React.createElement("Tabs", props, props.children), { Screen: (props) => React.createElement("TabScreen", props) }),
           useLocalSearchParams: () => params,
           useGlobalSearchParams: () => params,
           useRouter: () => router,
@@ -1608,4 +1612,37 @@ test("modern travel home routes its next action by state without changing trip d
     assert.equal(JSON.stringify(view.store.trips), raw);
     await act(async () => view.tree.unmount());
   }
+});
+
+
+test("post list opened from itinerary returns to its date while direct tab access retains chapter navigation", async () => {
+  for (const fromItinerary of [true, false]) {
+    const h = harness({ tripId: "paris", date: "2026-11-13", returnTo: fromItinerary ? "itinerary" : "" }, null, { pathname: "/trip/paris/candidates" });
+    const view = await mountScreen(h, "src/app/trip/[tripId]/(tabs)/_layout.tsx");
+    const header = view.tree.root.findByType("Tabs").props.screenOptions.headerLeft();
+    assert.equal(header.props.accessibilityLabel, fromItinerary ? "일정으로 돌아가기" : "여행 목록으로");
+    await act(async () => header.props.onPress());
+    if (fromItinerary) { assert.equal(h.navigation.at(-1).pathname, "/trip/[tripId]/itinerary"); assert.equal(h.navigation.at(-1).params.date, "2026-11-13"); }
+    else assert.equal(h.navigation.at(-1), "/chapters");
+    await act(async () => view.tree.unmount());
+  }
+});
+
+test("zero-place review has one real same-condition retry and no disabled zero-place apply action", async () => {
+  const source = JSON.parse(JSON.stringify(harness({}).load("src/data.ts").trips));
+  const t = source[0]; t.start = "2027-02-01"; t.end = "2027-02-02";
+  t.days = [{date:t.start,items:[]},{date:t.end,items:[]}]; t.candidates = ["confirmed-shop"];
+  t.importedPlaces = [{id:"confirmed-shop",name:"Shop",query:"Test Road",category:"쇼핑",area:"Tokyo",description:"",image:"",sourcePostIds:[],matchStatus:"confirmed"}];
+  let calls = 0; const requests = [];
+  const h = harness({tripId:"paris"},JSON.stringify(source),{fetcher:async(_,o)=>{const r=JSON.parse(o.body); requests.push(r);calls++;return{ok:true,json:async()=>({suggestions:calls<=2?[]:[{type:"ADD",placeId:r.places[0].id,date:"2027-02-01",time:"09:00"}]})}}});
+  const view = await mountScreen(h,"src/app/trip/[tripId]/plan.tsx");
+  const before = JSON.stringify(view.store.trips[0].days);
+  await act(async()=>tapText(view,"조건 저장하고 AI 제안받기"));
+  assert.equal(calls,2); assert.ok(words(view.tree).includes("아직 일정을 완성하지 못했어요"));
+  assert.equal(words(view.tree).includes("선택한 0곳과 고정 일정 적용"),false);
+  await act(async()=>tapText(view,"같은 조건으로 다시 만들기"));
+  assert.equal(calls,3); assert.ok(words(view.tree).includes("이렇게 여행해 볼까요?"));
+  assert.equal(JSON.stringify(view.store.trips[0].days),before);
+  assert.deepEqual(requests[0].conditions,requests[2].conditions);
+  await act(async()=>view.tree.unmount());
 });

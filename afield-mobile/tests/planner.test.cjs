@@ -482,7 +482,7 @@ test("empty AI responses retry only once and never imply the user must supply vi
   });
   assert.equal(calls, 2); assert.equal(draft.rows.length, 0);
   assert.equal(draft.unplaced.length, t.planning.selectedIds.length);
-  assert.ok(draft.unplaced.every((p) => p.reason.includes("미정으로 저장한 것은 문제가 아니에요")));
+  assert.ok(draft.unplaced.every((p) => p.reason.includes("직접 입력할 필요는 없어요")));
 });
 
 test("repair network failure retains a valid first proposal and never creates a local fallback", async () => {

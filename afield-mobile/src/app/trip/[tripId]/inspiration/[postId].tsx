@@ -7,13 +7,13 @@ import { useTrips } from "../../../../store";
 import { instagramUrl } from "../../../../instagram";
 import { ui } from "../../../../theme";
 export default function Inspiration() {
-  const { tripId, postId } = useTripParams();
+  const { tripId, postId, returnTo, date } = useTripParams();
   const { trips, confirmInstagram, addInspirationCandidate } = useTrips();
   const trip = trips.find((t) => t.id === tripId);
   const post = trip?.inspirations?.find((p) => p.id === postId);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [manual, setManual] = useState("");
-  const [savedIds, setSavedIds] = useState<string[]>([]);
+  const [showOriginal, setShowOriginal] = useState(false);
   const [message, setMessage] = useState("");
   const router = useRouter();
   if (!post)
@@ -24,6 +24,7 @@ export default function Inspiration() {
     );
   const alreadySaved =
     trip?.importedPlaces?.filter((p) => p.sourcePostIds.includes(postId)) || [];
+  const availableCandidates = post.candidates.filter((c) => !alreadySaved.some((p) => p.name === c.name));
   function savePlaces(candidateIds: string[]) {
     const result = confirmInstagram(
       tripId,
@@ -33,45 +34,34 @@ export default function Inspiration() {
     if (result.ok) {
       setSelected(new Set());
       const ids = result.placeIds || [];
-      setSavedIds(ids);
       if (ids.length === 1)
         router.push({
           pathname: "/trip/[tripId]/place/[placeId]",
-          params: { tripId, placeId: ids[0] },
+          params: { tripId, returnTo, date, placeId: ids[0] },
         });
     }
   }
   return (
     <Page>
-      <Label>1 · 게시물에서 장소 고르기</Label>
-      <P>
-        가고 싶은 장소를 고르면 다음 화면에서 위치를 확인해요. 일정에는 아직
-        추가하지 않아요.
-      </P>
+      <Label>Instagram에서 발견</Label>
       <Label>
         {post.collection} · {post.category}
       </Label>
-      <H>{post.name}</H>
+      <Text style={{ fontSize: 25, lineHeight: 34, fontWeight: "700", color: ui.ink, marginBottom: 12 }}>{post.name}</Text>
+      <P>장소를 골라 주소를 확인하세요. 일정은 나중에 AI가 제안해요.</P>
       {!!alreadySaved.length && (
         <View style={{ marginBottom: 14 }}>
           <Text style={s.title}>이 게시물에서 저장한 장소</Text>
           {alreadySaved.map((p) => (
-            <Action
-              key={p.id}
-              title={`${p.name} · ${p.matchStatus === "confirmed" ? "AI 배치 준비됨" : "위치 확인"} →`}
-              onPress={() =>
-                router.push({
-                  pathname: "/trip/[tripId]/place/[placeId]",
-                  params: { tripId, placeId: p.id },
-                })
-              }
-            />
+            <Pressable key={p.id} accessibilityRole="button" accessibilityLabel={`${p.name} 위치 확인`} onPress={() => router.push({ pathname: "/trip/[tripId]/place/[placeId]", params: { tripId, placeId: p.id, returnTo, date } })} style={{ flexDirection: "row", gap: 12, alignItems: "center", paddingVertical: 16, borderBottomWidth: 1, borderColor: ui.line, minHeight: 64 }}>
+              <View style={{ flex: 1 }}><Text style={{ fontSize: 16, lineHeight: 23, color: ui.ink, fontWeight: "600" }}>{p.name}</Text><Text style={{ fontSize: 13, color: p.matchStatus === "confirmed" ? ui.blue : ui.muted, marginTop: 5 }}>{p.matchStatus === "confirmed" ? "주소 확인됨 · AI 배치 준비" : "저장됨 · 주소 확인 필요"}</Text></View><Text style={{ fontSize: 22, color: ui.muted }}>›</Text>
+            </Pressable>
           ))}
         </View>
       )}
       <Action
         title="Instagram 원본 보기 ↗"
-        secondary
+        tone="link"
         onPress={() => {
           const url = instagramUrl(post.url);
           if (url)
@@ -81,7 +71,8 @@ export default function Inspiration() {
         }}
       />
       <P>{post.username ? "@" + post.username : ""}</P>
-      <Text
+      <Action title={showOriginal ? "원본 내용 접기" : "원본 내용 펼쳐보기"} tone="link" onPress={() => setShowOriginal(!showOriginal)} />
+      {showOriginal && <Text
         selectable
         style={{
           fontSize: 15,
@@ -92,13 +83,15 @@ export default function Inspiration() {
       >
         {post.caption ||
           "내보내기 파일에 캡션이 없어요. 원본을 확인하고 장소 후보를 직접 추가할 수 있어요."}
-      </Text>
+      </Text>}
+      {!!availableCandidates.length && <>
       <Text style={s.title}>어디에 가고 싶나요?</Text>
       <P>
         아래 이름은 캡션에서 찾은 제안이에요. 실제 장소 이름만 고르세요. 없는
         장소는 아래에 직접 적을 수 있어요.
       </P>
-      {post.candidates.map((c) => (
+      </>}
+      {availableCandidates.map((c) => (
         <Pressable
           key={c.id}
           accessibilityRole="checkbox"
@@ -180,32 +173,13 @@ export default function Inspiration() {
           {message}
         </Text>
       )}
-      {!!savedIds.length && (
-        <View style={{ marginTop: 16 }}>
-          <Text style={s.title}>
-            저장했어요. 위치를 확인할 장소를 골라 주세요.
-          </Text>
-          {savedIds.map((id) => (
-            <Action
-              key={id}
-              title={`${trip?.importedPlaces?.find((p) => p.id === id)?.name || "저장한 장소"} · 위치 확인 →`}
-              onPress={() =>
-                router.push({
-                  pathname: "/trip/[tripId]/place/[placeId]",
-                  params: { tripId, placeId: id },
-                })
-              }
-            />
-          ))}
-        </View>
-      )}
       <Action
         title="저장한 장소 목록 보기"
         secondary
         onPress={() =>
           router.dismissTo({
             pathname: "/trip/[tripId]/(tabs)/candidates",
-            params: { tripId, section: "places" },
+            params: { tripId, section: "places", returnTo, date },
           })
         }
       />

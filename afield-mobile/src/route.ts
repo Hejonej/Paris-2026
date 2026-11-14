@@ -4,6 +4,7 @@ export function routeValue(value: string | string[] | undefined): string {
 }
 export function useTripParams() {
   const params = useLocalSearchParams<{
+    returnTo?: string | string[];
     tripId?: string | string[];
     placeId?: string | string[];
     entryId?: string | string[];
@@ -17,6 +18,7 @@ export function useTripParams() {
     date?: string | string[];
   }>();
   return {
+    returnTo: routeValue(params.returnTo),
     addedPlace: routeValue(params.addedPlace),
     updatedEntry: routeValue(params.updatedEntry),
     tripId: routeValue(params.tripId),

@@ -16,6 +16,7 @@ import {
   FlatList,
   Linking,
   StyleSheet,
+  useWindowDimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Page, H, P, Action, Label, s } from "../../../../ui";
@@ -43,6 +44,8 @@ export default function Itinerary() {
   const [expandedReasons, setExpandedReasons] = useState<Set<string>>(new Set());
   const [error, setError] = useState("");
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const dateWidth = Math.max(52, (width - 40) / Math.min(trip?.days.length || 1, 7));
   useEffect(() => {
     if (date) setSelection(date);
     setError("");
@@ -79,7 +82,7 @@ export default function Itinerary() {
         horizontal
         style={{ flexGrow: 0, flexShrink: 0, height: 78, marginTop: 0 }}
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: 8, paddingBottom: 10 }}
+        contentContainerStyle={{ gap: 0, paddingBottom: 10 }}
         renderItem={({ item: d, index: i }) => (
           <Pressable
             accessibilityRole="button"
@@ -93,9 +96,9 @@ export default function Itinerary() {
             style={[
               s.chip,
               {
-                backgroundColor: day?.date === d.date ? ui.ink : ui.surface,
+                backgroundColor: day?.date === d.date ? ui.ink : "transparent",
                 alignItems: "center",
-                width: 56,
+                width: dateWidth,
                 paddingHorizontal: 6, paddingVertical: 8, borderRadius: 8,
               },
             ]}
@@ -467,7 +470,7 @@ export default function Itinerary() {
           onPress={() =>
             router.navigate({
               pathname: "/trip/[tripId]/candidates",
-              params: { tripId, section: "inspiration", postFilter: "pending" },
+              params: { tripId, section: "inspiration", postFilter: "pending", returnTo: "itinerary", date: day?.date },
             })
           }
         />

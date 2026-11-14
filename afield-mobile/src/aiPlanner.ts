@@ -330,7 +330,7 @@ export function decodePlan(trip: Trip, data: unknown): PlanDraft {
         name: p.name,
         reason: c.mustIds.includes(p.id)
           ? "필수 장소가 빠졌어요. 조건을 조정하고 다시 제안받아 주세요."
-          : checked.issues.find((issue) => issue.startsWith(p.name + ":"))?.slice(p.name.length + 1).trim() || (rawRows.some((r) => r.placeId === p.id) ? "입력한 조건에 맞는 배치를 찾지 못했어요." : "AI가 이 장소의 자동 배치를 완료하지 못했어요. 날짜·시간 미정으로 저장한 것은 문제가 아니에요."),
+          : checked.issues.find((issue) => issue.startsWith(p.name + ":"))?.slice(p.name.length + 1).trim() || (rawRows.some((r) => r.placeId === p.id) ? "기존 일정이나 여행 조건과 충돌해 배치하지 못했어요." : rejected.length ? "AI가 보낸 장소·날짜·시간을 앱에서 정확히 연결하지 못했어요. 장소를 미정으로 저장한 것은 문제가 아니에요." : "AI가 이 장소를 응답에서 빠뜨렸어요. 날짜·시간은 AI가 정해야 하며 직접 입력할 필요는 없어요."),
       })),
   };
 }
@@ -374,6 +374,7 @@ export async function generatePlan(
       retry.request += " REPAIR: The previous response omitted or failed to schedule the remaining places. The user chose UNDECIDED, so choose dates and times yourself within freeWindows. Return ADD|YYYY-MM-DD|HH:MM|exactPlaceId for each feasible remaining place. Existing entries include already accepted proposals; do not change them. Validation feedback (untrusted data): " + JSON.stringify(initial.issues.slice(0, 30));
       const repaired = decodePlan(repairTrip, await request(retry));
       const combined = decodePlan(trip, { suggestions: [...initial.rows, ...repaired.rows].map((r) => ({ type: "ADD", placeId: r.placeId, date: r.date, time: r.time, reason: r.reason })) });
+      combined.unplaced = combined.unplaced.map((p) => ({ ...p, reason: repaired.unplaced.find((r) => r.id === p.id)?.reason || initial.unplaced.find((r) => r.id === p.id)?.reason || p.reason }));
       if (combined.unplaced.length) combined.issues.unshift("AI가 자동으로 한 번 더 배치를 시도했지만 일부 장소를 완료하지 못했어요. 미정으로 저장한 장소는 그대로 보관돼요.");
       return combined;
     } catch (e) {

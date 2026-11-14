@@ -11,7 +11,7 @@ import { useTripParams } from "../../../../route";
 import { useTrips } from "../../../../store";
 import { ui } from "../../../../theme";
 export default function Candidates() {
-  const { tripId, section, startPost, postFilter } = useTripParams();
+  const { tripId, section, startPost, postFilter, returnTo, date } = useTripParams();
   const router = useRouter();
   const { trips } = useTrips();
   const trip = trips.find((t) => t.id === tripId);
@@ -47,7 +47,7 @@ export default function Candidates() {
   const openPost = (postId: string) =>
     router.push({
       pathname: "/trip/[tripId]/inspiration/[postId]",
-      params: { tripId, postId },
+      params: { tripId, postId, returnTo, date },
     });
   const importMore = (
     <Action
@@ -226,7 +226,7 @@ export default function Candidates() {
             onPress={() =>
               router.push({
                 pathname: "/trip/[tripId]/inspiration/[postId]",
-                params: { tripId, postId: r.post.id },
+                params: { tripId, returnTo, date, postId: r.post.id },
               })
             }
             style={{

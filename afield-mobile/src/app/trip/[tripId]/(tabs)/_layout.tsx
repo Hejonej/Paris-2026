@@ -1,5 +1,5 @@
 import React from "react";
-import { Tabs, useLocalSearchParams, useRouter } from "expo-router";
+import { Tabs, useLocalSearchParams, useRouter, usePathname } from "expo-router";
 import { Pressable, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -7,8 +7,10 @@ import { ui } from "../../../../theme";
 import { useTrips } from "../../../../store";
 import { Redirect } from "expo-router";
 export default function TripTabs() {
-  const { tripId } = useLocalSearchParams<{ tripId: string }>();
+  const { tripId, returnTo, date } = useLocalSearchParams<{ tripId: string; returnTo?: string; date?: string }>();
   const router = useRouter();
+  const pathname = usePathname();
+  const returning = returnTo === "itinerary" && pathname.endsWith("/candidates");
   const insets = useSafeAreaInsets();
   const { trips } = useTrips();
   const trip = trips.find((t) => t.id === tripId);
@@ -26,15 +28,15 @@ export default function TripTabs() {
           <Pressable
             accessibilityRole="button"
       hitSlop={8}
-            accessibilityLabel="여행 목록으로"
-            onPress={() => router.dismissTo("/chapters")}
+            accessibilityLabel={returning ? "일정으로 돌아가기" : "여행 목록으로"}
+            onPress={() => returning ? router.navigate({ pathname: "/trip/[tripId]/itinerary", params: { tripId, date, returnTo: "" } }) : router.dismissTo("/chapters")}
             style={{
               paddingHorizontal: 16,
               minHeight: 48,
               justifyContent: "center",
             }}
           >
-            <Text style={{ color: ui.accent, fontSize: 18, fontWeight: "600" }}>‹ 여행 목록</Text>
+            <Text style={{ color: ui.accent, fontSize: 18, fontWeight: "600" }}>{returning ? "‹ 일정" : "‹ 여행 목록"}</Text>
           </Pressable>
         ),
         headerStyle: { backgroundColor: ui.bg },
