@@ -5,8 +5,6 @@ import {
   Text,
   Pressable,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Page, H, P, Label, Field, Action, s } from "../../../ui";
@@ -335,10 +333,6 @@ export default function Plan() {
     );
   }
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
       <Page>
         <Label>1 · 여행 조건</Label>
         <H>여행의 틀을 잡아요</H>
@@ -964,6 +958,5 @@ export default function Plan() {
           />
         )}
       </Page>
-    </KeyboardAvoidingView>
   );
 }

@@ -1125,7 +1125,7 @@ test("manual place entry goes directly to location confirmation without silently
     harness({ tripId: "paris", placeId: p.id }, h.raw),
     "src/app/trip/[tripId]/place/[placeId].tsx",
   );
-  assert.ok(words(detail.tree).includes("직접 확인: Google Maps 열기"));
+  assert.ok(words(detail.tree).includes("Google Maps에서 주소 확인"));
   assert.equal(words(detail.tree).includes("언제 방문할까요?"), false);
   await act(async () =>
     detail.tree.root
@@ -1459,6 +1459,7 @@ test("in-app place search fills the selected address without creating a timed vi
   const h = harness({ tripId: "paris", placeId: p.id }, seed.raw, { fetcher: async () => ({ ok: true, json: async () => ({ results: [{ clientIndex: 0, match: { displayName: "Exact Museum", formattedAddress: "10 Exact Road, Paris", placeId: "google-test" } }] }) }) });
   await act(async () => v.tree.unmount());
   const detail = await mountScreen(h, "src/app/trip/[tripId]/place/[placeId].tsx");
+  await act(async () => detail.tree.root.findAll((n) => n.type === "Text" && n.children.includes("다른 방법으로 주소 검색"))[0].parent.props.onPress());
   await act(async () => detail.tree.root.findAll((n) => n.type === "Text" && n.children.includes("이름으로 주소 검색"))[0].parent.props.onPress());
   await act(async () => detail.tree.root.findAll((n) => n.type === "Text" && n.children.includes("이 장소 선택 · 주소 가져오기"))[0].parent.props.onPress());
   assert.equal(detail.store.trips[0].importedPlaces[0].address, "10 Exact Road, Paris");
@@ -1466,5 +1467,38 @@ test("in-app place search fills the selected address without creating a timed vi
   assert.equal(JSON.stringify(detail.store.trips[0].days), before);
   assert.ok(words(detail.tree).includes("아직 미정 · AI가 배치"));
   assert.equal(detail.tree.root.findAll((n) => n.type === "TextInput" && n.props.accessibilityLabel === "일정 시간").length, 0);
+  await act(async () => detail.tree.unmount());
+});
+
+
+test("default date and suggested time add without editing; a conflict is visible beside the button", async () => {
+  const plainHarness = harness({ tripId: "paris", placeId: "ofr" });
+  const plain = await mountScreen(plainHarness, "src/app/trip/[tripId]/place/[placeId].tsx");
+  const count = plain.store.trips[0].days[0].items.length;
+  await act(async () => plain.tree.root.findAll((n) => n.type === "Text" && n.children.includes("날짜와 시간이 정해졌어요"))[0].parent.props.onPress());
+  await act(async () => plain.tree.root.findAll((n) => n.type === "Text" && n.children.includes("이 날짜와 시간에 일정 추가"))[0].parent.props.onPress());
+  assert.equal(plain.store.trips[0].days[0].items.length, count + 1);
+  assert.equal(plainHarness.navigation.at(-1).params.date, plain.store.trips[0].days[0].date);
+  await act(async () => plain.tree.unmount());
+  const h = harness({ tripId: "paris", placeId: "ofr" });
+  const detail = await mountScreen(h, "src/app/trip/[tripId]/place/[placeId].tsx");
+  await act(async () => detail.tree.root.findAll((n) => n.type === "Text" && n.children.includes("날짜와 시간이 정해졌어요"))[0].parent.props.onPress());
+  const field = () => detail.tree.root.findAllByType("TextInput").find((n) => n.props.accessibilityLabel === "일정 시간");
+  const day = detail.store.trips[0].days[0];
+  const initialCount = day.items.length;
+  const suggestion = field().props.value;
+  assert.ok(suggestion);
+  assert.equal(day.items.some((e) => e.time === suggestion), false);
+  const button = () => detail.tree.root.findAll((n) => n.type === "Text" && n.children.includes("이 날짜와 시간에 일정 추가"))[0].parent;
+  await act(async () => field().props.onChangeText(day.items[0].time));
+  await act(async () => button().props.onPress());
+  assert.equal(detail.store.trips[0].days[0].items.length, initialCount);
+  const visible = words(detail.tree);
+  const errorIndex = visible.indexOf("이미 일정이 있는 시간");
+  assert.ok(errorIndex >= 0 && errorIndex < visible.indexOf("이 날짜와 시간에 일정 추가"));
+  await act(async () => field().props.onChangeText(suggestion));
+  await act(async () => button().props.onPress());
+  assert.equal(detail.store.trips[0].days[0].items.length, initialCount + 1);
+  assert.equal(h.navigation.at(-1).params.date, day.date);
   await act(async () => detail.tree.unmount());
 });

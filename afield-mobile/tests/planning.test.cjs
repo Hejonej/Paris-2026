@@ -19,7 +19,7 @@ function load(path) {
   return module.exports;
 }
 const { trips, makeDays } = load("src/data.ts");
-const { addCandidate, addToPlan } = load("src/planning.ts");
+const { addCandidate, addToPlan, suggestedVisitTime } = load("src/planning.ts");
 test("candidate saving is trip-scoped, idempotent and does not schedule", () => {
   const before = JSON.stringify(trips);
   const next = addCandidate(
@@ -83,4 +83,12 @@ test("date range crosses month and year without leaking seed days", () => {
   assert.equal(makeDays("2026-12-31", "2026-12-30").length, 0);
   assert.equal(makeDays("2026-01-01", "2026-03-01").length, 60);
   assert.equal(trips[1].days.length, 0);
+});
+
+test("suggested visit time avoids occupied intervals without mutating the day", () => {
+  const day = { date: "2027-01-01", items: [{ id: "a", name: "Reserved", time: "11:00", durationMinutes: 90 }] };
+  const before = JSON.stringify(day);
+  assert.equal(suggestedVisitTime(day), "12:30");
+  assert.equal(JSON.stringify(day), before);
+  assert.equal(suggestedVisitTime({ ...day, items: Array.from({length: 24}, (_, h) => ({ id: String(h), name: "full", time: `${String(h).padStart(2, "0")}:00` })) }), "");
 });

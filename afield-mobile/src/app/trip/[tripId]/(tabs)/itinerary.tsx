@@ -64,8 +64,8 @@ export default function Itinerary() {
       <Label>하루의 동선</Label>
       <H>일정</H>
       <Action
-        title="AI로 빈 시간 계획하기"
-        secondary
+        title="여행 조건 입력 · AI 일정 짜기"
+        tone="primary"
         onPress={() =>
           router.push({ pathname: "/trip/[tripId]/plan", params: { tripId } })
         }
@@ -73,7 +73,7 @@ export default function Itinerary() {
       {!!pendingPosts.length && (
         <Action
           title={`남은 게시물 ${pendingPosts.length}개 계속 보기 →`}
-          secondary
+          tone="link"
           onPress={() =>
             router.navigate({
               pathname: "/trip/[tripId]/candidates",
@@ -87,6 +87,7 @@ export default function Itinerary() {
         keyExtractor={(d) => d.date}
         extraData={day?.date}
         horizontal
+        style={{ flexGrow: 0, flexShrink: 0, minHeight: 94, marginTop: 16 }}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ gap: 8, paddingBottom: 18 }}
         renderItem={({ item: d, index: i }) => (

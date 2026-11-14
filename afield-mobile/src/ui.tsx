@@ -2,6 +2,8 @@ import { imageSource } from "./images";
 import React from "react";
 import {
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
   Text,
   View,
   Pressable,
@@ -13,13 +15,16 @@ import {
 import { ui } from "./theme";
 export function Page({ children }: { children: React.ReactNode }) {
   return (
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={96}>
     <ScrollView
+      keyboardDismissMode="on-drag"
       keyboardShouldPersistTaps="handled"
       style={{ backgroundColor: ui.bg, flex: 1 }}
       contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
     >
       {children}
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 export function H({ children }: { children: React.ReactNode }) {
@@ -39,11 +44,13 @@ export function Action({
   onPress,
   secondary = false,
   disabled = false,
+  tone,
 }: {
   title: string;
   onPress: () => void;
   secondary?: boolean;
   disabled?: boolean;
+  tone?: "primary" | "secondary" | "link";
 }) {
   return (
     <Pressable
@@ -53,13 +60,15 @@ export function Action({
       onPress={onPress}
       style={({ pressed }) => [
         s.button,
-        secondary && { backgroundColor: "#E7EBE2" },
+        (secondary || tone === "secondary") && { backgroundColor: ui.surface, borderWidth: 1, borderColor: ui.line },
+        tone === "primary" && { backgroundColor: ui.blue },
+        tone === "link" && { backgroundColor: "transparent", alignItems: "flex-start", paddingHorizontal: 0 },
         { opacity: disabled ? 0.45 : pressed ? 0.7 : 1 },
       ]}
     >
       <Text
         style={{
-          color: secondary ? ui.ink : "white",
+          color: tone === "link" ? ui.blue : secondary || tone === "secondary" ? ui.ink : "white",
           fontWeight: "600",
           fontSize: 17,
         }}
