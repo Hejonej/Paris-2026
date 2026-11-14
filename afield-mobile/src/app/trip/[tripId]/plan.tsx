@@ -1,3 +1,4 @@
+import { PlaceSearch } from "../../../placeSearch";
 import React, { useEffect, useRef, useState } from "react";
 import {
   View,
@@ -438,9 +439,10 @@ export default function Plan() {
                 점심·저녁은 60분, 휴식은 30분을 비워요. 고정 일정과 겹치면
                 제안에서 알려드려요.
               </P>
-              <Label>주로 이용할 이동수단</Label>
-              <View style={{ flexDirection: "row", gap: 8 }}>
+              <Label>이동 방식</Label>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                 {[
+                  { id: "mixed" as const, name: "도보 + 대중교통" },
                   { id: "walking" as const, name: "도보" },
                   { id: "transit" as const, name: "대중교통" },
                   { id: "driving" as const, name: "차" },
@@ -453,7 +455,7 @@ export default function Plan() {
                   />
                 ))}
               </View>
-              <Label>장소 사이 여유 · 분</Label>
+              <Label>일정 사이에 비워둘 시간 · 분</Label>
               <Field
                 accessibilityLabel="이동 여유 시간"
                 value={String(c.buffer)}
@@ -462,8 +464,7 @@ export default function Plan() {
                 maxLength={3}
               />
               <P>
-                실제 이동 시간 계산값은 아니에요. 주소를 참고해 배치하고, 이동
-                경로는 Google Maps에서 확인합니다.
+                이전 장소에서 다음 장소로 이동하고 잠깐 쉬도록 비워두는 최소 간격이에요. 예: 30분이면 방문 일정 사이를 최소 30분 띄워요. 실제 이동 시간 계산값은 아니에요. 도보 + 대중교통은 두 방식을 함께 고려하며, 경로 찾기는 대중교통으로 열고 구간별로 바꿀 수 있어요.
               </P>
             </>,
           )}
@@ -486,6 +487,8 @@ export default function Plan() {
                 return (
                   <View key={stay.id} style={{ paddingVertical: 14 }}>
                     <Label>숙소 {index + 1}</Label>
+                    <PlaceSearch city={trip.city} country={trip.country} name={stay.name}
+                      onSelect={(m) => update("stays", c.stays.map((s) => s.id === stay.id ? { ...s, name: m.name, query: m.address } : s))} />
                     <Field
                       accessibilityLabel={`숙소 ${index + 1} 이름`}
                       value={stay.name}

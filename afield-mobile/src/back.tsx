@@ -10,6 +10,7 @@ export function DetailBack() {
   return (
     <Pressable
       accessibilityRole="button"
+      hitSlop={8}
       accessibilityLabel="뒤로"
       onPress={() => {
         if (router.canGoBack()) router.back();
@@ -18,13 +19,13 @@ export function DetailBack() {
         else router.replace("/chapters");
       }}
       style={{
-        minHeight: 44,
-        minWidth: 44,
+        minHeight: 48,
+        minWidth: 80,
         justifyContent: "center",
-        paddingRight: 12,
+        paddingHorizontal: 12,
       }}
     >
-      <Text style={{ fontSize: 16, fontWeight: "600", color: ui.accent }}>
+      <Text style={{ fontSize: 18, fontWeight: "600", color: ui.accent }}>
         ‹ 뒤로
       </Text>
     </Pressable>

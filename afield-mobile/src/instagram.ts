@@ -427,7 +427,7 @@ export function updateImportedPlace(
     return { trips, ok: false, message: "장소 이름과 위치를 입력해 주세요." };
   return {
     ok: true,
-    message: "장소 위치를 확인했어요. 일정 배치는 별도로 선택해 주세요.",
+    message: "가고 싶은 곳에 주소를 저장했어요. AI가 방문 날짜와 시간을 제안할 수 있어요.",
     trips: trips.map((t) =>
       t.id === tripId
         ? {

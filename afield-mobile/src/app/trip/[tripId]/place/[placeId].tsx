@@ -1,15 +1,14 @@
+import { PlaceSearch } from "../../../../placeSearch";
 import { ActivityBadge } from "../../../../activityUI";
 import { inferActivity } from "../../../../activities";
 import { navigationUrl } from "../../../../routing";
-import { matchPlace } from "../../../../matching";
-import type { GoogleMatch } from "../../../../matching";
 import { instagramUrl } from "../../../../instagram";
 import { useTripParams } from "../../../../route";
 import React, { useEffect, useState } from "react";
 import { Text, View, FlatList, Pressable, Linking } from "react-native";
 import { useRouter } from "expo-router";
 import { Page, H, P, Label, Photo, Action, Field, s } from "../../../../ui";
-import { places, dateLabel, tripPlaces } from "../../../../data";
+import { dateLabel, tripPlaces } from "../../../../data";
 import { useTrips } from "../../../../store";
 import { ui } from "../../../../theme";
 export default function Place() {
@@ -18,14 +17,12 @@ export default function Place() {
   const { trips, saveCandidate, place, confirmPlace } = useTrips();
   const trip = trips.find((t) => t.id === tripId);
   const info = tripPlaces(trip).find((p) => p.id === placeId);
+  const [timing, setTiming] = useState<"ai" | "fixed">("ai");
   const [date, setDate] = useState(initialDate || "");
   const [time, setTime] = useState("11:00");
   const [message, setMessage] = useState("");
-  const [matches, setMatches] = useState<GoogleMatch[]>([]);
   const [editingLocation, setEditingLocation] = useState(false);
-  const [showMatches, setShowMatches] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [manualName, setManualName] = useState(info?.name || "");
   const [manualQuery, setManualQuery] = useState(info?.query || "");
   useEffect(() => {
@@ -49,32 +46,6 @@ export default function Place() {
   const sources = imported
     ? trip.inspirations?.filter((p) => info.sourcePostIds.includes(p.id)) || []
     : [];
-  async function match() {
-    if (loading) return;
-    setLoading(true);
-    setMessage("");
-    setMatches([]);
-    try {
-      const results = await matchPlace(
-        trip!.city,
-        trip!.country || "",
-        manualName,
-      );
-      setMatches(results);
-      if (!results.length)
-        setMessage(
-          "확실한 장소를 찾지 못했어요. 이름을 고치거나 지도에서 직접 확인해 주세요.",
-        );
-    } catch (e) {
-      setMessage(
-        e instanceof Error
-          ? e.message
-          : "장소 확인 서비스에 연결하지 못했어요.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
   function accept(details: {
     name: string;
     query: string;
@@ -86,7 +57,6 @@ export default function Place() {
     if (result.ok) {
       setManualName(details.name);
       setManualQuery(details.query);
-      setMatches([]);
       setEditingLocation(false);
     }
   }
@@ -117,8 +87,8 @@ export default function Place() {
       {imported && (
         <Label>
           {confirmed && !editingLocation
-            ? "3 · 날짜와 시간 정하기"
-            : "2 · Google Maps에서 위치 확인"}
+            ? "3 · 가고 싶은 곳에 저장됨 · AI가 배치할 수 있어요"
+            : "2 · 장소 검색하고 주소 저장"}
         </Label>
       )}
       {imported &&
@@ -141,30 +111,13 @@ export default function Place() {
           </View>
         ) : (
           <View style={{ marginBottom: 18 }}>
-            <Text style={s.title}>먼저, 이 장소가 맞는지 확인해요</Text>
-            <P>
-              ① Google Maps에서 장소와 지점을 확인하세요. ② 이 앱으로 돌아와
-              아래 주소를 확인하거나 고쳐 주세요.
-            </P>
+            <Text style={s.title}>어느 장소인지 확인해요</Text>
+            <P>주소를 저장하면 AI가 방문 날짜와 시간을 제안할 수 있어요. 지금 일정을 정할 필요는 없어요.</P>
+            <PlaceSearch city={trip.city} country={trip.country} name={manualName}
+              onSelect={(m) => accept(m)} />
             <Label>장소 이름</Label>
-            <Field
-              accessibilityLabel="확인할 장소 이름"
-              value={manualName}
-              onChangeText={setManualName}
-              maxLength={80}
-            />
-            <Action
-              title="Google Maps에서 장소 확인 ↗"
-              disabled={!manualQuery.trim()}
-              onPress={() =>
-                Linking.openURL(
-                  "https://www.google.com/maps/search/?api=1&query=" +
-                    encodeURIComponent(manualQuery),
-                ).catch(() =>
-                  setMessage("지도를 열지 못했어요. 연결을 확인해 주세요."),
-                )
-              }
-            />
+            <Field accessibilityLabel="확인할 장소 이름" value={manualName}
+              onChangeText={setManualName} maxLength={80} />
             <Label>지도에서 확인한 주소 또는 장소 이름 + 도시</Label>
             <Field
               accessibilityLabel="확인할 지도 검색어"
@@ -178,7 +131,7 @@ export default function Place() {
               저장해도 일정에는 아직 추가되지 않아요.
             </P>
             <Action
-              title="이 위치가 맞아요 · 날짜 선택 →"
+              title="이 주소로 가고 싶은 곳에 저장"
               disabled={!manualName.trim() || !manualQuery.trim()}
               onPress={() =>
                 accept({
@@ -188,46 +141,6 @@ export default function Place() {
                 })
               }
             />
-            <Action
-              title={
-                showMatches
-                  ? "이름으로 장소 검색 접기"
-                  : "다른 방법: 이름으로 장소 검색"
-              }
-              secondary
-              onPress={() => setShowMatches(!showMatches)}
-            />
-            {showMatches && (
-              <>
-                <P>
-                  이름과 도시만 장소 검색 서비스에 보내요. 원본 캡션과 파일은
-                  보내지 않아요.
-                </P>
-                <Action
-                  title={loading ? "장소 찾는 중…" : "장소 검색"}
-                  secondary
-                  disabled={loading || !manualName.trim()}
-                  onPress={match}
-                />
-                {matches.map((m) => (
-                  <View
-                    key={m.googlePlaceId}
-                    style={{
-                      paddingVertical: 12,
-                      borderBottomWidth: 1,
-                      borderColor: ui.line,
-                    }}
-                  >
-                    <Text style={s.title}>{m.name}</Text>
-                    <P>{m.address}</P>
-                    <Action
-                      title="이 장소가 맞아요 · 날짜 선택 →"
-                      onPress={() => accept(m)}
-                    />
-                  </View>
-                ))}
-              </>
-            )}
             {confirmed && (
               <Action
                 title="주소 수정 취소"
@@ -271,7 +184,15 @@ export default function Place() {
           style={{ borderTopWidth: 1, borderColor: ui.line, paddingTop: 20 }}
         >
           <Text style={s.title}>언제 방문할까요?</Text>
-          <P>기존 일정과 MUST는 그대로 두고, 선택한 시간에 추가해요.</P>
+          <P>대부분의 장소는 미정으로 모아두면 돼요. 예약처럼 시간이 정해진 경우만 직접 추가하세요.</P>
+          <Action title={`${timing === "ai" ? "✓ " : ""}아직 미정 · AI가 배치`} secondary onPress={() => setTiming("ai")} />
+          <Action title={`${timing === "fixed" ? "✓ " : ""}날짜와 시간이 정해졌어요`} secondary onPress={() => setTiming("fixed")} />
+          {timing === "ai" && <>
+            <P>이 장소는 가고 싶은 곳에 보관하고, AI 여행 계획에서 다른 장소들과 함께 배치해요. 지금은 일정에 추가하지 않아요.</P>
+            <Action title="가고 싶은 곳으로 돌아가기" onPress={() => router.dismissTo({ pathname: "/trip/[tripId]/(tabs)/candidates", params: { tripId } })} />
+            <Action title="모은 장소로 AI 일정 짜기" secondary onPress={() => router.push({ pathname: "/trip/[tripId]/plan", params: { tripId } })} />
+          </>}
+          {timing === "fixed" && <>
           {!confirmed ? (
             <P>위에서 장소 위치를 확인한 후 일정에 추가할 수 있어요.</P>
           ) : trip.days.length ? (
@@ -333,6 +254,7 @@ export default function Place() {
               />
             </>
           )}
+          </>}
         </View>
       )}
       {confirmed && !editingLocation && (

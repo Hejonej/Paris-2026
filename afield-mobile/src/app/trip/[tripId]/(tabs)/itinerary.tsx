@@ -297,7 +297,7 @@ export default function Itinerary() {
                             ? open(
                                 navigationUrl(
                                   location,
-                                  trip?.planning?.mode || "walking",
+                                  trip?.planning?.mode === "mixed" ? "transit" : trip?.planning?.mode || "walking",
                                 ),
                               )
                             : editLocation(item)

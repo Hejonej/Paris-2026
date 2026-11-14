@@ -151,6 +151,7 @@ export function buildPlanRequest(trip: Trip) {
       pace: payload.maxVisits,
       mustPlaceIds: c.mustIds,
       notes: c.notes,
+      travelPreference: c.mode === "mixed" ? "Walk for short legs and use public transport for longer legs; actual routes and durations are unverified." : c.mode,
     });
   if (JSON.stringify(payload).length > 200000)
     throw Error(

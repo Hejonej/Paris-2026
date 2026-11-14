@@ -23,15 +23,16 @@ export default function TripTabs() {
         headerLeft: () => (
           <Pressable
             accessibilityRole="button"
+      hitSlop={8}
             accessibilityLabel="여행 목록으로"
             onPress={() => router.dismissTo("/chapters")}
             style={{
               paddingHorizontal: 16,
-              minHeight: 44,
+              minHeight: 48,
               justifyContent: "center",
             }}
           >
-            <Text style={{ color: ui.accent, fontSize: 15 }}>‹ 여행 목록</Text>
+            <Text style={{ color: ui.accent, fontSize: 18, fontWeight: "600" }}>‹ 여행 목록</Text>
           </Pressable>
         ),
         headerStyle: { backgroundColor: ui.bg },

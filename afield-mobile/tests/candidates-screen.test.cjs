@@ -668,7 +668,7 @@ test("an imported candidate requires explicit location confirmation before sched
       .findAll(
         (n) =>
           n.type === "Text" &&
-          n.children.includes("이 위치가 맞아요 · 날짜 선택 →"),
+          n.children.includes("이 주소로 가고 싶은 곳에 저장"),
       )[0]
       .parent.props.onPress(),
   );
@@ -676,6 +676,9 @@ test("an imported candidate requires explicit location confirmation before sched
     detail.store.trips[0].importedPlaces[0].matchStatus,
     "confirmed",
   );
+  assert.equal(detail.store.trips[0].days[0].items.length, 2);
+  assert.equal(detail.tree.root.findAll((n) => n.type === "Text" && n.children.includes("이 날짜와 시간에 일정 추가")).length, 0);
+  await act(async () => detail.tree.root.findAll((n) => n.type === "Text" && n.children.includes("날짜와 시간이 정해졌어요"))[0].parent.props.onPress());
   await act(async () =>
     detail.tree.root
       .findAll(
@@ -1122,7 +1125,7 @@ test("manual place entry goes directly to location confirmation without silently
     harness({ tripId: "paris", placeId: p.id }, h.raw),
     "src/app/trip/[tripId]/place/[placeId].tsx",
   );
-  assert.ok(words(detail.tree).includes("Google Maps에서 장소 확인"));
+  assert.ok(words(detail.tree).includes("직접 확인: Google Maps 열기"));
   assert.equal(words(detail.tree).includes("언제 방문할까요?"), false);
   await act(async () =>
     detail.tree.root
@@ -1135,7 +1138,7 @@ test("manual place entry goes directly to location confirmation without silently
       .findAll(
         (n) =>
           n.type === "Text" &&
-          n.children.includes("이 위치가 맞아요 · 날짜 선택 →"),
+          n.children.includes("이 주소로 가고 싶은 곳에 저장"),
       )[0]
       .parent.props.onPress(),
   );
@@ -1442,4 +1445,26 @@ test("native planning reports AI connection failure without touching any existin
   assert.ok(words(form.tree).includes("AI 서비스가 응답하지"));
   assert.equal(JSON.stringify(form.store.trips[0].days), before);
   await act(async () => form.tree.unmount());
+});
+
+
+test("in-app place search fills the selected address without creating a timed visit", async () => {
+  const seed = harness({ tripId: "paris" });
+  const v = await mount(seed);
+  await act(async () => v.store.importInstagram("paris", [{ id: "search-post", name: "post", url: "https://instagram.com/p/SearchPlace1/", caption: "Test Museum", owner: "", username: "", collection: "Paris", category: "관광", candidates: [{ id: "c", name: "Test Museum", kind: "caption", confidence: "medium" }] }]));
+  const post = v.store.trips[0].inspirations[0];
+  await act(async () => v.store.confirmInstagram("paris", [{ postId: post.id, candidateId: "c" }]));
+  const p = v.store.trips[0].importedPlaces[0];
+  const before = JSON.stringify(v.store.trips[0].days);
+  const h = harness({ tripId: "paris", placeId: p.id }, seed.raw, { fetcher: async () => ({ ok: true, json: async () => ({ results: [{ clientIndex: 0, match: { displayName: "Exact Museum", formattedAddress: "10 Exact Road, Paris", placeId: "google-test" } }] }) }) });
+  await act(async () => v.tree.unmount());
+  const detail = await mountScreen(h, "src/app/trip/[tripId]/place/[placeId].tsx");
+  await act(async () => detail.tree.root.findAll((n) => n.type === "Text" && n.children.includes("이름으로 주소 검색"))[0].parent.props.onPress());
+  await act(async () => detail.tree.root.findAll((n) => n.type === "Text" && n.children.includes("이 장소 선택 · 주소 가져오기"))[0].parent.props.onPress());
+  assert.equal(detail.store.trips[0].importedPlaces[0].address, "10 Exact Road, Paris");
+  assert.equal(detail.store.trips[0].importedPlaces[0].matchStatus, "confirmed");
+  assert.equal(JSON.stringify(detail.store.trips[0].days), before);
+  assert.ok(words(detail.tree).includes("아직 미정 · AI가 배치"));
+  assert.equal(detail.tree.root.findAll((n) => n.type === "TextInput" && n.props.accessibilityLabel === "일정 시간").length, 0);
+  await act(async () => detail.tree.unmount());
 });

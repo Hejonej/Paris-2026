@@ -58,7 +58,7 @@ export default function Inspiration() {
           {alreadySaved.map((p) => (
             <Action
               key={p.id}
-              title={`${p.name} · ${p.matchStatus === "confirmed" ? "일정에 추가" : "위치 확인"} →`}
+              title={`${p.name} · ${p.matchStatus === "confirmed" ? "AI 배치 준비됨" : "위치 확인"} →`}
               onPress={() =>
                 router.push({
                   pathname: "/trip/[tripId]/place/[placeId]",
