@@ -17,31 +17,41 @@ function moduleFor(path, storage) {
     },
   }).outputText;
   const resolver = (name) =>
-    name === "@react-native-async-storage/async-storage"
-      ? storage
-      : name === "./journal"
-        ? moduleFor("src/journal.ts", storage)
-      : name === "./planner"
-        ? moduleFor("src/planner.ts", storage)
-        : name === "./data"
-          ? moduleFor("src/data.ts", storage)
-          : name === "./activities"
-            ? moduleFor("src/activities.ts", storage)
-            : name === "./instagram"
-              ? moduleFor("src/instagram.ts", storage)
-              : name === "./routing"
-                ? moduleFor("src/routing.ts", storage)
-                : name === "./tripEditing"
-                  ? moduleFor("src/tripEditing.ts", storage)
-                  : name === "./planning"
-                    ? moduleFor("src/planning.ts", storage)
-                    : require(name);
+    ["./routeChecks", "./routeFacts"].includes(name)
+      ? moduleFor("src/" + name.slice(2) + ".ts", storage)
+      : name === "@react-native-async-storage/async-storage"
+        ? storage
+        : name === "./placeText"
+          ? moduleFor("src/placeText.ts", storage)
+          : name === "./manualEditing"
+            ? moduleFor("src/manualEditing.ts", storage)
+            : name === "./journal"
+              ? moduleFor("src/journal.ts", storage)
+              : name === "./planner"
+                ? moduleFor("src/planner.ts", storage)
+                : name === "./data"
+                  ? moduleFor("src/data.ts", storage)
+                  : name === "./activities"
+                    ? moduleFor("src/activities.ts", storage)
+                    : name === "./instagram"
+                      ? moduleFor("src/instagram.ts", storage)
+                      : name === "./routing"
+                        ? moduleFor("src/routing.ts", storage)
+                        : name === "./tripEditing"
+                          ? moduleFor("src/tripEditing.ts", storage)
+                          : name === "./planning"
+                            ? moduleFor("src/planning.ts", storage)
+                            : require(name);
   vm.runInNewContext(source, {
     exports: module.exports,
     module,
     require: resolver,
     URL,
-    Date,
+    Date: class extends Date {
+      constructor(...args) {
+        super(...(args.length ? args : ["2026-11-14T00:00:00Z"]));
+      }
+    },
     Math,
     Set,
   });
@@ -517,4 +527,53 @@ test("a response received after the planning conditions changed cannot be stored
     false,
   );
   await view.close();
+});
+
+test("manual edits persist atomically, can undo immediately and refuse undo over subsequent edits", async () => {
+  const storage = {
+    raw: null,
+    getItem: async () => storage.raw,
+    setItem: async (_, v) => {
+      storage.raw = v;
+    },
+  };
+  const view = await mount(storage);
+  const edit = moduleFor("src/manualEditing.ts", storage);
+  const t = view.current.trips[0],
+    before = JSON.stringify(t.days);
+  // The first Paris stop is MUST and remains locked; move the ordinary bookstore to an empty day.
+  const day = t.days.find((d) => d.items.some((e) => !e.must && !e.anchorKey));
+  const entry = day.items.find((e) => !e.must && !e.anchorKey);
+  const target = t.days.find((d) => !d.items.length);
+  const r = edit.moveToDate(t, t.days, entry.id, target.date);
+  assert.equal(r.ok, true);
+  await act(async () =>
+    assert.equal(
+      view.current.applyManualEdit(t.id, r.days, edit.editSnapshot(t)).ok,
+      true,
+    ),
+  );
+  assert.notEqual(JSON.stringify(view.current.trips[0].days), before);
+  assert.equal(view.current.canUndoManualEdit(t.id), true);
+  await act(async () =>
+    assert.equal(view.current.undoManualEdit(t.id).ok, true),
+  );
+  assert.equal(JSON.stringify(view.current.trips[0].days), before);
+  const again = view.current.trips[0];
+  await act(async () =>
+    view.current.applyManualEdit(t.id, r.days, edit.editSnapshot(again)),
+  );
+  await act(async () =>
+    view.current.setTag(t.id, target.date, entry.id, "cafe"),
+  );
+  assert.equal(view.current.undoManualEdit(t.id).ok, false);
+  await view.close();
+  const restarted = await mount(storage);
+  assert.equal(
+    restarted.current.trips[0].days
+      .find((d) => d.date === target.date)
+      .items.find((e) => e.id === entry.id).tag,
+    "cafe",
+  );
+  await restarted.close();
 });

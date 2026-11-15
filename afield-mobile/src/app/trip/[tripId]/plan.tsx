@@ -1,3 +1,5 @@
+import { planningRoutes } from "../../../liveRoutes";
+import { placeText } from "../../../placeText";
 import { Sheet } from "../../../sheet";
 import { PlaceSearch } from "../../../placeSearch";
 import React, { useEffect, useRef, useState } from "react";
@@ -135,9 +137,16 @@ export default function Plan() {
     setError("");
     controller.current = new AbortController();
     try {
+      const workingTrip = { ...trip!, planning: c, planDraft: undefined };
+      const routes = await planningRoutes(
+        workingTrip,
+        controller.current.signal,
+      );
       const proposal = await generatePlan(
         { ...trip!, planning: c, planDraft: undefined },
         controller.current.signal,
+        fetch,
+        routes,
       );
       const saved = store.saveDraft(tripId, proposal);
       if (!saved.ok) setError(saved.message);
@@ -226,6 +235,11 @@ export default function Plan() {
           기존 일정 {trip.days.reduce((n, d) => n + d.items.length, 0)}개 유지 ·
           선택한 제안만 적용
         </Text>
+        <Text style={{ fontSize: 13, lineHeight: 22, color: ui.muted }}>
+          {draft?.routeContext
+            ? "Google 이동 시간 + 여행 조건을 참고한 초안"
+            : "시간·주소를 참고한 이전 초안 · 새 제안은 Google 이동 시간을 조회해요"}
+        </Text>
       </View>
     );
     if (!draft.rows.length)
@@ -265,7 +279,7 @@ export default function Plan() {
                     color: ui.ink,
                   }}
                 >
-                  {p.name}
+                  {placeText(p.name)}
                 </Text>
                 <Text
                   style={{
@@ -362,7 +376,7 @@ export default function Plan() {
                     >
                       <Pressable
                         accessibilityRole="checkbox"
-                        accessibilityLabel={`${row.name} 제안 선택`}
+                        accessibilityLabel={`${placeText(row.name)} 제안 선택`}
                         accessibilityState={{
                           checked: selected.has(row.id),
                           disabled: mustIds.includes(row.placeId!),
@@ -393,7 +407,7 @@ export default function Plan() {
                           }}
                         >
                           {selected.has(row.id) ? "☑" : "□"} {row.time} ·{" "}
-                          {row.name}
+                          {placeText(row.name)}
                         </Text>
                         <Text
                           style={{
@@ -417,7 +431,7 @@ export default function Plan() {
                         }}
                         onPress={() => setReasonRow(row)}
                         accessibilityRole="button"
-                        accessibilityLabel={`${row.name} 제안 이유 자세히`}
+                        accessibilityLabel={`${placeText(row.name)} 제안 이유 자세히`}
                       >
                         <Text style={{ fontSize: 13, color: ui.blue }}>
                           제안 이유 자세히
@@ -427,7 +441,7 @@ export default function Plan() {
                   ) : (
                     <View key={row.id} style={{ paddingVertical: 10 }}>
                       <Text style={{ fontSize: 16, color: ui.accent }}>
-                        {row.time} · {row.name}
+                        {row.time} · {placeText(row.name)}
                       </Text>
                       <Text
                         style={{
@@ -463,7 +477,7 @@ export default function Plan() {
                     color: ui.ink,
                   }}
                 >
-                  {p.name}
+                  {placeText(p.name)}
                 </Text>
                 <Text
                   style={{
@@ -479,7 +493,7 @@ export default function Plan() {
             ))}
           </View>
         )}
-        <P>영업시간·날씨·실제 이동은 자동 확인하지 않았어요.</P>
+        <P>영업시간·날씨와 여행 날짜의 교통 시간표는 확인이 필요해요.</P>
         <Action
           title={
             showFailureNotes
@@ -506,8 +520,8 @@ export default function Plan() {
                 <P>{reasonRow.reason}</P>
               </View>
               <P>
-                입력한 여행 조건을 참고한 제안이에요. 영업시간·예약·실제 이동은
-                별도 확인이 필요해요.
+                입력한 여행 조건을 참고한 제안이에요. 영업시간·예약·여행 날짜의
+                교통 시간표는 별도 확인이 필요해요.
               </P>
             </>
           )}
@@ -568,7 +582,7 @@ export default function Plan() {
         <P>
           {eligible.length - active.length > 0
             ? `저장한 곳 중 ${eligible.length - active.length}곳은 아직 선택되지 않았어요.`
-            : "선택한 장소를 바탕으로 날짜와 시간을 제안해요."}
+            : "선택한 장소를 바탕으로 날짜와 시간을 제안해요. Google에서 실제 거리와 이동 시간을 조회해 반영해요."}
         </P>
         <Action
           title="계획할 장소 확인"
@@ -615,8 +629,8 @@ export default function Plan() {
         >
           <ActivityIndicator />
           <P>
-            AI가 선택한 {active.length}곳의 날짜와 시간을 정하고 있어요. 빠진
-            장소는 자동으로 한 번 더 시도해요.
+            Google에서 이동 시간을 조회하고 {active.length}곳의 방문 날짜와
+            시간을 정하고 있어요. 기존 일정은 그대로 유지해요.
           </P>
           <Action
             title="제안 생성 취소"
@@ -836,7 +850,9 @@ export default function Plan() {
                     borderRadius: 10,
                   }}
                 >
-                  <Text style={{ fontSize: 16, color: ui.ink }}>{p.name}</Text>
+                  <Text style={{ fontSize: 16, color: ui.ink }}>
+                    {placeText(p.name)}
+                  </Text>
                 </Pressable>
               ))}
             </View>

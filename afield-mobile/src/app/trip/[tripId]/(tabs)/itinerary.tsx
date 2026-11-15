@@ -1,3 +1,7 @@
+import { RouteTime } from "../../../../routeTimeUI";
+import { dayBase, planningModes } from "../../../../planner";
+import { editHaptic } from "../../../../haptics";
+import { placeText } from "../../../../placeText";
 import { Ionicons } from "@expo/vector-icons";
 import { routeMode } from "../../../../planner";
 import { inspirationProgress } from "../../../../inspirationProgress";
@@ -35,27 +39,51 @@ import {
 } from "../../../../routing";
 import { ui } from "../../../../theme";
 export default function Itinerary() {
-  const { tripId, date, updatedEntry, addedPlace, planApplied } =
+  const { tripId, date, updatedEntry, addedPlace, planApplied, manualEdited } =
     useTripParams();
-  const { trips, setMode, setTag } = useTrips();
+  const { trips, setMode, setTag, undoManualEdit, canUndoManualEdit } =
+    useTrips();
   const trip = trips.find((t) => t.id === tripId);
   const { pendingPosts } = inspirationProgress(trip);
   const [selection, setSelection] = useState(date || "");
-  const [expandedReasons, setExpandedReasons] = useState<Set<string>>(new Set());
+  const [expandedReasons, setExpandedReasons] = useState<Set<string>>(
+    new Set(),
+  );
+  const [editNotice, setEditNotice] = useState("");
   const [error, setError] = useState("");
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const dateWidth = Math.max(52, (width - 40) / Math.min(trip?.days.length || 1, 7));
+  const dateWidth = Math.max(
+    52,
+    (width - 40) / Math.min(trip?.days.length || 1, 7),
+  );
   useEffect(() => {
     if (date) setSelection(date);
     setError("");
   }, [date, tripId]);
   const day = trip?.days.find((d) => d.date === selection) || trip?.days[0];
+  const base =
+    trip?.planning && day ? dayBase(trip, trip.planning, day.date) : undefined;
+  const locatedStops =
+    trip && day
+      ? day.items
+          .map((_, i) => journeyStop(trip, day, i))
+          .filter((stop) => !!stop.location)
+      : [];
+  const firstStop = locatedStops[0]?.location;
+  const lastStop = locatedStops[locatedStops.length - 1]?.location;
   const updatedIndex = day?.items.findIndex((e) => e.id === updatedEntry) ?? -1;
   const updatedWalk =
     trip && day && updatedIndex > 0
       ? journeyStop(trip, day, updatedIndex - 1).suggestion
       : undefined;
+  const manualEdit = (entryId?: string) => {
+    editHaptic();
+    router.push({
+      pathname: "/trip/[tripId]/edit-itinerary",
+      params: { tripId, date: day?.date, ...(entryId ? { entryId } : {}) },
+    });
+  };
   const editLocation = (item: Entry) =>
     router.push({
       pathname: "/trip/[tripId]/entry/[entryId]",
@@ -68,62 +96,122 @@ export default function Itinerary() {
   return (
     <Page stickyHeaderIndices={[1]}>
       <View style={{ paddingBottom: 12 }}>
-      <Label>{trip?.city} · {trip?.days.length || 0}일의 여행</Label>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-      <H>일정</H>
-      <Pressable accessibilityRole="button" accessibilityLabel="여행 조건 입력 · AI 일정 짜기" onPress={() => router.push({ pathname: "/trip/[tripId]/plan", params: { tripId } })} style={{ flexDirection: "row", gap: 8, minHeight: 44, alignItems: "center", paddingHorizontal: 8 }}><Ionicons name="options-outline" size={18} color={ui.blue} /><Text style={{ color: ui.blue, fontSize: 15, fontWeight: "600" }}>AI 계획</Text></Pressable>
-      </View>
-      </View>
-      <View style={{ backgroundColor: ui.bg, paddingTop: 8, borderBottomWidth: 1, borderColor: ui.line, marginBottom: 20 }}>
-      <FlatList
-        data={trip?.days || []}
-        keyExtractor={(d) => d.date}
-        extraData={day?.date}
-        horizontal
-        style={{ flexGrow: 0, flexShrink: 0, height: 78, marginTop: 0 }}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: 0, paddingBottom: 10 }}
-        renderItem={({ item: d, index: i }) => (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ selected: day?.date === d.date }}
-            accessibilityLabel={dateLabel(d.date)}
-            key={d.date}
-            onPress={() => {
-              setSelection(d.date);
-              setError("");
-            }}
-            style={[
-              s.chip,
-              {
-                backgroundColor: day?.date === d.date ? ui.ink : "transparent",
+        <Label>
+          {trip?.city} · {trip?.days.length || 0}일의 여행
+        </Label>
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <H>일정</H>
+          <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="일정 수동 편집"
+              onPress={() => manualEdit()}
+              style={{
+                minHeight: 44,
+                paddingHorizontal: 8,
+                justifyContent: "center",
+              }}
+            >
+              <Text style={{ fontSize: 15, fontWeight: "600", color: ui.blue }}>
+                편집
+              </Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="여행 조건 입력 · AI 일정 짜기"
+              onPress={() =>
+                router.push({
+                  pathname: "/trip/[tripId]/plan",
+                  params: { tripId },
+                })
+              }
+              style={{
+                flexDirection: "row",
+                gap: 8,
+                minHeight: 44,
                 alignItems: "center",
-                width: dateWidth,
-                paddingHorizontal: 6, paddingVertical: 8, borderRadius: 8,
-              },
-            ]}
-          >
-            <Text
-              style={{
-                fontSize: 13,
-                color: day?.date === d.date ? "white" : ui.muted,
+                paddingHorizontal: 8,
               }}
             >
-              {["일", "월", "화", "수", "목", "금", "토"][new Date(d.date + "T12:00:00").getDay()]}
-            </Text>
-            <Text
-              style={{
-                fontSize: 19,
-                fontWeight: "700",
-                color: day?.date === d.date ? "white" : ui.ink,
-                marginTop: 4,
+              <Ionicons name="options-outline" size={18} color={ui.blue} />
+              <Text style={{ color: ui.blue, fontSize: 15, fontWeight: "600" }}>
+                AI 계획
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+      <View
+        style={{
+          backgroundColor: ui.bg,
+          paddingTop: 8,
+          borderBottomWidth: 1,
+          borderColor: ui.line,
+          marginBottom: 20,
+        }}
+      >
+        <FlatList
+          data={trip?.days || []}
+          keyExtractor={(d) => d.date}
+          extraData={day?.date}
+          horizontal
+          style={{ flexGrow: 0, flexShrink: 0, height: 78, marginTop: 0 }}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 0, paddingBottom: 10 }}
+          renderItem={({ item: d, index: i }) => (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: day?.date === d.date }}
+              accessibilityLabel={dateLabel(d.date)}
+              key={d.date}
+              onPress={() => {
+                setSelection(d.date);
+                setError("");
               }}
+              style={[
+                s.chip,
+                {
+                  backgroundColor:
+                    day?.date === d.date ? ui.ink : "transparent",
+                  alignItems: "center",
+                  width: dateWidth,
+                  paddingHorizontal: 6,
+                  paddingVertical: 8,
+                  borderRadius: 8,
+                },
+              ]}
             >
-              {d.date.slice(8)}
-            </Text>
-          </Pressable>
-        )}
-      />
+              <Text
+                style={{
+                  fontSize: 13,
+                  color: day?.date === d.date ? "white" : ui.muted,
+                }}
+              >
+                {
+                  ["일", "월", "화", "수", "목", "금", "토"][
+                    new Date(d.date + "T12:00:00").getDay()
+                  ]
+                }
+              </Text>
+              <Text
+                style={{
+                  fontSize: 19,
+                  fontWeight: "700",
+                  color: day?.date === d.date ? "white" : ui.ink,
+                  marginTop: 4,
+                }}
+              >
+                {d.date.slice(8)}
+              </Text>
+            </Pressable>
+          )}
+        />
       </View>
       {!!error && (
         <Text
@@ -132,6 +220,31 @@ export default function Itinerary() {
         >
           {error}
         </Text>
+      )}
+      {manualEdited === "1" && (
+        <View
+          style={{
+            padding: 12,
+            backgroundColor: ui.subtle,
+            marginBottom: 16,
+            borderRadius: 8,
+          }}
+        >
+          <Text style={{ fontSize: 14, color: ui.ink }}>
+            {editNotice || "수동 편집을 저장했어요."}
+          </Text>
+          {canUndoManualEdit(tripId) && (
+            <Action
+              title="방금 편집 되돌리기"
+              tone="link"
+              onPress={() => {
+                const r = undoManualEdit(tripId);
+                if (r.ok) setEditNotice(r.message);
+                else setError(r.message);
+              }}
+            />
+          )}
+        </View>
       )}
       {day ? (
         <>
@@ -182,6 +295,24 @@ export default function Itinerary() {
               </Text>
             </View>
           )}
+          {base?.origin && firstStop && (
+            <View
+              style={{
+                paddingVertical: 12,
+                borderBottomWidth: 1,
+                borderColor: ui.line,
+                marginBottom: 12,
+              }}
+            >
+              <Text style={styles.legTitle}>{base.origin.name} → 첫 장소</Text>
+              <RouteTime
+                key={base.origin.query + firstStop.query}
+                from={base.origin.query}
+                to={firstStop.query}
+                mode={planningModes(trip?.planning)[0]}
+              />
+            </View>
+          )}
           {day.items.map((item, index) => {
             const stop = journeyStop(trip!, day, index);
             const location = stop.location;
@@ -195,6 +326,13 @@ export default function Itinerary() {
             const nextStop = next
               ? journeyStop(trip!, day, index + 1)
               : undefined;
+            const laterLocated =
+              trip && next && !nextStop?.location
+                ? day.items
+                    .slice(index + 2)
+                    .map((_, i) => journeyStop(trip, day, index + 2 + i))
+                    .find((s) => !!s.location)
+                : undefined;
             const sameStart =
               !!nextStop?.suggestion &&
               nextStop.suggestion.basis === "previous" &&
@@ -223,7 +361,7 @@ export default function Itinerary() {
                           justifyContent: "center",
                         }}
                         accessibilityRole="button"
-                        accessibilityLabel={`${item.name} 장소 ${location?.placeId ? "상세" : "지정"}`}
+                        accessibilityLabel={`${placeText(item.name)} 장소 ${location?.placeId ? "상세" : "지정"}`}
                         onPress={() =>
                           location?.placeId
                             ? router.push({
@@ -237,10 +375,10 @@ export default function Itinerary() {
                             : editLocation(item)
                         }
                       >
-                        <Text style={styles.title}>{item.name}</Text>
+                        <Text style={styles.title}>{placeText(item.name)}</Text>
                       </Pressable>
                       <ActivityButton
-                        name={item.name}
+                        name={placeText(item.name)}
                         value={entryActivity(item, trip)}
                         customValue={item.customTag}
                         onChange={(tag, customTag) => {
@@ -264,10 +402,44 @@ export default function Itinerary() {
                         {location.label}
                       </Text>
                     )}
-                    {stop.suggestion && <>
-                      <Pressable accessibilityRole="button" accessibilityLabel={`${item.name} 시작점 추천 이유`} accessibilityState={{ expanded: expandedReasons.has(item.id) }} onPress={() => setExpandedReasons((old) => { const next = new Set(old); next.has(item.id) ? next.delete(item.id) : next.add(item.id); return next; })} style={{ minHeight: 44, justifyContent: "center" }}><Text style={{ fontSize: 13, color: ui.blue }}>시작점 추천 이유 {expandedReasons.has(item.id) ? "−" : "＋"}</Text></Pressable>
-                      {expandedReasons.has(item.id) && <Text style={{ fontSize: 13, lineHeight: 20, color: ui.muted, marginBottom: 8 }}>{stop.suggestion.reason}</Text>}
-                    </>}
+                    {stop.suggestion && (
+                      <>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`${placeText(item.name)} 시작점 추천 이유`}
+                          accessibilityState={{
+                            expanded: expandedReasons.has(item.id),
+                          }}
+                          onPress={() =>
+                            setExpandedReasons((old) => {
+                              const next = new Set(old);
+                              next.has(item.id)
+                                ? next.delete(item.id)
+                                : next.add(item.id);
+                              return next;
+                            })
+                          }
+                          style={{ minHeight: 44, justifyContent: "center" }}
+                        >
+                          <Text style={{ fontSize: 13, color: ui.blue }}>
+                            시작점 추천 이유{" "}
+                            {expandedReasons.has(item.id) ? "−" : "＋"}
+                          </Text>
+                        </Pressable>
+                        {expandedReasons.has(item.id) && (
+                          <Text
+                            style={{
+                              fontSize: 13,
+                              lineHeight: 20,
+                              color: ui.muted,
+                              marginBottom: 8,
+                            }}
+                          >
+                            {stop.suggestion.reason}
+                          </Text>
+                        )}
+                      </>
+                    )}
                     {!location && (
                       <Text style={styles.description}>
                         {item.origin === "ai"
@@ -279,7 +451,7 @@ export default function Itinerary() {
                       {item.must && <Text style={styles.must}>MUST</Text>}
                       <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel={`${item.name} ${location ? "현재 위치에서 경로 찾기" : "방문할 곳 선택"}`}
+                        accessibilityLabel={`${placeText(item.name)} ${location ? "현재 위치에서 경로 찾기" : "방문할 곳 선택"}`}
                         onPress={() =>
                           location
                             ? open(
@@ -304,7 +476,7 @@ export default function Itinerary() {
                       {location && (
                         <Pressable
                           accessibilityRole="button"
-                          accessibilityLabel={`${item.name} 연결 장소 변경`}
+                          accessibilityLabel={`${placeText(item.name)} 연결 장소 변경`}
                           onPress={() => editLocation(item)}
                           hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}
                           style={styles.textButton}
@@ -319,11 +491,28 @@ export default function Itinerary() {
                     </View>
                   </View>
                 </View>
-                {next && (
+                {location && laterLocated?.location && (
                   <View style={styles.leg}>
                     <Text style={styles.legTitle}>
-                      다음 장소까지
+                      다음 주소가 정해진 장소 ·{" "}
+                      {placeText(laterLocated.entry.name)}
                     </Text>
+                    <RouteTime
+                      key={location.query + laterLocated.location.query}
+                      from={location.query}
+                      to={laterLocated.location.query}
+                      mode={planningModes(trip?.planning)[0]}
+                    />
+                    <Text
+                      style={{ fontSize: 12, lineHeight: 18, color: ui.muted }}
+                    >
+                      사이의 식사·휴식 장소가 정해지면 동선이 달라질 수 있어요.
+                    </Text>
+                  </View>
+                )}
+                {next && (
+                  <View style={styles.leg}>
+                    <Text style={styles.legTitle}>다음 장소까지</Text>
                     {sameStart ? (
                       <Text style={styles.duration}>
                         관람을 마친 곳에서 바로 산책을 이어가요. 별도 이동 없이
@@ -332,14 +521,14 @@ export default function Itinerary() {
                     ) : (
                       <>
                         <View
-                          accessibilityLabel={`${item.name}에서 ${next.name}까지 이동수단`}
+                          accessibilityLabel={`${placeText(item.name)}에서 ${next.name}까지 이동수단`}
                           style={styles.modes}
                         >
                           {travelModes.map((option) => (
                             <Pressable
                               key={option}
                               accessibilityRole="button"
-                              accessibilityLabel={`${item.name}에서 ${next.name}까지 ${modeLabels[option]}`}
+                              accessibilityLabel={`${placeText(item.name)}에서 ${next.name}까지 ${modeLabels[option]}`}
                               accessibilityState={{ selected: option === mode }}
                               onPress={() => {
                                 const result = setMode(
@@ -373,12 +562,19 @@ export default function Itinerary() {
                         </View>
                         {route ? (
                           <View>
-                            <Text style={styles.duration}>
-                              소요 시간은 Google Maps에서 확인
-                            </Text>
+                            <RouteTime
+                              key={JSON.stringify([
+                                location?.query,
+                                nextStop?.location?.query,
+                                mode,
+                              ])}
+                              from={location!.query}
+                              to={nextStop!.location!.query}
+                              mode={mode}
+                            />
                             <Pressable
                               accessibilityRole="button"
-                              accessibilityLabel={`${item.name}에서 ${next.name}까지 ${modeLabels[mode]} 경로 찾기`}
+                              accessibilityLabel={`${placeText(item.name)}에서 ${next.name}까지 ${modeLabels[mode]} 경로 찾기`}
                               onPress={() => open(route)}
                               hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}
                               style={styles.routeButton}
@@ -397,7 +593,7 @@ export default function Itinerary() {
                                 </Text>
                                 <Pressable
                                   accessibilityRole="button"
-                                  accessibilityLabel={`${item.name} 방문할 곳 선택`}
+                                  accessibilityLabel={`${placeText(item.name)} 방문할 곳 선택`}
                                   onPress={() => editLocation(item)}
                                   hitSlop={{
                                     top: 4,
@@ -408,7 +604,7 @@ export default function Itinerary() {
                                   style={styles.routeButton}
                                 >
                                   <Text style={styles.link}>
-                                    {item.name} · 장소 선택 →
+                                    {placeText(item.name)} · 장소 선택 →
                                   </Text>
                                 </Pressable>
                               </>
@@ -445,8 +641,31 @@ export default function Itinerary() {
               </View>
             );
           })}
+          {base?.destination && lastStop && (
+            <View
+              style={{
+                paddingVertical: 12,
+                borderTopWidth: 1,
+                borderColor: ui.line,
+                marginTop: 12,
+              }}
+            >
+              <Text style={styles.legTitle}>
+                마지막 장소 → {base.destination.name}
+              </Text>
+              <RouteTime
+                key={lastStop.query + base.destination.query}
+                from={lastStop.query}
+                to={base.destination.query}
+                mode={planningModes(trip?.planning)[0]}
+              />
+            </View>
+          )}
           {!day.items.length && (
-            <P>아직 정해둔 일정이 없어요. 장소를 직접 추가하거나 AI로 계획해 보세요.</P>
+            <P>
+              아직 정해둔 일정이 없어요. 장소를 직접 추가하거나 AI로 계획해
+              보세요.
+            </P>
           )}
         </>
       ) : (
@@ -470,7 +689,13 @@ export default function Itinerary() {
           onPress={() =>
             router.navigate({
               pathname: "/trip/[tripId]/candidates",
-              params: { tripId, section: "inspiration", postFilter: "pending", returnTo: "itinerary", date: day?.date },
+              params: {
+                tripId,
+                section: "inspiration",
+                postFilter: "pending",
+                returnTo: "itinerary",
+                date: day?.date,
+              },
             })
           }
         />
@@ -500,7 +725,13 @@ const styles = StyleSheet.create({
     paddingTop: 13,
     fontVariant: ["tabular-nums"],
   },
-  content: { flex: 1, minWidth: 0, borderLeftWidth: 1, borderColor: ui.line, paddingLeft: 14 },
+  content: {
+    flex: 1,
+    minWidth: 0,
+    borderLeftWidth: 1,
+    borderColor: ui.line,
+    paddingLeft: 14,
+  },
   title: { fontSize: 18, fontWeight: "700", color: ui.ink },
   description: { fontSize: 14, color: ui.muted, lineHeight: 20, marginTop: 3 },
   location: { fontSize: 13, color: ui.accent, marginTop: 5 },
@@ -540,7 +771,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     backgroundColor: "transparent",
     paddingRight: 12,
-
   },
   legTitle: { fontSize: 13, color: ui.muted, marginBottom: 8 },
   modes: { flexDirection: "row", gap: 2, flexWrap: "wrap" },

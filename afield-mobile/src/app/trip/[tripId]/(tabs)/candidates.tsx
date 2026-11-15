@@ -1,3 +1,4 @@
+import { placeText } from "../../../../placeText";
 import React, { useCallback, useState } from "react";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Text, Pressable, View, Image, FlatList } from "react-native";
@@ -54,7 +55,7 @@ export default function Candidates() {
     tab === "posts"
       ? (filter === "pending" ? pendingPosts : posts)
           .filter((p) =>
-            `${p.name} ${p.collection} ${p.caption}`
+            `${placeText(p.name)} ${p.collection} ${p.caption}`
               .toLocaleLowerCase()
               .includes(q),
           )
@@ -62,7 +63,9 @@ export default function Candidates() {
       : list
           .filter(
             (p) =>
-              `${p.name} ${p.query}`.toLocaleLowerCase().includes(q) &&
+              `${placeText(p.name)} ${p.query}`
+                .toLocaleLowerCase()
+                .includes(q) &&
               (placeFilter === "all" ||
                 (placeFilter === "verify"
                   ? !confirmed(p)
@@ -349,7 +352,7 @@ export default function Candidates() {
         ) : (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`${r.place.name} 저장 장소 열기`}
+            accessibilityLabel={`${placeText(r.place.name)} 저장 장소 열기`}
             onPress={() =>
               router.push({
                 pathname: "/trip/[tripId]/place/[placeId]",
@@ -385,7 +388,7 @@ export default function Candidates() {
                 }}
                 numberOfLines={2}
               >
-                {r.place.name}
+                {placeText(r.place.name)}
               </Text>
               <Text
                 style={{

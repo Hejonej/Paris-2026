@@ -52,7 +52,12 @@ function harness(params, initialRaw = null, options = {}) {
         ),
       ),
     );
-  native.useWindowDimensions = () => ({ width: 390, height: 844, scale: 2, fontScale: 1 });
+  native.useWindowDimensions = () => ({
+    width: 390,
+    height: 844,
+    scale: 2,
+    fontScale: 1,
+  });
   native.Platform = { OS: "ios" };
   native.StyleSheet = { create: (x) => x };
   native.Alert = { alert: () => {} };
@@ -83,7 +88,26 @@ function harness(params, initialRaw = null, options = {}) {
       },
     }).outputText;
     const resolver = (name) => {
-      if (name === "expo-image-picker") return { launchImageLibraryAsync: async () => options.photoResult || { canceled: true } };
+      if (name === "expo-constants")
+        return {
+          default: {
+            expoConfig: {
+              hostUri: "localhost:8081",
+              extra: { devRoutesToken: "test-bridge-token" },
+            },
+          },
+          __esModule: true,
+        };
+      if (name === "expo-haptics")
+        return {
+          impactAsync: async () => {},
+          ImpactFeedbackStyle: { Light: "light" },
+        };
+      if (name === "expo-image-picker")
+        return {
+          launchImageLibraryAsync: async () =>
+            options.photoResult || { canceled: true },
+        };
       if (name === "expo-document-picker")
         return {
           getDocumentAsync: async () =>
@@ -93,7 +117,10 @@ function harness(params, initialRaw = null, options = {}) {
         return {
           documentDirectory: "file:///test-documents/",
           makeDirectoryAsync: async () => {},
-          copyAsync: async () => { if (options.photoCopyError) throw Error("사진을 저장하지 못했어요."); },
+          copyAsync: async () => {
+            if (options.photoCopyError)
+              throw Error("사진을 저장하지 못했어요.");
+          },
           readAsStringAsync: async () => {
             if (options.legacyError) throw Error("legacy read error");
             return options.fileText || "";
@@ -111,11 +138,17 @@ function harness(params, initialRaw = null, options = {}) {
         };
       if (name === "@expo/vector-icons") return { Ionicons: "Icon" };
       if (name === "react-native") return native;
-      if (name === "react-native-safe-area-context") return { useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) };
+      if (name === "react-native-safe-area-context")
+        return {
+          useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+        };
       if (name === "expo-router")
         return {
           usePathname: () => options.pathname || "",
-          Tabs: Object.assign((props) => React.createElement("Tabs", props, props.children), { Screen: (props) => React.createElement("TabScreen", props) }),
+          Tabs: Object.assign(
+            (props) => React.createElement("Tabs", props, props.children),
+            { Screen: (props) => React.createElement("TabScreen", props) },
+          ),
           useLocalSearchParams: () => params,
           useGlobalSearchParams: () => params,
           useRouter: () => router,
@@ -138,15 +171,41 @@ function harness(params, initialRaw = null, options = {}) {
       exports: mod.exports,
       require: resolver,
       URL,
-      fetch:
-        options.fetcher ||
-        (async () => {
-          throw Error("No test network configured");
-        }),
+      fetch: async (url, config) => {
+        if (String(url).endsWith("/afield-dev/routes")) {
+          if (options.routeFetcher) return options.routeFetcher(url, config);
+          const body = JSON.parse(config.body);
+          return {
+            ok: true,
+            json: async () => ({
+              provider: "Google Maps",
+              retrievedAt: "2026-11-14T00:00:00Z",
+              routes: (body.addresses || []).flatMap((from) =>
+                body.addresses.flatMap((to) =>
+                  body.modes.map((mode) => ({
+                    from,
+                    to,
+                    mode,
+                    durationSeconds: 0,
+                    distanceMeters: 0,
+                    retrievedAt: "2026-11-14T00:00:00Z",
+                  })),
+                ),
+              ),
+            }),
+          };
+        }
+        if (options.fetcher) return options.fetcher(url, config);
+        throw Error("No test network configured");
+      },
       AbortController,
       setTimeout,
       clearTimeout,
-      Date,
+      Date: class extends Date {
+        constructor(...args) {
+          super(...(args.length ? args : ["2026-11-14T00:00:00Z"]));
+        }
+      },
       Math,
       Set,
     });
@@ -162,7 +221,9 @@ function harness(params, initialRaw = null, options = {}) {
   };
 }
 function tapText(view, text) {
-  let n = view.tree.root.findAll((n) => n.type === "Text" && n.children.includes(text))[0];
+  let n = view.tree.root.findAll(
+    (n) => n.type === "Text" && n.children.includes(text),
+  )[0];
   while (n && typeof n.props.onPress !== "function") n = n.parent;
   if (!n) throw Error("No action for " + text);
   return n.props.onPress();
@@ -691,7 +752,13 @@ test("an imported candidate requires explicit location confirmation before sched
     "confirmed",
   );
   assert.equal(detail.store.trips[0].days[0].items.length, 2);
-  assert.equal(detail.tree.root.findAll((n) => n.type === "Text" && n.children.includes("이 날짜와 시간에 일정 추가")).length, 0);
+  assert.equal(
+    detail.tree.root.findAll(
+      (n) =>
+        n.type === "Text" && n.children.includes("이 날짜와 시간에 일정 추가"),
+    ).length,
+    0,
+  );
   await act(async () => tapText(detail, "일정에 추가"));
   await act(async () => tapText(detail, "날짜와 시간이 정해졌어요"));
   await act(async () =>
@@ -1415,9 +1482,23 @@ test("native planning flows from a manual saved place to review, then explicit a
   assert.equal(sent.mode, "mobile_itinerary_draft");
   assert.equal(sent.places.length, 1);
   assert.equal(JSON.stringify(sent).includes("sourcePostIds"), false);
-  const proposal = () => view.tree.root.findAll((n) => n.type === "Pressable" && n.props.accessibilityRole === "checkbox" && String(n.props.accessibilityLabel).endsWith("제안 선택"))[0];
+  const proposal = () =>
+    view.tree.root.findAll(
+      (n) =>
+        n.type === "Pressable" &&
+        n.props.accessibilityRole === "checkbox" &&
+        String(n.props.accessibilityLabel).endsWith("제안 선택"),
+    )[0];
   assert.equal(proposal().props.accessibilityState.checked, true);
-  await act(async () => view.tree.root.findAll((n) => n.type === "Pressable" && String(n.props.accessibilityLabel).endsWith("제안 이유 자세히"))[0].props.onPress());
+  await act(async () =>
+    view.tree.root
+      .findAll(
+        (n) =>
+          n.type === "Pressable" &&
+          String(n.props.accessibilityLabel).endsWith("제안 이유 자세히"),
+      )[0]
+      .props.onPress(),
+  );
   assert.equal(proposal().props.accessibilityState.checked, true);
   await act(async () => tapText(view, "닫기"));
   await press("선택한 1곳과 고정 일정 적용");
@@ -1468,58 +1549,161 @@ test("native planning reports AI connection failure without touching any existin
   await act(async () => form.tree.unmount());
 });
 
-
 test("in-app place search fills the selected address without creating a timed visit", async () => {
   const seed = harness({ tripId: "paris" });
   const v = await mount(seed);
-  await act(async () => v.store.importInstagram("paris", [{ id: "search-post", name: "post", url: "https://instagram.com/p/SearchPlace1/", caption: "Test Museum", owner: "", username: "", collection: "Paris", category: "관광", candidates: [{ id: "c", name: "Test Museum", kind: "caption", confidence: "medium" }] }]));
+  await act(async () =>
+    v.store.importInstagram("paris", [
+      {
+        id: "search-post",
+        name: "post",
+        url: "https://instagram.com/p/SearchPlace1/",
+        caption: "Test Museum",
+        owner: "",
+        username: "",
+        collection: "Paris",
+        category: "관광",
+        candidates: [
+          {
+            id: "c",
+            name: "Test Museum",
+            kind: "caption",
+            confidence: "medium",
+          },
+        ],
+      },
+    ]),
+  );
   const post = v.store.trips[0].inspirations[0];
-  await act(async () => v.store.confirmInstagram("paris", [{ postId: post.id, candidateId: "c" }]));
+  await act(async () =>
+    v.store.confirmInstagram("paris", [{ postId: post.id, candidateId: "c" }]),
+  );
   const p = v.store.trips[0].importedPlaces[0];
   const before = JSON.stringify(v.store.trips[0].days);
-  const h = harness({ tripId: "paris", placeId: p.id }, seed.raw, { fetcher: async () => ({ ok: true, json: async () => ({ results: [{ clientIndex: 0, match: { displayName: "Exact Museum", formattedAddress: "10 Exact Road, Paris", placeId: "google-test" } }] }) }) });
+  const h = harness({ tripId: "paris", placeId: p.id }, seed.raw, {
+    fetcher: async () => ({
+      ok: true,
+      json: async () => ({
+        results: [
+          {
+            clientIndex: 0,
+            match: {
+              displayName: "Exact Museum",
+              formattedAddress: "10 Exact Road, Paris",
+              placeId: "google-test",
+            },
+          },
+        ],
+      }),
+    }),
+  });
   await act(async () => v.tree.unmount());
-  const detail = await mountScreen(h, "src/app/trip/[tripId]/place/[placeId].tsx");
-  await act(async () => detail.tree.root.findAll((n) => n.type === "Text" && n.children.includes("다른 방법으로 주소 검색"))[0].parent.props.onPress());
-  await act(async () => detail.tree.root.findAll((n) => n.type === "Text" && n.children.includes("이름으로 주소 검색"))[0].parent.props.onPress());
-  await act(async () => detail.tree.root.findAll((n) => n.type === "Text" && n.children.includes("이 장소 선택 · 주소 가져오기"))[0].parent.props.onPress());
-  assert.equal(detail.store.trips[0].importedPlaces[0].address, "10 Exact Road, Paris");
-  assert.equal(detail.store.trips[0].importedPlaces[0].matchStatus, "confirmed");
+  const detail = await mountScreen(
+    h,
+    "src/app/trip/[tripId]/place/[placeId].tsx",
+  );
+  await act(async () =>
+    detail.tree.root
+      .findAll(
+        (n) =>
+          n.type === "Text" && n.children.includes("다른 방법으로 주소 검색"),
+      )[0]
+      .parent.props.onPress(),
+  );
+  await act(async () =>
+    detail.tree.root
+      .findAll(
+        (n) => n.type === "Text" && n.children.includes("이름으로 주소 검색"),
+      )[0]
+      .parent.props.onPress(),
+  );
+  await act(async () =>
+    detail.tree.root
+      .findAll(
+        (n) =>
+          n.type === "Text" &&
+          n.children.includes("이 장소 선택 · 주소 가져오기"),
+      )[0]
+      .parent.props.onPress(),
+  );
+  assert.equal(
+    detail.store.trips[0].importedPlaces[0].address,
+    "10 Exact Road, Paris",
+  );
+  assert.equal(
+    detail.store.trips[0].importedPlaces[0].matchStatus,
+    "confirmed",
+  );
   assert.equal(JSON.stringify(detail.store.trips[0].days), before);
   await act(async () => tapText(detail, "일정에 추가"));
   assert.ok(words(detail.tree).includes("아직 미정 · AI가 배치"));
-  assert.equal(detail.tree.root.findAll((n) => n.type === "TextInput" && n.props.accessibilityLabel === "일정 시간").length, 0);
+  assert.equal(
+    detail.tree.root.findAll(
+      (n) =>
+        n.type === "TextInput" && n.props.accessibilityLabel === "일정 시간",
+    ).length,
+    0,
+  );
   await act(async () => detail.tree.unmount());
 });
 
-
 test("default date and suggested time add without editing; a conflict is visible beside the button", async () => {
   const plainHarness = harness({ tripId: "paris", placeId: "ofr" });
-  const plain = await mountScreen(plainHarness, "src/app/trip/[tripId]/place/[placeId].tsx");
+  const plain = await mountScreen(
+    plainHarness,
+    "src/app/trip/[tripId]/place/[placeId].tsx",
+  );
   const count = plain.store.trips[0].days[0].items.length;
   await act(async () => tapText(plain, "일정에 추가"));
   await act(async () => tapText(plain, "날짜와 시간이 정해졌어요"));
-  await act(async () => plain.tree.root.findAll((n) => n.type === "Text" && n.children.includes("이 날짜와 시간에 일정 추가"))[0].parent.props.onPress());
+  await act(async () =>
+    plain.tree.root
+      .findAll(
+        (n) =>
+          n.type === "Text" &&
+          n.children.includes("이 날짜와 시간에 일정 추가"),
+      )[0]
+      .parent.props.onPress(),
+  );
   assert.equal(plain.store.trips[0].days[0].items.length, count + 1);
-  assert.equal(plainHarness.navigation.at(-1).params.date, plain.store.trips[0].days[0].date);
+  assert.equal(
+    plainHarness.navigation.at(-1).params.date,
+    plain.store.trips[0].days[0].date,
+  );
   await act(async () => plain.tree.unmount());
   const h = harness({ tripId: "paris", placeId: "ofr" });
-  const detail = await mountScreen(h, "src/app/trip/[tripId]/place/[placeId].tsx");
+  const detail = await mountScreen(
+    h,
+    "src/app/trip/[tripId]/place/[placeId].tsx",
+  );
   await act(async () => tapText(detail, "일정에 추가"));
   await act(async () => tapText(detail, "날짜와 시간이 정해졌어요"));
-  const field = () => detail.tree.root.findAllByType("TextInput").find((n) => n.props.accessibilityLabel === "일정 시간");
+  const field = () =>
+    detail.tree.root
+      .findAllByType("TextInput")
+      .find((n) => n.props.accessibilityLabel === "일정 시간");
   const day = detail.store.trips[0].days[0];
   const initialCount = day.items.length;
   const suggestion = field().props.value;
   assert.ok(suggestion);
-  assert.equal(day.items.some((e) => e.time === suggestion), false);
-  const button = () => detail.tree.root.findAll((n) => n.type === "Text" && n.children.includes("이 날짜와 시간에 일정 추가"))[0].parent;
+  assert.equal(
+    day.items.some((e) => e.time === suggestion),
+    false,
+  );
+  const button = () =>
+    detail.tree.root.findAll(
+      (n) =>
+        n.type === "Text" && n.children.includes("이 날짜와 시간에 일정 추가"),
+    )[0].parent;
   await act(async () => field().props.onChangeText(day.items[0].time));
   await act(async () => button().props.onPress());
   assert.equal(detail.store.trips[0].days[0].items.length, initialCount);
   const visible = words(detail.tree);
   const errorIndex = visible.indexOf("이미 일정이 있는 시간");
-  assert.ok(errorIndex >= 0 && errorIndex < visible.indexOf("이 날짜와 시간에 일정 추가"));
+  assert.ok(
+    errorIndex >= 0 &&
+      errorIndex < visible.indexOf("이 날짜와 시간에 일정 추가"),
+  );
   await act(async () => field().props.onChangeText(suggestion));
   await act(async () => button().props.onPress());
   assert.equal(detail.store.trips[0].days[0].items.length, initialCount + 1);
@@ -1527,22 +1711,37 @@ test("default date and suggested time add without editing; a conflict is visible
   await act(async () => detail.tree.unmount());
 });
 
-
 test("trip cover selection previews, saves persistently and can restore the default without altering itinerary", async () => {
-  const h = harness({ tripId: "paris" }, null, { photoResult: { canceled: false, assets: [{ uri: "file:///cache/chosen.jpg", fileSize: 3000 }] } });
+  const h = harness({ tripId: "paris" }, null, {
+    photoResult: {
+      canceled: false,
+      assets: [{ uri: "file:///cache/chosen.jpg", fileSize: 3000 }],
+    },
+  });
   const form = await mountScreen(h, "src/app/trip/[tripId]/edit.tsx");
   const before = JSON.stringify(form.store.trips[0].days);
-  const click = async (view, label) => act(async () => view.tree.root.findAll((n) => n.type === "Text" && n.children.includes(label))[0].parent.props.onPress());
+  const click = async (view, label) =>
+    act(async () =>
+      view.tree.root
+        .findAll((n) => n.type === "Text" && n.children.includes(label))[0]
+        .parent.props.onPress(),
+    );
   await click(form, "사진 보관함에서 선택");
   assert.equal(form.store.trips[0].coverUri, undefined);
   await click(form, "변경사항 저장");
-  assert.match(form.store.trips[0].coverUri, /^file:\/\/\/test-documents\/trip-covers\//);
+  assert.match(
+    form.store.trips[0].coverUri,
+    /^file:\/\/\/test-documents\/trip-covers\//,
+  );
   const saved = form.store.trips[0].coverUri;
   assert.equal(h.load("src/images.ts").imageSource(saved).uri, saved);
   assert.equal(JSON.stringify(form.store.trips[0].days), before);
   const raw = h.raw;
   await act(async () => form.tree.unmount());
-  const restarted = await mountScreen(harness({ tripId: "paris" }, raw), "src/app/trip/[tripId]/edit.tsx");
+  const restarted = await mountScreen(
+    harness({ tripId: "paris" }, raw),
+    "src/app/trip/[tripId]/edit.tsx",
+  );
   assert.equal(restarted.store.trips[0].coverUri, saved);
   await click(restarted, "기본 사진으로 되돌리기");
   await click(restarted, "변경사항 저장");
@@ -1552,29 +1751,59 @@ test("trip cover selection previews, saves persistently and can restore the defa
 });
 
 test("cancelling photo picker keeps the existing cover", async () => {
-  const h = harness({ tripId: "paris" }, null, { photoResult: { canceled: true } });
+  const h = harness({ tripId: "paris" }, null, {
+    photoResult: { canceled: true },
+  });
   const form = await mountScreen(h, "src/app/trip/[tripId]/edit.tsx");
-  await act(async () => form.tree.root.findAll((n) => n.type === "Text" && n.children.includes("사진 보관함에서 선택"))[0].parent.props.onPress());
+  await act(async () =>
+    form.tree.root
+      .findAll(
+        (n) => n.type === "Text" && n.children.includes("사진 보관함에서 선택"),
+      )[0]
+      .parent.props.onPress(),
+  );
   assert.equal(form.store.trips[0].coverUri, undefined);
-  assert.equal(form.tree.root.findAll((n) => n.type === "Text" && n.children.includes("변경사항 저장"))[0].parent.props.disabled, true);
+  assert.equal(
+    form.tree.root.findAll(
+      (n) => n.type === "Text" && n.children.includes("변경사항 저장"),
+    )[0].parent.props.disabled,
+    true,
+  );
   await act(async () => form.tree.unmount());
 });
 
-
 test("photo copy failure leaves saved cover unchanged and displays an error", async () => {
-  const h = harness({ tripId: "paris" }, null, { photoResult: { canceled: false, assets: [{ uri: "file:///cache/photo.jpg" }] }, photoCopyError: true });
+  const h = harness({ tripId: "paris" }, null, {
+    photoResult: {
+      canceled: false,
+      assets: [{ uri: "file:///cache/photo.jpg" }],
+    },
+    photoCopyError: true,
+  });
   const view = await mountScreen(h, "src/app/trip/[tripId]/edit.tsx");
-  await act(async () => view.tree.root.findAll((n) => n.type === "Text" && n.children.includes("사진 보관함에서 선택"))[0].parent.props.onPress());
+  await act(async () =>
+    view.tree.root
+      .findAll(
+        (n) => n.type === "Text" && n.children.includes("사진 보관함에서 선택"),
+      )[0]
+      .parent.props.onPress(),
+  );
   assert.equal(view.store.trips[0].coverUri, undefined);
   assert.ok(words(view.tree).includes("사진을 가져오지 못했어요."));
   await act(async () => view.tree.unmount());
 });
 
-
 test("transport controls independently toggle and keep at least one mode", async () => {
-  const view = await mountScreen(harness({ tripId: "paris" }), "src/app/trip/[tripId]/plan.tsx");
+  const view = await mountScreen(
+    harness({ tripId: "paris" }),
+    "src/app/trip/[tripId]/plan.tsx",
+  );
   await act(async () => tapText(view, "하루의 속도와 식사"));
-  const control = (mode) => view.tree.root.findAll((n) => n.type === "Pressable" && n.props.accessibilityLabel === `${mode} 이용`)[0];
+  const control = (mode) =>
+    view.tree.root.findAll(
+      (n) =>
+        n.type === "Pressable" && n.props.accessibilityLabel === `${mode} 이용`,
+    )[0];
   assert.equal(control("도보").props.accessibilityState.checked, true);
   assert.equal(control("대중교통").props.accessibilityState.checked, true);
   await act(async () => control("차").props.onPress());
@@ -1587,19 +1816,28 @@ test("transport controls independently toggle and keep at least one mode", async
   await act(async () => view.tree.unmount());
 });
 
-
 test("legacy planning with unselected saved places exposes counts and explicit select-all recovery", async () => {
   const h = harness({ tripId: "paris" });
   const seed = await mount(h);
-  await act(async () => seed.store.addManualPlace("paris", "Saved Museum", "Street, Paris", "관광"));
+  await act(async () =>
+    seed.store.addManualPlace("paris", "Saved Museum", "Street, Paris", "관광"),
+  );
   const planner = h.load("src/planner.ts");
   const c = planner.defaultConditions(seed.store.trips[0]);
-  c.selectedIds = []; delete c.knownPlaceIds;
+  c.selectedIds = [];
+  delete c.knownPlaceIds;
   await act(async () => seed.store.savePlanning("paris", c));
   const raw = h.raw;
   await act(async () => seed.tree.unmount());
-  const view = await mountScreen(harness({ tripId: "paris" }, raw), "src/app/trip/[tripId]/plan.tsx");
-  const proposalButton = () => view.tree.root.findAll((n) => n.type === "Text" && n.children.includes("조건 저장하고 AI 제안받기"))[0].parent;
+  const view = await mountScreen(
+    harness({ tripId: "paris" }, raw),
+    "src/app/trip/[tripId]/plan.tsx",
+  );
+  const proposalButton = () =>
+    view.tree.root.findAll(
+      (n) =>
+        n.type === "Text" && n.children.includes("조건 저장하고 AI 제안받기"),
+    )[0].parent;
   assert.equal(proposalButton().props.disabled, true);
   assert.ok(words(view.tree).includes("아직 선택되지 않았어요"));
   await act(async () => tapText(view, "미배치 장소 모두 선택"));
@@ -1612,96 +1850,294 @@ test("modern travel home routes its next action by state without changing trip d
   for (const kind of ["discover", "plan", "record"]) {
     const data = JSON.parse(JSON.stringify(source));
     const t = data[0];
-    t.days = []; t.start = ""; t.end = ""; t.candidates = [];
+    t.days = [];
+    t.start = "";
+    t.end = "";
+    t.candidates = [];
     if (kind === "plan") t.candidates = ["ofr"];
-    if (kind === "record") { t.start = "2020-01-01"; t.end = "2020-01-02"; t.days = [{ date: t.start, items: [] }, { date: t.end, items: [] }]; }
+    if (kind === "record") {
+      t.start = "2020-01-01";
+      t.end = "2020-01-02";
+      t.days = [
+        { date: t.start, items: [] },
+        { date: t.end, items: [] },
+      ];
+    }
     const raw = JSON.stringify(data);
     const h = harness({ tripId: "paris" }, raw);
     const view = await mountScreen(h, "src/app/trip/[tripId]/(tabs)/index.tsx");
-    await act(async () => tapText(view, kind === "discover" ? "가고 싶은 곳 보기" : kind === "plan" ? "여행 조건 입력하고 AI로 계획" : "기록 열기"));
-    assert.equal(h.navigation.at(-1).pathname, kind === "discover" ? "/trip/[tripId]/candidates" : kind === "plan" ? "/trip/[tripId]/plan" : "/trip/[tripId]/journal");
+    await act(async () =>
+      tapText(
+        view,
+        kind === "discover"
+          ? "가고 싶은 곳 보기"
+          : kind === "plan"
+            ? "여행 조건 입력하고 AI로 계획"
+            : "기록 열기",
+      ),
+    );
+    assert.equal(
+      h.navigation.at(-1).pathname,
+      kind === "discover"
+        ? "/trip/[tripId]/candidates"
+        : kind === "plan"
+          ? "/trip/[tripId]/plan"
+          : "/trip/[tripId]/journal",
+    );
     assert.equal(JSON.stringify(view.store.trips), raw);
     await act(async () => view.tree.unmount());
   }
 });
 
-
 test("post list opened from itinerary returns to its date while direct tab access retains chapter navigation", async () => {
   for (const fromItinerary of [true, false]) {
-    const h = harness({ tripId: "paris", date: "2026-11-13", returnTo: fromItinerary ? "itinerary" : "" }, null, { pathname: "/trip/paris/candidates" });
-    const view = await mountScreen(h, "src/app/trip/[tripId]/(tabs)/_layout.tsx");
-    const header = view.tree.root.findByType("Tabs").props.screenOptions.headerLeft();
-    assert.equal(header.props.accessibilityLabel, fromItinerary ? "일정으로 돌아가기" : "여행 목록으로");
+    const h = harness(
+      {
+        tripId: "paris",
+        date: "2026-11-13",
+        returnTo: fromItinerary ? "itinerary" : "",
+      },
+      null,
+      { pathname: "/trip/paris/candidates" },
+    );
+    const view = await mountScreen(
+      h,
+      "src/app/trip/[tripId]/(tabs)/_layout.tsx",
+    );
+    const header = view.tree.root
+      .findByType("Tabs")
+      .props.screenOptions.headerLeft();
+    assert.equal(
+      header.props.accessibilityLabel,
+      fromItinerary ? "일정으로 돌아가기" : "여행 목록으로",
+    );
     await act(async () => header.props.onPress());
-    if (fromItinerary) { assert.equal(h.navigation.at(-1).pathname, "/trip/[tripId]/itinerary"); assert.equal(h.navigation.at(-1).params.date, "2026-11-13"); }
-    else assert.equal(h.navigation.at(-1), "/chapters");
+    if (fromItinerary) {
+      assert.equal(h.navigation.at(-1).pathname, "/trip/[tripId]/itinerary");
+      assert.equal(h.navigation.at(-1).params.date, "2026-11-13");
+    } else assert.equal(h.navigation.at(-1), "/chapters");
     await act(async () => view.tree.unmount());
   }
 });
 
-test("zero-place review has one real same-condition retry and no disabled zero-place apply action", async () => {
-  const source = JSON.parse(JSON.stringify(harness({}).load("src/data.ts").trips));
-  const t = source[0]; t.start = "2027-02-01"; t.end = "2027-02-02";
-  t.days = [{date:t.start,items:[]},{date:t.end,items:[]}]; t.candidates = ["confirmed-shop"];
-  t.importedPlaces = [{id:"confirmed-shop",name:"Shop",query:"Test Road",category:"쇼핑",area:"Tokyo",description:"",image:"",sourcePostIds:[],matchStatus:"confirmed"}];
-  let calls = 0; const requests = [];
-  const h = harness({tripId:"paris"},JSON.stringify(source),{fetcher:async(_,o)=>{const r=JSON.parse(o.body); requests.push(r);calls++;return{ok:true,json:async()=>({suggestions:calls<=2?[]:[{type:"ADD",placeId:r.places[0].id,date:"2027-02-01",time:"09:00"}]})}}});
-  const view = await mountScreen(h,"src/app/trip/[tripId]/plan.tsx");
+test("AI omissions are filled by the explicit constraint scheduling pass without applying anything", async () => {
+  const source = JSON.parse(
+    JSON.stringify(harness({}).load("src/data.ts").trips),
+  );
+  const t = source[0];
+  t.start = "2027-02-01";
+  t.end = "2027-02-02";
+  t.days = [
+    { date: t.start, items: [] },
+    { date: t.end, items: [] },
+  ];
+  t.candidates = ["confirmed-shop"];
+  t.importedPlaces = [
+    {
+      id: "confirmed-shop",
+      name: "Shop",
+      query: "Test Road",
+      category: "쇼핑",
+      area: "Tokyo",
+      description: "",
+      image: "",
+      sourcePostIds: [],
+      matchStatus: "confirmed",
+    },
+  ];
+  let calls = 0;
+  const requests = [];
+  const h = harness({ tripId: "paris" }, JSON.stringify(source), {
+    fetcher: async (_, o) => {
+      const r = JSON.parse(o.body);
+      requests.push(r);
+      calls++;
+      return {
+        ok: true,
+        json: async () => ({
+          suggestions:
+            calls <= 2
+              ? []
+              : [
+                  {
+                    type: "ADD",
+                    placeId: r.places[0].id,
+                    date: "2027-02-01",
+                    time: "09:00",
+                  },
+                ],
+        }),
+      };
+    },
+  });
+  const view = await mountScreen(h, "src/app/trip/[tripId]/plan.tsx");
   const before = JSON.stringify(view.store.trips[0].days);
-  await act(async()=>tapText(view,"조건 저장하고 AI 제안받기"));
-  assert.equal(calls,2); assert.ok(words(view.tree).includes("아직 일정을 완성하지 못했어요"));
-  assert.equal(words(view.tree).includes("선택한 0곳과 고정 일정 적용"),false);
-  await act(async()=>tapText(view,"같은 조건으로 다시 만들기"));
-  assert.equal(calls,3); assert.ok(words(view.tree).includes("이렇게 여행해 볼까요?"));
-  assert.equal(JSON.stringify(view.store.trips[0].days),before);
-  assert.deepEqual(requests[0].conditions,requests[2].conditions);
-  await act(async()=>view.tree.unmount());
+  await act(async () => tapText(view, "조건 저장하고 AI 제안받기"));
+  assert.equal(calls, 2);
+  assert.ok(words(view.tree).includes("이렇게 여행해 볼까요?"));
+  assert.equal(view.store.trips[0].planDraft.rows.length, 1);
+  assert.equal(words(view.tree).includes("선택한 0곳과 고정 일정 적용"), false);
+  assert.ok(
+    view.store.trips[0].planDraft.issues.some((v) =>
+      v.includes("AI 응답에서 미배치된"),
+    ),
+  );
+  assert.equal(JSON.stringify(view.store.trips[0].days), before);
+  await act(async () => view.tree.unmount());
 });
 
-test("journal photo and short memo survive restart, edit and delete while itinerary stays unchanged", async()=>{
- const h=harness({tripId:"paris"},null,{photoResult:{canceled:false,assets:[{uri:"file:///cache/memory.jpg",fileSize:1000}]}});
- const view=await mountScreen(h,"src/app/trip/[tripId]/(tabs)/journal.tsx");
- const before=JSON.stringify(view.store.trips[0].days);
- await act(async()=>tapText(view,"＋ 방문 기록 남기기"));
- const choice=view.tree.root.findAll(n=>n.type==="Pressable" && n.props.accessibilityRole==="radio")[0];
- await act(async()=>choice.props.onPress());
- await act(async()=>view.tree.root.findAllByType("TextInput").find(n=>n.props.accessibilityLabel==="기록 메모").props.onChangeText("작은 서점의 기억"));
- await act(async()=>tapText(view,"사진 선택"));
- await act(async()=>tapText(view,"기록 저장"));
- const record=view.store.trips[0].journal[0];assert.match(record.photoUri,/journal-photos/);assert.equal(record.note,"작은 서점의 기억");assert.equal(JSON.stringify(view.store.trips[0].days),before);
- const raw=h.raw;await act(async()=>view.tree.unmount());
- const restarted=await mountScreen(harness({tripId:"paris"},raw),"src/app/trip/[tripId]/(tabs)/journal.tsx");
- assert.ok(words(restarted.tree).includes("작은 서점의 기억"));
- await act(async()=>restarted.tree.root.findAll(n=>n.type==="Pressable" && n.props.accessibilityLabel===`${record.placeName} 기록 수정`)[0].props.onPress());
- await act(async()=>restarted.tree.root.findAllByType("TextInput").find(n=>n.props.accessibilityLabel==="기록 메모").props.onChangeText("다시 가고 싶은 곳"));
- await act(async()=>tapText(restarted,"기록 저장"));assert.equal(restarted.store.trips[0].journal[0].id,record.id);
- await act(async()=>restarted.tree.root.findAll(n=>n.type==="Pressable" && n.props.accessibilityLabel===`${record.placeName} 기록 수정`)[0].props.onPress());
- await act(async()=>tapText(restarted,"이 기록 삭제"));await act(async()=>tapText(restarted,"삭제 취소"));assert.equal(restarted.store.trips[0].journal.length,1);
- await act(async()=>tapText(restarted,"이 기록 삭제"));await act(async()=>tapText(restarted,"기록 삭제 확인"));assert.equal(restarted.store.trips[0].journal.length,0);assert.equal(JSON.stringify(restarted.store.trips[0].days),before);
- await act(async()=>restarted.tree.unmount());
+test("journal photo and short memo survive restart, edit and delete while itinerary stays unchanged", async () => {
+  const h = harness({ tripId: "paris" }, null, {
+    photoResult: {
+      canceled: false,
+      assets: [{ uri: "file:///cache/memory.jpg", fileSize: 1000 }],
+    },
+  });
+  const view = await mountScreen(h, "src/app/trip/[tripId]/(tabs)/journal.tsx");
+  const before = JSON.stringify(view.store.trips[0].days);
+  await act(async () => tapText(view, "＋ 방문 기록 남기기"));
+  const choice = view.tree.root.findAll(
+    (n) => n.type === "Pressable" && n.props.accessibilityRole === "radio",
+  )[0];
+  await act(async () => choice.props.onPress());
+  await act(async () =>
+    view.tree.root
+      .findAllByType("TextInput")
+      .find((n) => n.props.accessibilityLabel === "기록 메모")
+      .props.onChangeText("작은 서점의 기억"),
+  );
+  await act(async () => tapText(view, "사진 선택"));
+  await act(async () => tapText(view, "기록 저장"));
+  const record = view.store.trips[0].journal[0];
+  assert.match(record.photoUri, /journal-photos/);
+  assert.equal(record.note, "작은 서점의 기억");
+  assert.equal(JSON.stringify(view.store.trips[0].days), before);
+  const raw = h.raw;
+  await act(async () => view.tree.unmount());
+  const restarted = await mountScreen(
+    harness({ tripId: "paris" }, raw),
+    "src/app/trip/[tripId]/(tabs)/journal.tsx",
+  );
+  assert.ok(words(restarted.tree).includes("작은 서점의 기억"));
+  await act(async () =>
+    restarted.tree.root
+      .findAll(
+        (n) =>
+          n.type === "Pressable" &&
+          n.props.accessibilityLabel === `${record.placeName} 기록 수정`,
+      )[0]
+      .props.onPress(),
+  );
+  await act(async () =>
+    restarted.tree.root
+      .findAllByType("TextInput")
+      .find((n) => n.props.accessibilityLabel === "기록 메모")
+      .props.onChangeText("다시 가고 싶은 곳"),
+  );
+  await act(async () => tapText(restarted, "기록 저장"));
+  assert.equal(restarted.store.trips[0].journal[0].id, record.id);
+  await act(async () =>
+    restarted.tree.root
+      .findAll(
+        (n) =>
+          n.type === "Pressable" &&
+          n.props.accessibilityLabel === `${record.placeName} 기록 수정`,
+      )[0]
+      .props.onPress(),
+  );
+  await act(async () => tapText(restarted, "이 기록 삭제"));
+  await act(async () => tapText(restarted, "삭제 취소"));
+  assert.equal(restarted.store.trips[0].journal.length, 1);
+  await act(async () => tapText(restarted, "이 기록 삭제"));
+  await act(async () => tapText(restarted, "기록 삭제 확인"));
+  assert.equal(restarted.store.trips[0].journal.length, 0);
+  assert.equal(JSON.stringify(restarted.store.trips[0].days), before);
+  await act(async () => restarted.tree.unmount());
 });
 
-test("a non-Paris day offers saved places and manual add rather than an empty Paris example",async()=>{
- const source=JSON.parse(JSON.stringify(harness({}).load("src/data.ts").trips));source[0].city="Tokyo";
- const h=harness({tripId:"paris",date:source[0].start},JSON.stringify(source));const view=await mountScreen(h,"src/app/trip/[tripId]/recommend.tsx");
- assert.equal(words(view.tree).includes("Paris 예시"),false);
- await act(async()=>tapText(view,"장소 직접 추가하기"));
- const field=(label)=>view.tree.root.findAllByType("TextInput").find(n=>n.props.accessibilityLabel===label);
- await act(async()=>field("추가할 장소 이름").props.onChangeText("Test Tokyo Shop"));await act(async()=>field("추가할 장소 주소").props.onChangeText("Confirmed Street, Tokyo"));
- const before=JSON.stringify(view.store.trips[0].days);await act(async()=>tapText(view,"확인한 주소로 저장하고 계속"));
- assert.equal(h.navigation.at(-1).params.addToDay,"1");assert.equal(h.navigation.at(-1).params.date,source[0].start);assert.equal(JSON.stringify(view.store.trips[0].days),before);
- await act(async()=>view.tree.unmount());
+test("a non-Paris day offers saved places and manual add rather than an empty Paris example", async () => {
+  const source = JSON.parse(
+    JSON.stringify(harness({}).load("src/data.ts").trips),
+  );
+  source[0].city = "Tokyo";
+  const h = harness(
+    { tripId: "paris", date: source[0].start },
+    JSON.stringify(source),
+  );
+  const view = await mountScreen(h, "src/app/trip/[tripId]/recommend.tsx");
+  assert.equal(words(view.tree).includes("Paris 예시"), false);
+  await act(async () => tapText(view, "장소 직접 추가하기"));
+  const field = (label) =>
+    view.tree.root
+      .findAllByType("TextInput")
+      .find((n) => n.props.accessibilityLabel === label);
+  await act(async () =>
+    field("추가할 장소 이름").props.onChangeText("Test Tokyo Shop"),
+  );
+  await act(async () =>
+    field("추가할 장소 주소").props.onChangeText("Confirmed Street, Tokyo"),
+  );
+  const before = JSON.stringify(view.store.trips[0].days);
+  await act(async () => tapText(view, "확인한 주소로 저장하고 계속"));
+  assert.equal(h.navigation.at(-1).params.addToDay, "1");
+  assert.equal(h.navigation.at(-1).params.date, source[0].start);
+  assert.equal(JSON.stringify(view.store.trips[0].days), before);
+  await act(async () => view.tree.unmount());
 });
 
-test("adding an unverified saved place to a day confirms its address before opening the time sheet",async()=>{
- const source=JSON.parse(JSON.stringify(harness({}).load("src/data.ts").trips));
- source[0].candidates=["unverified"];source[0].importedPlaces=[{id:"unverified",name:"Test Shop",query:"Test Shop Tokyo",area:"Tokyo",category:"쇼핑",description:"",image:"",sourcePostIds:[],matchStatus:"needs_confirmation"}];
- const h=harness({tripId:"paris",placeId:"unverified",date:source[0].start,addToDay:"1"},JSON.stringify(source));
- const view=await mountScreen(h,"src/app/trip/[tripId]/place/[placeId].tsx");
- assert.equal(view.tree.root.findAllByType("TextInput").some(n=>n.props.accessibilityLabel==="일정 시간"),false);
- await act(async()=>view.tree.root.findAllByType("TextInput").find(n=>n.props.accessibilityLabel==="확인할 지도 검색어").props.onChangeText("Confirmed Road, Tokyo"));
- await act(async()=>tapText(view,"이 주소로 가고 싶은 곳에 저장"));
- assert.equal(view.tree.root.findAllByType("TextInput").some(n=>n.props.accessibilityLabel==="일정 시간"),true);
- assert.equal(view.store.trips[0].days[0].items.some(e=>e.placeId==="unverified"),false);
- await act(async()=>view.tree.unmount());
+test("adding an unverified saved place to a day confirms its address before opening the time sheet", async () => {
+  const source = JSON.parse(
+    JSON.stringify(harness({}).load("src/data.ts").trips),
+  );
+  source[0].candidates = ["unverified"];
+  source[0].importedPlaces = [
+    {
+      id: "unverified",
+      name: "Test Shop",
+      query: "Test Shop Tokyo",
+      area: "Tokyo",
+      category: "쇼핑",
+      description: "",
+      image: "",
+      sourcePostIds: [],
+      matchStatus: "needs_confirmation",
+    },
+  ];
+  const h = harness(
+    {
+      tripId: "paris",
+      placeId: "unverified",
+      date: source[0].start,
+      addToDay: "1",
+    },
+    JSON.stringify(source),
+  );
+  const view = await mountScreen(
+    h,
+    "src/app/trip/[tripId]/place/[placeId].tsx",
+  );
+  assert.equal(
+    view.tree.root
+      .findAllByType("TextInput")
+      .some((n) => n.props.accessibilityLabel === "일정 시간"),
+    false,
+  );
+  await act(async () =>
+    view.tree.root
+      .findAllByType("TextInput")
+      .find((n) => n.props.accessibilityLabel === "확인할 지도 검색어")
+      .props.onChangeText("Confirmed Road, Tokyo"),
+  );
+  await act(async () => tapText(view, "이 주소로 가고 싶은 곳에 저장"));
+  assert.equal(
+    view.tree.root
+      .findAllByType("TextInput")
+      .some((n) => n.props.accessibilityLabel === "일정 시간"),
+    true,
+  );
+  assert.equal(
+    view.store.trips[0].days[0].items.some((e) => e.placeId === "unverified"),
+    false,
+  );
+  await act(async () => view.tree.unmount());
 });

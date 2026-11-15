@@ -1,3 +1,5 @@
+import { applyManualEdit, editSnapshot } from "./manualEditing";
+import type { Day } from "./data";
 import { saveJournal, deleteJournal, validJournalEntry } from "./journal";
 import {
   savePlanning,
@@ -36,7 +38,19 @@ type Result = {
   candidateId?: string;
 };
 type Store = {
-  saveJournal: (tripId: string, input: { id?: string; date: string; entryId: string; note: string; photoUri?: string }) => Result;
+  applyManualEdit: (tripId: string, days: Day[], snapshot: string) => Result;
+  undoManualEdit: (tripId: string) => Result;
+  canUndoManualEdit: (tripId: string) => boolean;
+  saveJournal: (
+    tripId: string,
+    input: {
+      id?: string;
+      date: string;
+      entryId: string;
+      note: string;
+      photoUri?: string;
+    },
+  ) => Result;
   deleteJournal: (tripId: string, recordId: string) => Result;
   trips: Trip[];
   deletedTrips: Trip[];
@@ -120,6 +134,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   const [loadFailed, setLoadFailed] = useState(false);
+  const editUndo = useRef<Record<string, { before: Day[]; after: string }>>({});
   const queue = useRef(Promise.resolve());
   useEffect(() => {
     AsyncStorage.getItem(KEY)
@@ -133,8 +148,12 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
                 typeof t.id === "string" &&
                 typeof t.name === "string" &&
                 typeof t.city === "string" &&
-                (t.journal === undefined || (Array.isArray(t.journal) && t.journal.every(validJournalEntry))) &&
-                (t.coverUri === undefined || (typeof t.coverUri === "string" && (t.coverUri === "" || /^file:\/\//.test(t.coverUri)))) &&
+                (t.journal === undefined ||
+                  (Array.isArray(t.journal) &&
+                    t.journal.every(validJournalEntry))) &&
+                (t.coverUri === undefined ||
+                  (typeof t.coverUri === "string" &&
+                    (t.coverUri === "" || /^file:\/\//.test(t.coverUri)))) &&
                 (t.planning === undefined || validConditions(t.planning)) &&
                 (t.planDraft === undefined || validDraft(t.planDraft)) &&
                 (t.deletedAt === undefined ||
@@ -282,8 +301,45 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     };
   }
   const value: Store = {
-    saveJournal: (tripId, input) => { const r = saveJournal(current.current, tripId, input); if (r.ok) update(r.trips); return { ok: r.ok, message: r.message }; },
-    deleteJournal: (tripId, recordId) => { const r = deleteJournal(current.current, tripId, recordId); if (r.ok) update(r.trips); return { ok: r.ok, message: r.message }; },
+    canUndoManualEdit: (id) => !!editUndo.current[id],
+    applyManualEdit: (id, days, snapshot) => {
+      const before = current.current.find((t) => t.id === id);
+      const result = applyManualEdit(current.current, id, days, snapshot);
+      if (result.ok && before) {
+        editUndo.current[id] = {
+          before: before.days,
+          after: editSnapshot(result.trips.find((t) => t.id === id)!),
+        };
+        update(result.trips);
+      }
+      return { ok: result.ok, message: result.message };
+    },
+    undoManualEdit: (id) => {
+      const undo = editUndo.current[id],
+        trip = current.current.find((t) => t.id === id);
+      if (!undo || !trip || editSnapshot(trip) !== undo.after)
+        return {
+          ok: false,
+          message: "그 뒤에 일정이 변경돼 이전 편집을 덮어쓸 수 없어요.",
+        };
+      update(
+        current.current.map((t) =>
+          t.id === id ? { ...t, days: undo.before, planDraft: undefined } : t,
+        ),
+      );
+      delete editUndo.current[id];
+      return { ok: true, message: "수동 편집을 되돌렸어요." };
+    },
+    saveJournal: (tripId, input) => {
+      const r = saveJournal(current.current, tripId, input);
+      if (r.ok) update(r.trips);
+      return { ok: r.ok, message: r.message };
+    },
+    deleteJournal: (tripId, recordId) => {
+      const r = deleteJournal(current.current, tripId, recordId);
+      if (r.ok) update(r.trips);
+      return { ok: r.ok, message: r.message };
+    },
     trips: list.filter((t) => !t.deletedAt),
     deletedTrips: list.filter((t) => !!t.deletedAt),
     deleteTrip: (id) => trash([id]),

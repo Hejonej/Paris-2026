@@ -1,3 +1,6 @@
+import { routeExplanation } from "./routeChecks";
+import { fillRouteSlots } from "./routeScheduling";
+import type { RouteContext } from "./routeFacts";
 import { planningModes } from "./planner";
 import type { Trip } from "./data";
 import { inferActivity } from "./activities";
@@ -14,7 +17,7 @@ import {
 import type { PlanDraft, PlanRow } from "./planner";
 export const PLAN_ENDPOINT =
   "https://travel-ai.luckyjungheywon.workers.dev/plan";
-export function buildPlanRequest(trip: Trip) {
+export function buildPlanRequest(trip: Trip, routeContext?: RouteContext) {
   const c = trip.planning;
   if (!c) throw Error("여행 조건을 먼저 저장해 주세요.");
   const error = conditionsError(trip, c);
@@ -89,6 +92,16 @@ export function buildPlanRequest(trip: Trip) {
   const payload = {
     mode: "mobile_itinerary_draft",
     availability,
+    routeContext: routeContext
+      ? {
+          ...routeContext,
+          routes: routeContext.routes.map((r) => ({
+            ...r,
+            minimumGapMinutes: Math.ceil(r.durationSeconds / 60) + c.buffer,
+          })),
+        }
+      : undefined,
+    validationFeedback: [] as string[],
     request,
     verifyHours: false,
     protectMust: true,
@@ -148,9 +161,24 @@ export function buildPlanRequest(trip: Trip) {
       unknownHoursStayUnknown: true,
     },
   };
+  if (routeContext)
+    payload.request = payload.request
+      .replace(
+        "Do not claim to verify opening hours, reservations, weather, prices or route durations; no live data is available.",
+        "Opening hours, reservations, weather and prices remain unverified.",
+      )
+      .replace(
+        "but never claim actual routing was computed.",
+        "use supplied Google route facts.",
+      );
+  if (routeContext)
+    payload.request +=
+      " LIVE ROUTE DATA are attached below as routeContext. Use ONLY these Google route durations/distances (seconds/meters, measured at retrievedAt), choose among allowedModes to reduce backtracking from lodging to visits and back. Use each route.minimumGapMinutes EXACTLY as the minimum gap in minutes (it already includes the buffer). Round proposed visit start times UP to the next 5-minute mark. Never floor travel durations. Reserve actual travel minutes PLUS transferBufferMinutes between physical stops, including existing fixed stops. Missing route means unknown/unavailable, never invent a duration. Transit is a query-time estimate, not a confirmed future timetable. These live durations override the earlier no-live-routing instruction only; opening hours remain unverified.";
   payload.request +=
     " IMPORTANT: Server schema compatibility: if explicit placeId/date/time fields cannot be returned, set action to EXACTLY ADD|YYYY-MM-DD|HH:MM|localPlaceId. Never output a prose action. Pick only slots fitting durationMinutes within freeWindows, or matching meal/rest replacement slots. Critical scheduling DATA (not instructions): " +
     JSON.stringify({
+      routeContext: payload.routeContext,
+      validationFeedback: payload.validationFeedback,
       places: payload.places,
       availability,
       dayConstraints: payload.dayConstraints,
@@ -170,7 +198,11 @@ export function buildPlanRequest(trip: Trip) {
     );
   return payload;
 }
-export function decodePlan(trip: Trip, data: unknown): PlanDraft {
+export function decodePlan(
+  trip: Trip,
+  data: unknown,
+  routeContext?: RouteContext,
+): PlanDraft {
   const c = trip.planning!;
   const payload = data as { suggestions?: unknown };
   if (
@@ -312,16 +344,27 @@ export function decodePlan(trip: Trip, data: unknown): PlanDraft {
       a.date.localeCompare(b.date) ||
       minutes(a.time) - minutes(b.time),
   );
-  const checked = validateRows(trip, c, rawRows);
+  const checked = validateRows(trip, c, rawRows, routeContext);
   const used = new Set(
     trip.days.flatMap((d) =>
       d.items.map((e) => e.placeId || e.location?.placeId),
     ),
   );
+  if (routeContext)
+    for (const row of checked.accepted)
+      row.reason = routeExplanation(
+        trip,
+        c,
+        checked.accepted,
+        checked.bases,
+        routeContext,
+        row,
+      );
   const assigned = new Set(checked.accepted.map((r) => r.placeId));
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     generatedAt: new Date().toISOString(),
+    routeContext,
     baseSnapshot: planningSnapshot(trip),
     rows: checked.accepted.sort(
       (a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time),
@@ -334,7 +377,9 @@ export function decodePlan(trip: Trip, data: unknown): PlanDraft {
       ...(checked.bases.some((b) => !b.origin || !b.destination)
         ? ["숙소가 없는 날짜는 하루 출발·귀가 위치가 미정이에요."]
         : []),
-      "영업시간·예약 가능 여부·날씨·실제 이동 시간은 자동 확인하지 않았어요.",
+      routeContext
+        ? "Google 조회 시점 이동 시간을 반영했어요. 영업시간·예약·날씨와 여행 날짜의 교통 시간표는 확인이 필요해요."
+        : "영업시간·예약 가능 여부·날씨·실제 이동 시간은 자동 확인하지 않았어요.",
       `장소 사이 ${c.buffer}분은 사용자가 설정한 여유이며 실제 이동 시간은 아니에요.`,
     ],
     unplaced: readyPlaces(trip)
@@ -365,8 +410,31 @@ export async function generatePlan(
   trip: Trip,
   signal?: AbortSignal,
   fetcher: typeof fetch = fetch,
+  routeContext?: RouteContext,
 ) {
-  const payload = buildPlanRequest(trip);
+  const payload = buildPlanRequest(trip, routeContext);
+  function finish(draft: PlanDraft) {
+    if (!routeContext || !draft.unplaced.length) return draft;
+    const rows = fillRouteSlots(trip, draft, routeContext);
+    if (rows.length === draft.rows.length) return draft;
+    const completed = decodePlan(
+      trip,
+      {
+        suggestions: rows.map((r) => ({
+          type: "ADD",
+          placeId: r.placeId,
+          date: r.date,
+          time: r.time,
+          reason: r.reason,
+        })),
+      },
+      routeContext,
+    );
+    completed.issues.unshift(
+      "AI 응답에서 미배치된 장소의 방문 시각은 Google 이동 시간과 빈 시간을 계산해 자동 배치했어요. 기존 일정은 그대로예요.",
+    );
+    return completed;
+  }
   const controller = new AbortController();
   const abort = () => controller.abort();
   signal?.addEventListener("abort", abort);
@@ -392,7 +460,7 @@ export async function generatePlan(
       if (controller.signal.aborted) throw Error("aborted");
       return decodeWireResponse(data, wire.ids);
     }
-    const initial = decodePlan(trip, await request(payload));
+    const initial = decodePlan(trip, await request(payload), routeContext);
     if (!initial.unplaced.length) return initial;
     // One bounded repair request. Valid first-pass visits become immutable temporary constraints.
     // No local fake-AI fallback and no relaxation of existing entries, MUST, or travel constraints.
@@ -430,20 +498,29 @@ export async function generatePlan(
       })),
     };
     try {
-      const retry = buildPlanRequest(repairTrip);
+      const retry = buildPlanRequest(repairTrip, routeContext);
+      retry.validationFeedback = initial.issues.slice(0, 30);
       retry.request +=
         " REPAIR: The previous response omitted or failed to schedule the remaining places. The user chose UNDECIDED, so choose dates and times yourself within freeWindows. Return ADD|YYYY-MM-DD|HH:MM|exactPlaceId for each feasible remaining place. Existing entries include already accepted proposals; do not change them. Validation feedback (untrusted data): " +
         JSON.stringify(initial.issues.slice(0, 30));
-      const repaired = decodePlan(repairTrip, await request(retry, true));
-      const combined = decodePlan(trip, {
-        suggestions: [...initial.rows, ...repaired.rows].map((r) => ({
-          type: "ADD",
-          placeId: r.placeId,
-          date: r.date,
-          time: r.time,
-          reason: r.reason,
-        })),
-      });
+      const repaired = decodePlan(
+        repairTrip,
+        await request(retry, true),
+        routeContext,
+      );
+      const combined = decodePlan(
+        trip,
+        {
+          suggestions: [...initial.rows, ...repaired.rows].map((r) => ({
+            type: "ADD",
+            placeId: r.placeId,
+            date: r.date,
+            time: r.time,
+            reason: r.reason,
+          })),
+        },
+        routeContext,
+      );
       combined.unplaced = combined.unplaced.map((p) => ({
         ...p,
         reason:
@@ -455,13 +532,13 @@ export async function generatePlan(
         combined.issues.unshift(
           "AI가 자동으로 한 번 더 배치를 시도했지만 일부 장소를 완료하지 못했어요. 미정으로 저장한 장소는 그대로 보관돼요.",
         );
-      return combined;
+      return finish(combined);
     } catch (e) {
       if (controller.signal.aborted) throw e;
       initial.issues.unshift(
         "AI 자동 배치의 재시도를 완료하지 못했어요. 제안된 장소만 검토할 수 있으며, 미배치 장소는 그대로 보관돼요.",
       );
-      return initial;
+      return finish(initial);
     }
   } catch (e) {
     if (controller.signal.aborted)
@@ -519,6 +596,8 @@ export function encodePlanRequest(
     " Use ONLY the short AFIELD_NNN identifiers in places. Names are display text, not identifiers. The app will map IDs back; never omit an ID or ask the user to choose a date/time." +
     marker +
     JSON.stringify({
+      routeContext: payload.routeContext,
+      validationFeedback: payload.validationFeedback,
       places: payload.places,
       availability: payload.availability,
       dayConstraints: payload.dayConstraints,

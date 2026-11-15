@@ -1,3 +1,6 @@
+import { routeConflicts } from "./routeChecks";
+import { bestRoute, validRouteContext } from "./routeFacts";
+import type { RouteContext } from "./routeFacts";
 import { legKey } from "./routing";
 import { tripPlaces } from "./data";
 import type { Trip, Entry, ActivityTag } from "./data";
@@ -62,6 +65,7 @@ export type PlanRow = {
   tag: ActivityTag;
 };
 export type PlanDraft = {
+  routeContext?: RouteContext;
   id: string;
   generatedAt: string;
   baseSnapshot: string;
@@ -124,8 +128,16 @@ export function validConditions(c: unknown): c is PlanningConditions {
       (typeof x.rangeEnd === "string" && validDate(x.rangeEnd))) &&
     ["relaxed", "balanced", "active"].includes(x.pace) &&
     ["mixed", "walking", "transit", "driving"].includes(x.mode) &&
-    (x.modes === undefined || (Array.isArray(x.modes) && x.modes.length > 0 && x.modes.length <= 3 && new Set(x.modes).size === x.modes.length && x.modes.every((m) => ["walking", "transit", "driving"].includes(m)))) &&
-    (x.knownPlaceIds === undefined || (Array.isArray(x.knownPlaceIds) && x.knownPlaceIds.length <= 10000 && x.knownPlaceIds.every((id) => typeof id === "string"))) &&
+    (x.modes === undefined ||
+      (Array.isArray(x.modes) &&
+        x.modes.length > 0 &&
+        x.modes.length <= 3 &&
+        new Set(x.modes).size === x.modes.length &&
+        x.modes.every((m) => ["walking", "transit", "driving"].includes(m)))) &&
+    (x.knownPlaceIds === undefined ||
+      (Array.isArray(x.knownPlaceIds) &&
+        x.knownPlaceIds.length <= 10000 &&
+        x.knownPlaceIds.every((id) => typeof id === "string"))) &&
     [x.start, x.end, x.lunch, x.dinner, x.rest].every(
       (t) => typeof t === "string" && Number.isFinite(minutes(t)),
     ) &&
@@ -539,6 +551,7 @@ export function validateRows(
   trip: Trip,
   c: PlanningConditions,
   rows: PlanRow[],
+  routeContext?: RouteContext,
 ) {
   const accepted: PlanRow[] = [];
   const issues: string[] = [];
@@ -629,6 +642,18 @@ export function validateRows(
       used.add(p!.id);
     }
   }
+  if (routeContext) {
+    // Removing a conflicting proposal creates a new edge. Re-check until stable.
+    for (let pass = 0; pass <= rows.length; pass++) {
+      const conflicts = routeConflicts(trip, c, accepted, bases, routeContext);
+      if (!conflicts.size) break;
+      for (let i = accepted.length - 1; i >= 0; i--)
+        if (conflicts.has(accepted[i].id)) {
+          issues.push(`${accepted[i].name}: ${conflicts.get(accepted[i].id)}`);
+          accepted.splice(i, 1);
+        }
+    }
+  }
   return { accepted, issues, bases };
 }
 export function savePlanning(trips: Trip[], id: string, c: PlanningConditions) {
@@ -670,7 +695,7 @@ export function applyDraft(trips: Trip[], id: string, selected: string[]) {
   )
     return fail("적용할 장소를 다시 선택해 주세요.");
   let rows = draft.rows.filter((r) => selected.includes(r.id));
-  const checked = validateRows(trip, c, rows);
+  const checked = validateRows(trip, c, rows, draft.routeContext);
   if (
     checked.accepted.length !== rows.length ||
     checked.bases.some((b) => b.hardIssues.length)
@@ -714,27 +739,25 @@ export function applyDraft(trips: Trip[], id: string, selected: string[]) {
         ...d.items,
         ...all
           .filter((r) => r.date === d.date)
-          .map(
-            (r): Entry => ({
-              id: `ai-${draft.id}-${r.id}`,
-              name: r.name,
-              time: r.time,
-              durationMinutes: r.duration,
-              origin: "ai",
-              anchorKey: r.kind !== "place" ? r.id : undefined,
-              placeId: r.placeId,
-              tag: r.tag,
-              must: !!r.placeId && c.mustIds.includes(r.placeId),
-              location: r.query
-                ? {
-                    label: r.name,
-                    query: r.query,
-                    description: r.reason,
-                    ...(r.placeId ? { placeId: r.placeId } : {}),
-                  }
-                : undefined,
-            }),
-          ),
+          .map((r): Entry => ({
+            id: `ai-${draft.id}-${r.id}`,
+            name: r.name,
+            time: r.time,
+            durationMinutes: r.duration,
+            origin: "ai",
+            anchorKey: r.kind !== "place" ? r.id : undefined,
+            placeId: r.placeId,
+            tag: r.tag,
+            must: !!r.placeId && c.mustIds.includes(r.placeId),
+            location: r.query
+              ? {
+                  label: r.name,
+                  query: r.query,
+                  description: r.reason,
+                  ...(r.placeId ? { placeId: r.placeId } : {}),
+                }
+              : undefined,
+          })),
       ].sort((a, b) => a.time.localeCompare(b.time)),
     })),
   };
@@ -748,7 +771,14 @@ export function applyDraft(trips: Trip[], id: string, selected: string[]) {
         (addedIds.has(entry.id) || addedIds.has(after.id)) &&
         modes[key] === undefined
       )
-        modes[key] = routeMode(c);
+        modes[key] = draft.routeContext
+          ? bestRoute(
+              draft.routeContext,
+              entry.location?.query || "",
+              after.location?.query || "",
+              planningModes(c),
+            )?.mode || routeMode(c)
+          : routeMode(c);
     });
     return {
       ...day,
@@ -765,6 +795,7 @@ export function validDraft(x: unknown): x is PlanDraft {
   if (!x || typeof x !== "object") return false;
   const d = x as PlanDraft;
   return (
+    (d.routeContext === undefined || validRouteContext(d.routeContext)) &&
     [d.id, d.generatedAt, d.baseSnapshot].every((v) => typeof v === "string") &&
     Array.isArray(d.rows) &&
     d.rows.length <= 100 &&
@@ -804,19 +835,49 @@ export function validDraft(x: unknown): x is PlanDraft {
   );
 }
 
-export function planningModes(c?: PlanningConditions): ("walking" | "transit" | "driving")[] {
-  return c?.modes?.length ? c.modes : c?.mode === "mixed" || !c ? ["walking", "transit"] : [c.mode];
+export function planningModes(
+  c?: PlanningConditions,
+): ("walking" | "transit" | "driving")[] {
+  return c?.modes?.length
+    ? c.modes
+    : c?.mode === "mixed" || !c
+      ? ["walking", "transit"]
+      : [c.mode];
 }
-export function routeMode(c?: PlanningConditions): "walking" | "transit" | "driving" {
+export function routeMode(
+  c?: PlanningConditions,
+): "walking" | "transit" | "driving" {
   const modes = planningModes(c);
   return modes.includes("transit") ? "transit" : modes[0];
 }
-export function syncPlanningPlaces(trip: Trip, c: PlanningConditions): PlanningConditions {
-  const used = new Set(trip.days.flatMap((d) => d.items.map((e) => e.placeId || e.location?.placeId)));
-  const available = readyPlaces(trip).filter((p) => !used.has(p.id)).map((p) => p.id);
+export function syncPlanningPlaces(
+  trip: Trip,
+  c: PlanningConditions,
+): PlanningConditions {
+  const used = new Set(
+    trip.days.flatMap((d) =>
+      d.items.map((e) => e.placeId || e.location?.placeId),
+    ),
+  );
+  const available = readyPlaces(trip)
+    .filter((p) => !used.has(p.id))
+    .map((p) => p.id);
   // Legacy settings did not record previously offered places: expose a select-all action instead of guessing user intent.
   const known = c.knownPlaceIds || available;
   const added = available.filter((id) => !known.includes(id));
-  const selectedIds = [...new Set([...c.selectedIds.filter((id) => available.includes(id)), ...added])];
-  return { ...c, knownPlaceIds: available, selectedIds: selectedIds.length <= 100 ? selectedIds : c.selectedIds.filter((id) => available.includes(id)), mustIds: c.mustIds.filter((id) => available.includes(id)) };
+  const selectedIds = [
+    ...new Set([
+      ...c.selectedIds.filter((id) => available.includes(id)),
+      ...added,
+    ]),
+  ];
+  return {
+    ...c,
+    knownPlaceIds: available,
+    selectedIds:
+      selectedIds.length <= 100
+        ? selectedIds
+        : c.selectedIds.filter((id) => available.includes(id)),
+    mustIds: c.mustIds.filter((id) => available.includes(id)),
+  };
 }

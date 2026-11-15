@@ -1,3 +1,4 @@
+import { placeText } from "../../../../placeText";
 import React, { useState } from "react";
 import { View, Text, Pressable, Linking } from "react-native";
 import { useRouter } from "expo-router";
@@ -24,7 +25,9 @@ export default function Inspiration() {
     );
   const alreadySaved =
     trip?.importedPlaces?.filter((p) => p.sourcePostIds.includes(postId)) || [];
-  const availableCandidates = post.candidates.filter((c) => !alreadySaved.some((p) => p.name === c.name));
+  const availableCandidates = post.candidates.filter(
+    (c) => !alreadySaved.some((p) => p.name === c.name),
+  );
   function savePlaces(candidateIds: string[]) {
     const result = confirmInstagram(
       tripId,
@@ -47,14 +50,66 @@ export default function Inspiration() {
       <Label>
         {post.collection} · {post.category}
       </Label>
-      <Text style={{ fontSize: 25, lineHeight: 34, fontWeight: "700", color: ui.ink, marginBottom: 12 }}>{post.name}</Text>
+      <Text
+        style={{
+          fontSize: 25,
+          lineHeight: 34,
+          fontWeight: "700",
+          color: ui.ink,
+          marginBottom: 12,
+        }}
+      >
+        {post.name}
+      </Text>
       <P>장소를 골라 주소를 확인하세요. 일정은 나중에 AI가 제안해요.</P>
       {!!alreadySaved.length && (
         <View style={{ marginBottom: 14 }}>
           <Text style={s.title}>이 게시물에서 저장한 장소</Text>
           {alreadySaved.map((p) => (
-            <Pressable key={p.id} accessibilityRole="button" accessibilityLabel={`${p.name} 위치 확인`} onPress={() => router.push({ pathname: "/trip/[tripId]/place/[placeId]", params: { tripId, placeId: p.id, returnTo, date } })} style={{ flexDirection: "row", gap: 12, alignItems: "center", paddingVertical: 16, borderBottomWidth: 1, borderColor: ui.line, minHeight: 64 }}>
-              <View style={{ flex: 1 }}><Text style={{ fontSize: 16, lineHeight: 23, color: ui.ink, fontWeight: "600" }}>{p.name}</Text><Text style={{ fontSize: 13, color: p.matchStatus === "confirmed" ? ui.blue : ui.muted, marginTop: 5 }}>{p.matchStatus === "confirmed" ? "주소 확인됨 · AI 배치 준비" : "저장됨 · 주소 확인 필요"}</Text></View><Text style={{ fontSize: 22, color: ui.muted }}>›</Text>
+            <Pressable
+              key={p.id}
+              accessibilityRole="button"
+              accessibilityLabel={`${placeText(p.name)} 위치 확인`}
+              onPress={() =>
+                router.push({
+                  pathname: "/trip/[tripId]/place/[placeId]",
+                  params: { tripId, placeId: p.id, returnTo, date },
+                })
+              }
+              style={{
+                flexDirection: "row",
+                gap: 12,
+                alignItems: "center",
+                paddingVertical: 16,
+                borderBottomWidth: 1,
+                borderColor: ui.line,
+                minHeight: 64,
+              }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    fontSize: 16,
+                    lineHeight: 23,
+                    color: ui.ink,
+                    fontWeight: "600",
+                  }}
+                >
+                  {placeText(p.name)}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 13,
+                    color: p.matchStatus === "confirmed" ? ui.blue : ui.muted,
+                    marginTop: 5,
+                  }}
+                >
+                  {p.matchStatus === "confirmed"
+                    ? "주소 확인됨 · AI 배치 준비"
+                    : "저장됨 · 주소 확인 필요"}
+                </Text>
+              </View>
+              <Text style={{ fontSize: 22, color: ui.muted }}>›</Text>
             </Pressable>
           ))}
         </View>
@@ -71,26 +126,34 @@ export default function Inspiration() {
         }}
       />
       <P>{post.username ? "@" + post.username : ""}</P>
-      <Action title={showOriginal ? "원본 내용 접기" : "원본 내용 펼쳐보기"} tone="link" onPress={() => setShowOriginal(!showOriginal)} />
-      {showOriginal && <Text
-        selectable
-        style={{
-          fontSize: 15,
-          lineHeight: 24,
-          color: ui.ink,
-          marginBottom: 24,
-        }}
-      >
-        {post.caption ||
-          "내보내기 파일에 캡션이 없어요. 원본을 확인하고 장소 후보를 직접 추가할 수 있어요."}
-      </Text>}
-      {!!availableCandidates.length && <>
-      <Text style={s.title}>어디에 가고 싶나요?</Text>
-      <P>
-        아래 이름은 캡션에서 찾은 제안이에요. 실제 장소 이름만 고르세요. 없는
-        장소는 아래에 직접 적을 수 있어요.
-      </P>
-      </>}
+      <Action
+        title={showOriginal ? "원본 내용 접기" : "원본 내용 펼쳐보기"}
+        tone="link"
+        onPress={() => setShowOriginal(!showOriginal)}
+      />
+      {showOriginal && (
+        <Text
+          selectable
+          style={{
+            fontSize: 15,
+            lineHeight: 24,
+            color: ui.ink,
+            marginBottom: 24,
+          }}
+        >
+          {post.caption ||
+            "내보내기 파일에 캡션이 없어요. 원본을 확인하고 장소 후보를 직접 추가할 수 있어요."}
+        </Text>
+      )}
+      {!!availableCandidates.length && (
+        <>
+          <Text style={s.title}>어디에 가고 싶나요?</Text>
+          <P>
+            아래 이름은 캡션에서 찾은 제안이에요. 실제 장소 이름만 고르세요.
+            없는 장소는 아래에 직접 적을 수 있어요.
+          </P>
+        </>
+      )}
       {availableCandidates.map((c) => (
         <Pressable
           key={c.id}

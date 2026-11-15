@@ -1,3 +1,4 @@
+import { placeText } from "../../../../placeText";
 import React, { useEffect, useState } from "react";
 import { Text, View, FlatList, Pressable, Linking } from "react-native";
 import { useRouter } from "expo-router";
@@ -195,7 +196,7 @@ export default function Place() {
           marginBottom: 16,
         }}
       >
-        {info.name}
+        {placeText(info.name)}
       </Text>
       {confirmed ? (
         <View
@@ -426,7 +427,7 @@ export default function Place() {
               일정에 추가하지 않아요.
             </P>
             <Action
-              title="여행 조건 입력 · AI 일정 짜기 →"
+              title="모은 장소로 AI 일정 만들기 →"
               tone="primary"
               onPress={() => {
                 if (!saved) {
@@ -444,7 +445,7 @@ export default function Place() {
               }}
             />
             <Action
-              title="가고 싶은 곳으로 돌아가기"
+              title="저장한 장소 보기"
               tone="link"
               onPress={() => {
                 setAddOpen(false);

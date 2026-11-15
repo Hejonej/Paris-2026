@@ -1,3 +1,4 @@
+import { placeText } from "./placeText";
 import { places } from "./data";
 import type {
   Trip,
@@ -85,9 +86,10 @@ export function extractCandidates(caption: string): ExtractedCandidate[] {
   const out: ExtractedCandidate[] = [];
   const seen = new Set<string>();
   const add = (name: string, kind: ExtractedCandidate["kind"]) => {
-    name = name
+    name = placeText(name)
       .replace(/https?:\/\/\S+|#[^\s]+/g, " ")
-      .replace(/^[\s•·→>\-\d.)]+|[\s•·→>\-]+$/g, "")
+      .replace(/^\s*\d{1,2}[.)]\s+/, "")
+      .replace(/^[\s•·→>\-]+|[\s•·→>\-]+$/g, "")
       .trim();
     const k = key(name);
     if (
@@ -427,7 +429,8 @@ export function updateImportedPlace(
     return { trips, ok: false, message: "장소 이름과 위치를 입력해 주세요." };
   return {
     ok: true,
-    message: "가고 싶은 곳에 주소를 저장했어요. AI가 방문 날짜와 시간을 제안할 수 있어요.",
+    message:
+      "가고 싶은 곳에 주소를 저장했어요. AI가 방문 날짜와 시간을 제안할 수 있어요.",
     trips: trips.map((t) =>
       t.id === tripId
         ? {

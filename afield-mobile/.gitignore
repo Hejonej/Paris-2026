@@ -5,3 +5,6 @@ dist/
 *.tsbuildinfo
 
 .npm-cache/
+
+.afield-maps.local.json
+.afield-bridge.local.json
