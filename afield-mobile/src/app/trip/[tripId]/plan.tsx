@@ -204,6 +204,8 @@ export default function Plan() {
     );
     const mustIds = trip.planning?.mustIds || [];
     const missingMust = draft.unplaced.some((p) => mustIds.includes(p.id));
+    const legacyRouting =
+      !!draft.routeContext && draft.routeContext.policyVersion !== 2;
     const context = (
       <View
         style={{
@@ -237,9 +239,35 @@ export default function Plan() {
         </Text>
         <Text style={{ fontSize: 13, lineHeight: 22, color: ui.muted }}>
           {draft?.routeContext
-            ? "Google 이동 시간 + 여행 조건을 참고한 초안"
+            ? "확인된 이동 시간 + 여행 조건을 참고한 초안"
             : "시간·주소를 참고한 이전 초안 · 새 제안은 Google 이동 시간을 조회해요"}
         </Text>
+        {legacyRouting && (
+          <Text
+            style={{
+              fontSize: 14,
+              lineHeight: 21,
+              color: ui.blue,
+              marginTop: 10,
+            }}
+          >
+            이전 이동 기준으로 만든 결과예요. 긴 도보 대체 처리가 수정됐으니
+            같은 조건으로 새로 만들어 주세요.
+          </Text>
+        )}
+        {draft?.routeContext?.warnings?.map((warning, i) => (
+          <Text
+            key={i}
+            style={{
+              fontSize: 14,
+              lineHeight: 21,
+              color: ui.blue,
+              marginTop: 10,
+            }}
+          >
+            {warning}
+          </Text>
+        ))}
       </View>
     );
     if (!draft.rows.length)
@@ -289,11 +317,13 @@ export default function Plan() {
                     marginTop: 8,
                   }}
                 >
-                  {/자동 배치를 완료하지 못했어요|유효한 날짜.*제안이 없/.test(
-                    p.reason,
-                  )
-                    ? "이전에 저장된 결과에는 구체적인 실패 원인이 남아 있지 않아요. 같은 조건으로 새로 요청할 수 있어요."
-                    : p.reason}
+                  {legacyRouting
+                    ? "이전 검토 결과예요. 수정된 이동 기준으로 다시 검토해 주세요."
+                    : /자동 배치를 완료하지 못했어요|유효한 날짜.*제안이 없/.test(
+                          p.reason,
+                        )
+                      ? "이전에 저장된 결과에는 구체적인 실패 원인이 남아 있지 않아요. 같은 조건으로 새로 요청할 수 있어요."
+                      : p.reason}
                 </Text>
               </View>
             ))}
@@ -487,7 +517,9 @@ export default function Plan() {
                     marginTop: 6,
                   }}
                 >
-                  {p.reason}
+                  {legacyRouting
+                    ? "이전 검토 결과예요. 수정된 이동 기준으로 다시 검토해 주세요."
+                    : p.reason}
                 </Text>
               </View>
             ))}

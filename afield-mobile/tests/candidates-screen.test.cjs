@@ -2141,3 +2141,98 @@ test("adding an unverified saved place to a day confirms its address before open
   );
   await act(async () => view.tree.unmount());
 });
+
+test("Tokyo mixed-mode failure explains missing transit and the full search, not a rejected 193-minute walking placement", async () => {
+  const seed = harness({}),
+    source = JSON.parse(JSON.stringify(seed.load("src/data.ts").trips)),
+    t = source[0];
+  t.city = "Tokyo";
+  t.country = "Japan";
+  t.start = t.end = "2027-02-01";
+  t.days = [
+    {
+      date: t.start,
+      items: [
+        {
+          id: "protected-tsuchiya",
+          name: "츠치야",
+          time: "18:00",
+          durationMinutes: 60,
+          must: true,
+          location: {
+            label: "츠치야",
+            query: "Existing Tokyo Address",
+            description: "",
+          },
+        },
+      ],
+    },
+  ];
+  t.candidates = ["ozeki"];
+  t.importedPlaces = [
+    {
+      id: "ozeki",
+      name: "OZEKI TOKYO GALLERY",
+      query: "Confirmed Gallery Address",
+      address: "Confirmed Gallery Address",
+      category: "관광",
+      area: "Tokyo",
+      description: "",
+      image: "",
+      sourcePostIds: [],
+      matchStatus: "confirmed",
+    },
+  ];
+  delete t.planning;
+  delete t.planDraft;
+  const h = harness({ tripId: t.id }, JSON.stringify(source), {
+    routeFetcher: async (_, o) => {
+      const b = JSON.parse(o.body);
+      return {
+        ok: true,
+        json: async () => ({
+          provider: "Google Maps",
+          retrievedAt: "2026-11-15T12:00:00Z",
+          routes: b.addresses.flatMap((from) =>
+            b.addresses
+              .filter((to) => to !== from)
+              .map((to) => ({
+                from,
+                to,
+                mode: "walking",
+                durationSeconds: 193 * 60,
+                distanceMeters: 14000,
+                retrievedAt: "2026-11-15T12:00:00Z",
+              })),
+          ),
+        }),
+      };
+    },
+    fetcher: async (_, o) => ({
+      ok: true,
+      json: async () => ({
+        suggestions: [
+          {
+            type: "ADD",
+            placeId: JSON.parse(o.body).places[0].id,
+            date: t.start,
+            time: "16:00",
+          },
+        ],
+      }),
+    }),
+  });
+  const view = await mountScreen(h, "src/app/trip/[tripId]/plan.tsx"),
+    before = JSON.stringify(view.store.trips[0].days);
+  await act(async () => tapText(view, "조건 저장하고 AI 제안받기"));
+  const visible = words(view.tree);
+  assert.ok(
+    visible.includes("Google API는 일본 대중교통 시간을 제공하지 않아요"),
+  );
+  assert.ok(visible.includes("후보 시간"));
+  assert.ok(visible.includes("대중교통 시간이 확인되지"));
+  assert.equal(visible.includes("193분"), false);
+  assert.equal(JSON.stringify(view.store.trips[0].days), before);
+  assert.equal(view.store.trips[0].planDraft.rows.length, 0);
+  await act(async () => view.tree.unmount());
+});

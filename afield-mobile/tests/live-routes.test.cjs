@@ -219,3 +219,95 @@ test("constraint scheduling fills undecided places with measured routes without 
   assert.equal(JSON.stringify(t.days), before);
   assert.ok(filled.every((r) => r.reason.includes("Google 이동 시간")));
 });
+
+test("mixed walking/transit never silently substitutes a 193-minute walk when transit is unavailable", () => {
+  const f = {
+    provider: "Google Maps",
+    retrievedAt: time,
+    routes: [
+      {
+        from: "a",
+        to: "b",
+        mode: "walking",
+        durationSeconds: 193 * 60,
+        distanceMeters: 14000,
+        retrievedAt: time,
+      },
+    ],
+  };
+  assert.equal(bestRoute(f, "a", "b", ["walking", "transit"]), undefined);
+  assert.equal(bestRoute(f, "a", "b", ["walking"]).durationSeconds, 193 * 60);
+  f.routes.push({
+    from: "a",
+    to: "b",
+    mode: "transit",
+    durationSeconds: 26 * 60,
+    distanceMeters: 14000,
+    retrievedAt: time,
+  });
+  assert.equal(bestRoute(f, "a", "b", ["walking", "transit"]).mode, "transit");
+});
+
+test("a missing route between two unrelated protected entries does not block every insertion", () => {
+  const { fillRouteSlots } = load("src/routeScheduling.ts");
+  const t = fixture();
+  t.planning.stays = [];
+  t.planning.selectedIds = ["a"];
+  t.planning.rangeStart = "2027-02-01";
+  t.planning.rangeEnd = "2027-02-01";
+  t.planning.pace = "active";
+  t.days[1].items = [
+    ["x", "08:00"],
+    ["y", "11:00"],
+    ["z", "17:00"],
+  ].map(([name, time]) => ({
+    id: name,
+    name,
+    time,
+    must: true,
+    durationMinutes: 60,
+    location: { label: name, query: name, description: "" },
+  }));
+  const f = {
+    provider: "Google Maps",
+    retrievedAt: time,
+    routes: [
+      ["x", "a"],
+      ["a", "y"],
+    ].map(([from, to]) => ({
+      from,
+      to,
+      mode: "walking",
+      durationSeconds: 600,
+      distanceMeters: 600,
+      retrievedAt: time,
+    })),
+  };
+  const before = JSON.stringify(t.days),
+    filled = fillRouteSlots(t, ai.decodePlan(t, { suggestions: [] }, f), f);
+  assert.equal(filled.length, 1);
+  assert.ok(filled[0].time > "09:00" && filled[0].time < "11:00");
+  assert.equal(JSON.stringify(t.days), before);
+});
+
+test("failed full search reports all considered days, not one failed provisional edge as the whole explanation", () => {
+  const { fillRouteSlots } = load("src/routeScheduling.ts");
+  const t = fixture();
+  t.planning.selectedIds = ["a"];
+  t.planning.rangeStart = "2027-02-01";
+  t.planning.rangeEnd = "2027-02-01";
+  const f = facts();
+  f.routes = f.routes.filter((r) => r.mode === "walking");
+  for (const r of f.routes) r.durationSeconds = 193 * 60;
+  const report = new Map();
+  const rows = fillRouteSlots(
+    t,
+    ai.decodePlan(t, { suggestions: [] }, f),
+    f,
+    report,
+  );
+  assert.equal(rows.length, 0);
+  assert.match(report.get("a"), /후보 시간 \d+개/);
+  assert.match(report.get("a"), /대중교통 시간이 확인되지/);
+  assert.equal(report.get("a").includes("193분"), false);
+});

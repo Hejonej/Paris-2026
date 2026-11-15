@@ -18,6 +18,7 @@ export function fillRouteSlots(
   trip: Trip,
   draft: PlanDraft,
   facts: RouteContext,
+  report?: Map<string, string>,
 ): PlanRow[] {
   const c = trip.planning!;
   const rows = [...draft.rows];
@@ -58,7 +59,7 @@ export function fillRouteSlots(
     for (let i = 1; i < addresses.length; i++) {
       if (addresses[i] === addresses[i - 1]) continue;
       const r = bestRoute(facts, addresses[i - 1], addresses[i], modes);
-      if (!r) return Infinity;
+      if (!r) continue; // An unrelated existing edge must not disqualify every insertion.
       cost += r.durationSeconds;
     }
     return cost;
@@ -75,6 +76,8 @@ export function fillRouteSlots(
   for (const p of pool) {
     let best: { row: PlanRow; score: number } | undefined;
     const tag = inferActivity(p.name, p.category);
+    const reasons = new Set<string>();
+    let searched = 0;
     for (const base of bases) {
       const before = routeCost(base, rows);
       const count = rows.filter((r) => r.date === base.date).length;
@@ -108,10 +111,14 @@ export function fillRouteSlots(
             "Google 이동 시간과 숙소·고정 일정·식사 사이의 빈 시간을 계산해 방문 시각을 정했어요. 영업시간은 확인해 주세요.",
         };
         const trial = [...rows, row];
-        if (
-          validateRows(trip, c, trial, facts).accepted.length !== trial.length
-        )
+        const checked = validateRows(trip, c, trial, facts);
+        searched++;
+        if (checked.accepted.length !== trial.length) {
+          for (const issue of checked.issues)
+            if (issue.startsWith(p.name + ":"))
+              reasons.add(issue.slice(p.name.length + 1).trim());
           continue;
+        }
         const after = routeCost(base, trial);
         const score =
           (Number.isFinite(before) ? after - before : after) +
@@ -124,6 +131,19 @@ export function fillRouteSlots(
     if (best) {
       rows.push(best.row);
       assigned.add(p.id);
+    } else if (report) {
+      const routeIssue = [...reasons].find((r) =>
+        r.includes("대중교통 시간을 조회하지"),
+      );
+      const summary = routeIssue
+        ? "대중교통 시간이 확인되지 않는 구간이 있어요. 긴 도보로 대체하지 않고 이동 확인을 기다려요."
+        : [...reasons].some((r) => r.includes("하루 방문 수"))
+          ? "선택한 여행 속도의 방문 수 제한과 기존 일정·고정 시간을 함께 지키는 자리를 찾지 못했어요."
+          : "기존 일정·고정 시간·체류 시간과 이동 간격을 모두 지키는 빈자리를 찾지 못했어요.";
+      report.set(
+        p.id,
+        `${c.rangeStart || trip.start} ~ ${c.rangeEnd || trip.end}의 ${bases.length}일, 후보 시간 ${searched}개를 검토했어요. ${summary}`,
+      );
     }
   }
   return rows;

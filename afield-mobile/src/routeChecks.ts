@@ -1,7 +1,7 @@
 import type { Trip, TravelMode } from "./data";
 import type { PlanRow, PlanningConditions } from "./planner";
 import { entryLocation } from "./routing";
-import { bestRoute } from "./routeFacts";
+import { bestRoute, transitUnavailable } from "./routeFacts";
 import type { RouteContext } from "./routeFacts";
 const minute = (s: string) => Number(s.slice(0, 2)) * 60 + Number(s.slice(3));
 type Base = {
@@ -106,7 +106,9 @@ export function routeConflicts(
       const gap = b.time - a.time - a.duration;
       const message =
         !route && a.query !== b.query
-          ? `${a.name} → ${b.name}: 선택한 이동수단의 경로를 확인하지 못했어요. 주소나 이동수단을 확인해 주세요.`
+          ? transitUnavailable(facts, a.query!, b.query!, modes)
+            ? `${a.name} → ${b.name}: 대중교통 시간을 조회하지 못했어요. 긴 도보 시간으로 대신 배치하지 않아요.`
+            : `${a.name} → ${b.name}: 선택한 이동수단의 경로를 확인하지 못했어요. 주소나 이동수단을 확인해 주세요.`
           : gap < duration + c.buffer
             ? `${a.name} → ${b.name}: 이동 ${duration}분과 여유 ${c.buffer}분이 필요하지만 ${gap}분밖에 없어요.`
             : "";

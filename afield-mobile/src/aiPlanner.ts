@@ -371,6 +371,7 @@ export function decodePlan(
     ),
     anchors: checked.bases.flatMap((b) => b.anchors),
     issues: [
+      ...(routeContext?.warnings || []),
       ...checked.bases.flatMap((b) => b.issues),
       ...rejected,
       ...checked.issues,
@@ -415,8 +416,17 @@ export async function generatePlan(
   const payload = buildPlanRequest(trip, routeContext);
   function finish(draft: PlanDraft) {
     if (!routeContext || !draft.unplaced.length) return draft;
-    const rows = fillRouteSlots(trip, draft, routeContext);
-    if (rows.length === draft.rows.length) return draft;
+    const report = new Map<string, string>();
+    const rows = fillRouteSlots(trip, draft, routeContext, report);
+    if (rows.length === draft.rows.length) {
+      return {
+        ...draft,
+        unplaced: draft.unplaced.map((p) => ({
+          ...p,
+          reason: report.get(p.id) || p.reason,
+        })),
+      };
+    }
     const completed = decodePlan(
       trip,
       {
@@ -430,6 +440,10 @@ export async function generatePlan(
       },
       routeContext,
     );
+    completed.unplaced = completed.unplaced.map((p) => ({
+      ...p,
+      reason: report.get(p.id) || p.reason,
+    }));
     completed.issues.unshift(
       "AI 응답에서 미배치된 장소의 방문 시각은 Google 이동 시간과 빈 시간을 계산해 자동 배치했어요. 기존 일정은 그대로예요.",
     );
@@ -593,7 +607,7 @@ export function encodePlanRequest(
     boundary < 0 ? body.request : body.request.slice(0, boundary);
   payload.request =
     instruction +
-    " Use ONLY the short AFIELD_NNN identifiers in places. Names are display text, not identifiers. The app will map IDs back; never omit an ID or ask the user to choose a date/time." +
+    " Walking legs longer than 30 minutes must use transit when transit is selected; unavailable transit must NOT be replaced by a long walking leg. Use ONLY the short AFIELD_NNN identifiers in places. Names are display text, not identifiers. The app will map IDs back; never omit an ID or ask the user to choose a date/time." +
     marker +
     JSON.stringify({
       routeContext: payload.routeContext,

@@ -31,3 +31,11 @@ Expo 개발 서버에 `/afield-dev/routes`를 추가한다. Google 키 대신 �
 - https://developers.google.com/maps/documentation/routes/get-api-key
 - https://developers.google.com/maps/documentation/routes/usage-and-billing
 - https://developers.google.com/maps/documentation/routes/compute_route_matrix
+
+## 일본 대중교통 예외와 실패 안내
+
+Google 공식 FAQ에 따르면 Routes API는 일본 대중교통을 지원하지 않는다(https://developers.google.com/maps/faq#transit_directions_countries). Google Maps 소비자 앱과 API 제공 범위는 같지 않다. 일본 여행 검토 화면에 이 제한을 표시한다.
+
+도보와 대중교통을 함께 선택하면 30분을 넘는 도보 구간을 대중교통 미조회 결과의 대체값으로 자동 사용하지 않는다. 실제 대중교통 응답이 있으면 그 수단을 사용한다. 사용자 선택이 도보만이면 해당 도보 결과는 유지한다. 별도 일본 교통 제공자 연결 전에는 긴 구간의 실제 전철 시간을 확정할 수 없다. 임의의 시간을 실제 값으로 만들지 않는다.
+
+기존 일정끼리의 미확인 경로는 새 장소와 무관한 삽입 위치의 점수 전체를 무한대로 만들지 않는다. 새 장소에 인접한 실제 경로의 검증은 계속 적용한다. 자동 보완 검색이 실패하면 전체 검토 기간/일수/후보 시간 수와 실패 요약을 표시하며 AI가 처음 시도한 한 자리의 실패 구간을 전체 배치 불가 이유처럼 사용하지 않는다.

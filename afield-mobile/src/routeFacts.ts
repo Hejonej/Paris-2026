@@ -8,6 +8,8 @@ export type RouteFact = {
   retrievedAt: string;
 };
 export type RouteContext = {
+  warnings?: string[];
+  policyVersion?: 2;
   provider: "Google Maps";
   retrievedAt: string;
   routes: RouteFact[];
@@ -17,6 +19,11 @@ export function validRouteContext(value: unknown): value is RouteContext {
   return (
     !!v &&
     v.provider === "Google Maps" &&
+    (v.policyVersion === undefined || v.policyVersion === 2) &&
+    (v.warnings === undefined ||
+      (Array.isArray(v.warnings) &&
+        v.warnings.length <= 10 &&
+        v.warnings.every((w) => typeof w === "string" && w.length <= 1000))) &&
     Number.isFinite(Date.parse(v.retrievedAt)) &&
     Array.isArray(v.routes) &&
     v.routes.length <= 500 &&
@@ -36,6 +43,7 @@ export function validRouteContext(value: unknown): value is RouteContext {
     )
   );
 }
+export const MAX_AUTO_WALK_MINUTES = 30;
 export function bestRoute(
   facts: RouteContext,
   from: string,
@@ -43,6 +51,37 @@ export function bestRoute(
   modes: TravelMode[],
 ) {
   return facts.routes
-    .filter((r) => r.from === from && r.to === to && modes.includes(r.mode))
+    .filter(
+      (r) =>
+        r.from === from &&
+        r.to === to &&
+        modes.includes(r.mode) &&
+        !(
+          r.mode === "walking" &&
+          modes.includes("transit") &&
+          r.durationSeconds > MAX_AUTO_WALK_MINUTES * 60
+        ),
+    )
     .sort((a, b) => a.durationSeconds - b.durationSeconds)[0];
+}
+
+export function transitUnavailable(
+  facts: RouteContext,
+  from: string,
+  to: string,
+  modes: TravelMode[],
+) {
+  return (
+    modes.includes("transit") &&
+    !facts.routes.some(
+      (r) => r.from === from && r.to === to && r.mode === "transit",
+    ) &&
+    facts.routes.some(
+      (r) =>
+        r.from === from &&
+        r.to === to &&
+        r.mode === "walking" &&
+        r.durationSeconds > MAX_AUTO_WALK_MINUTES * 60,
+    )
+  );
 }

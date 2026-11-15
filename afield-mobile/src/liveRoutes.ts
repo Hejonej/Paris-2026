@@ -106,6 +106,17 @@ export async function planningRoutes(
   );
   if (!validRouteContext(data))
     throw Error("지도 응답 형식을 확인하지 못했어요.");
+  data.policyVersion = 2;
+  if (
+    planningModes(c).includes("transit") &&
+    /japan|일본|日本|東京|tokyo|도쿄|osaka|오사카|kyoto|교토|fukuoka|후쿠오카|sapporo|삿포로|nagoya|나고야|yokohama|요코하마/i.test(
+      (trip.country || "") + " " + trip.city,
+    )
+  ) {
+    data.warnings = [
+      "Google API는 일본 대중교통 시간을 제공하지 않아요. 긴 도보 시간으로 대신 배치하지 않으며, 전철·버스 시간은 Google Maps 앱에서 확인해야 해요.",
+    ];
+  }
   return data;
 }
 const legCache = new Map<string, RouteFact>();
