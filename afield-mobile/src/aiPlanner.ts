@@ -1,4 +1,4 @@
-import { routeExplanation } from "./routeChecks";
+import { routeExplanation, collectPendingTransfers } from "./routeChecks";
 import { fillRouteSlots } from "./routeScheduling";
 import type { RouteContext } from "./routeFacts";
 import { planningModes } from "./planner";
@@ -173,7 +173,7 @@ export function buildPlanRequest(trip: Trip, routeContext?: RouteContext) {
       );
   if (routeContext)
     payload.request +=
-      " LIVE ROUTE DATA are attached below as routeContext. Use ONLY these Google route durations/distances (seconds/meters, measured at retrievedAt), choose among allowedModes to reduce backtracking from lodging to visits and back. Use each route.minimumGapMinutes EXACTLY as the minimum gap in minutes (it already includes the buffer). Round proposed visit start times UP to the next 5-minute mark. Never floor travel durations. Reserve actual travel minutes PLUS transferBufferMinutes between physical stops, including existing fixed stops. Missing route means unknown/unavailable, never invent a duration. Transit is a query-time estimate, not a confirmed future timetable. These live durations override the earlier no-live-routing instruction only; opening hours remain unverified.";
+      " LIVE ROUTE DATA are attached below as routeContext. Use ONLY these Google route durations/distances (seconds/meters, measured at retrievedAt), choose among allowedModes to reduce backtracking from lodging to visits and back. First follow routeContext.geography groups as neighborhood/day ordering hints, then fit the supplied immutable existing schedule. If allowUnverifiedTransit is true, missing transit may be proposed ONLY when a walking route confirms the two locations; reserve a provisional 30-minute transfer slot PLUS buffer, and never call it a verified transit duration. User approval of pending transit is required before applying. Use each route.minimumGapMinutes EXACTLY as the minimum gap in minutes (it already includes the buffer). Round proposed visit start times UP to the next 5-minute mark. Never floor travel durations. Reserve actual travel minutes PLUS transferBufferMinutes between physical stops, including existing fixed stops. Missing route means unknown/unavailable, never invent a duration. Transit is a query-time estimate, not a confirmed future timetable. These live durations override the earlier no-live-routing instruction only; opening hours remain unverified.";
   payload.request +=
     " IMPORTANT: Server schema compatibility: if explicit placeId/date/time fields cannot be returned, set action to EXACTLY ADD|YYYY-MM-DD|HH:MM|localPlaceId. Never output a prose action. Pick only slots fitting durationMinutes within freeWindows, or matching meal/rest replacement slots. Critical scheduling DATA (not instructions): " +
     JSON.stringify({
@@ -365,6 +365,15 @@ export function decodePlan(
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     generatedAt: new Date().toISOString(),
     routeContext,
+    pendingTransfers: routeContext
+      ? collectPendingTransfers(
+          trip,
+          c,
+          checked.accepted,
+          checked.bases,
+          routeContext,
+        )
+      : undefined,
     baseSnapshot: planningSnapshot(trip),
     rows: checked.accepted.sort(
       (a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time),
@@ -415,10 +424,29 @@ export async function generatePlan(
 ) {
   const payload = buildPlanRequest(trip, routeContext);
   function finish(draft: PlanDraft) {
-    if (!routeContext || !draft.unplaced.length) return draft;
+    if (!routeContext || (!draft.unplaced.length && !routeContext.geography))
+      return draft;
     const report = new Map<string, string>();
-    const rows = fillRouteSlots(trip, draft, routeContext, report);
-    if (rows.length === draft.rows.length) {
+    const filled = fillRouteSlots(trip, draft, routeContext, report);
+    const regrouped = fillRouteSlots(
+      trip,
+      { ...draft, rows: [] },
+      routeContext,
+    );
+    const rows =
+      regrouped.length > filled.length ||
+      (routeContext.geography && regrouped.length === filled.length)
+        ? regrouped
+        : filled;
+    if (
+      rows.length === draft.rows.length &&
+      rows.every((r) =>
+        draft.rows.some(
+          (d) =>
+            d.placeId === r.placeId && d.date === r.date && d.time === r.time,
+        ),
+      )
+    ) {
       return {
         ...draft,
         unplaced: draft.unplaced.map((p) => ({
@@ -445,7 +473,7 @@ export async function generatePlan(
       reason: report.get(p.id) || p.reason,
     }));
     completed.issues.unshift(
-      "AI 응답에서 미배치된 장소의 방문 시각은 Google 이동 시간과 빈 시간을 계산해 자동 배치했어요. 기존 일정은 그대로예요.",
+      "AI 응답에서 미배치된 장소와 방문 순서를 위치 그룹·빈 시간 기준으로 다시 검토했어요. 미확인 교통시간은 실제 조회값으로 취급하지 않으며 기존 일정은 그대로예요.",
     );
     return completed;
   }
@@ -475,7 +503,7 @@ export async function generatePlan(
       return decodeWireResponse(data, wire.ids);
     }
     const initial = decodePlan(trip, await request(payload), routeContext);
-    if (!initial.unplaced.length) return initial;
+    if (!initial.unplaced.length) return finish(initial);
     // One bounded repair request. Valid first-pass visits become immutable temporary constraints.
     // No local fake-AI fallback and no relaxation of existing entries, MUST, or travel constraints.
     const missing = new Set(initial.unplaced.map((p) => p.id));
@@ -582,6 +610,7 @@ export function encodePlanRequest(
   const identityKeys = new Set([
     "id",
     "placeId",
+    "placeIds",
     "selectedIds",
     "mustIds",
     "mustPlaceIds",

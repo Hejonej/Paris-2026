@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { View, Text, Pressable } from "react-native";
+import { View, Text, Pressable, Linking } from "react-native";
 import type { TravelMode } from "./data";
 import type { RouteFact } from "./routeFacts";
 import { liveLeg } from "./liveRoutes";
@@ -9,10 +9,12 @@ export function RouteTime({
   from,
   to,
   mode,
+  pendingTransit = false,
 }: {
   from: string;
   to: string;
   mode: TravelMode;
+  pendingTransit?: boolean;
 }) {
   const [fact, setFact] = useState<RouteFact>();
   const [busy, setBusy] = useState(false);
@@ -43,6 +45,32 @@ export function RouteTime({
       }
     }
   }
+  if (pendingTransit)
+    return (
+      <View style={{ gap: 4 }}>
+        <Text style={{ fontSize: 14, lineHeight: 21, color: ui.blue }}>
+          대중교통 소요시간 미확인
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() =>
+            Linking.openURL(
+              "https://www.google.com/maps/dir/?api=1&origin=" +
+                encodeURIComponent(from) +
+                "&destination=" +
+                encodeURIComponent(to) +
+                "&travelmode=transit",
+            ).catch(() => setError("지도를 열지 못했어요."))
+          }
+          style={{ minHeight: 44, justifyContent: "center" }}
+        >
+          <Text style={{ fontSize: 14, fontWeight: "600", color: ui.blue }}>
+            Google Maps에서 전철·버스 확인 ↗
+          </Text>
+        </Pressable>
+        {!!error && <Text>{error}</Text>}
+      </View>
+    );
   return (
     <View style={{ gap: 4 }}>
       {fact ? (

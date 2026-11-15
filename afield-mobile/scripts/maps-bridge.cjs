@@ -2,6 +2,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
+const { webGeography } = require("./web-geography.cjs");
 const { readConfig, computeRoute } = require("./maps-dev.cjs");
 const sessionPath = path.join(__dirname, "..", ".afield-bridge.local.json");
 function session() {
@@ -145,10 +146,29 @@ function middleware(token = session()) {
       active = true;
       if (data.kind === "leg" && ++elements > 2400)
         throw Error("개발용 지도 조회 한도에 도달했어요.");
-      const result =
+      let result =
         data.kind === "leg"
           ? await computeRoute(data)
           : await matrix(data.addresses, data.modes);
+      result = { ...result };
+      if (data.kind !== "leg" && data.geography) {
+        if (elements + data.geography.places?.length > 2400)
+          throw Error("개발용 지도 조회 한도예요.");
+        elements += data.geography.places?.length || 0;
+        try {
+          result.geography = await webGeography(data.geography);
+          if (result.geography.warning)
+            result.warnings = [
+              ...(result.warnings || []),
+              result.geography.warning,
+            ];
+        } catch {
+          result.warnings = [
+            ...(result.warnings || []),
+            "웹 동선 그룹을 확인하지 못해 확인된 위치 사이의 이동 비용으로 순서를 비교했어요.",
+          ];
+        }
+      }
       return send(200, result);
     } catch (e) {
       return send(400, {

@@ -1,9 +1,16 @@
+import { collectPendingTransfers } from "../../../routeChecks";
 import { planningRoutes } from "../../../liveRoutes";
 import { placeText } from "../../../placeText";
 import { Sheet } from "../../../sheet";
 import { PlaceSearch } from "../../../placeSearch";
 import React, { useEffect, useRef, useState } from "react";
-import { View, Text, Pressable, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  Pressable,
+  ActivityIndicator,
+  Linking,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { Page, H, P, Label, Field, Action, s } from "../../../ui";
 import { DateField } from "../../../tripFields";
@@ -15,6 +22,7 @@ import {
   planningSnapshot,
   planningModes,
   syncPlanningPlaces,
+  validateRows,
 } from "../../../planner";
 import type { PlanRow, PlanningConditions } from "../../../planner";
 import { generatePlan } from "../../../aiPlanner";
@@ -73,6 +81,11 @@ export default function Plan() {
   const [error, setError] = useState("");
   const [reasonRow, setReasonRow] = useState<PlanRow | null>(null);
   const [showFailureNotes, setShowFailureNotes] = useState(false);
+  const [pendingConsent, setPendingConsent] = useState(false);
+  useEffect(
+    () => setPendingConsent(false),
+    [trip?.planDraft?.id, [...selected].sort().join("|")],
+  );
   const [message, setMessage] = useState("");
   const [manual, setManual] = useState(false);
   const [manualName, setManualName] = useState("");
@@ -202,10 +215,20 @@ export default function Plan() {
               (a.kind === "rest" && r.tag === "cafe")),
         ),
     );
+    const chosenPending =
+      draft.routeContext && trip.planning
+        ? collectPendingTransfers(
+            trip,
+            trip.planning,
+            chosen,
+            validateRows(trip, trip.planning, chosen, draft.routeContext).bases,
+            draft.routeContext,
+          )
+        : [];
     const mustIds = trip.planning?.mustIds || [];
     const missingMust = draft.unplaced.some((p) => mustIds.includes(p.id));
     const legacyRouting =
-      !!draft.routeContext && draft.routeContext.policyVersion !== 2;
+      !!draft.routeContext && draft.routeContext.policyVersion !== 3;
     const context = (
       <View
         style={{
@@ -242,6 +265,18 @@ export default function Plan() {
             ? "확인된 이동 시간 + 여행 조건을 참고한 초안"
             : "시간·주소를 참고한 이전 초안 · 새 제안은 Google 이동 시간을 조회해요"}
         </Text>
+        {draft.routeContext?.geography && (
+          <Text
+            style={{
+              fontSize: 14,
+              lineHeight: 21,
+              color: ui.ink,
+              marginTop: 8,
+            }}
+          >
+            가까운 장소를 같은 날로 묶고 방문 순서를 정했어요.
+          </Text>
+        )}
         {legacyRouting && (
           <Text
             style={{
@@ -566,11 +601,78 @@ export default function Plan() {
             {error}
           </Text>
         )}
+        {!!chosenPending.length && (
+          <View
+            style={{
+              paddingVertical: 16,
+              borderTopWidth: 1,
+              borderColor: ui.line,
+              marginBottom: 12,
+            }}
+          >
+            <Text style={s.title}>대중교통 시간 확인이 필요한 배치안</Text>
+            <P>
+              아래 구간은 위치를 기준으로 배치했어요. 이동 공간 30분은
+              검토용으로 비워둔 자리이며 실제 소요시간이 아니에요. 경로를 확인한
+              뒤 임시 일정으로 추가할 수 있어요.
+            </P>
+            {chosenPending.map((leg, i) => (
+              <View key={i} style={{ paddingVertical: 8 }}>
+                <Text style={{ fontSize: 14, lineHeight: 21, color: ui.ink }}>
+                  {placeText(leg.fromName)} → {placeText(leg.toName)}
+                </Text>
+                <Action
+                  title="대중교통 경로 확인 ↗"
+                  tone="link"
+                  onPress={() =>
+                    Linking.openURL(
+                      "https://www.google.com/maps/dir/?api=1&origin=" +
+                        encodeURIComponent(leg.from) +
+                        "&destination=" +
+                        encodeURIComponent(leg.to) +
+                        "&travelmode=transit",
+                    ).catch(() => setError("지도를 열지 못했어요."))
+                  }
+                />
+              </View>
+            ))}
+            <Pressable
+              accessibilityRole="checkbox"
+              accessibilityLabel="대중교통 시간 미확인 구간을 확인하고 임시 일정으로 추가"
+              accessibilityState={{ checked: pendingConsent }}
+              onPress={() => setPendingConsent((v) => !v)}
+              style={{
+                flexDirection: "row",
+                gap: 10,
+                minHeight: 48,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ fontSize: 20, color: ui.blue }}>
+                {pendingConsent ? "☑" : "☐"}
+              </Text>
+              <Text
+                style={{ flex: 1, fontSize: 14, lineHeight: 21, color: ui.ink }}
+              >
+                이동 시간이 미확인임을 확인했고 임시 일정으로 추가할게요.
+              </Text>
+            </Pressable>
+          </View>
+        )}
         <Action
-          title={`선택한 ${chosen.length}곳과 고정 일정 적용`}
-          disabled={stale || !chosen.length || missingMust}
+          title={
+            chosenPending.length
+              ? `선택한 ${chosen.length}곳 임시 일정으로 추가`
+              : `선택한 ${chosen.length}곳과 고정 일정 적용`
+          }
+          disabled={
+            stale ||
+            !chosen.length ||
+            missingMust ||
+            (!!chosenPending.length && !pendingConsent)
+          }
           onPress={() => {
-            const r = store.applyDraft(tripId, [...selected]);
+            const r = store.applyDraft(tripId, [...selected], pendingConsent);
             if (!r.ok) setError(r.message);
             else
               router.dismissTo({

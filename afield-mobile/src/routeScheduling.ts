@@ -59,17 +59,29 @@ export function fillRouteSlots(
     for (let i = 1; i < addresses.length; i++) {
       if (addresses[i] === addresses[i - 1]) continue;
       const r = bestRoute(facts, addresses[i - 1], addresses[i], modes);
-      if (!r) continue; // An unrelated existing edge must not disqualify every insertion.
-      cost += r.durationSeconds;
+      // Geography remains useful even when transit time is not supplied. Distance is a ranking cost, never a transit-duration estimate.
+      const geographic =
+        r ||
+        facts.routes.find(
+          (r) =>
+            r.from === addresses[i - 1] &&
+            r.to === addresses[i] &&
+            r.mode === "walking",
+        );
+      if (!geographic) continue;
+      cost += geographic.distanceMeters;
     }
     return cost;
   };
   const pool = readyPlaces(trip).filter(
     (p) => c.selectedIds.includes(p.id) && !assigned.has(p.id),
   );
+  const orderedIds = facts.geography?.groups.flatMap((g) => g.placeIds) || [];
   pool.sort(
     (a, b) =>
-      Number(c.mustIds.includes(b.id)) - Number(c.mustIds.includes(a.id)),
+      Number(c.mustIds.includes(b.id)) - Number(c.mustIds.includes(a.id)) ||
+      (orderedIds.indexOf(a.id) < 0 ? 999 : orderedIds.indexOf(a.id)) -
+        (orderedIds.indexOf(b.id) < 0 ? 999 : orderedIds.indexOf(b.id)),
   );
   // Bound work independently of the trip length. All accepted times still pass the same strict validator.
   let attempts = 0;
@@ -123,6 +135,12 @@ export function fillRouteSlots(
         const score =
           (Number.isFinite(before) ? after - before : after) +
           count * 300 +
+          (facts.geography?.groups.find((g) => g.placeIds.includes(p.id))
+            ?.date &&
+          facts.geography.groups.find((g) => g.placeIds.includes(p.id))!
+            .date !== base.date
+            ? 5000
+            : 0) +
           t * 0.001;
         if (Number.isFinite(score) && (!best || score < best.score))
           best = { row, score };

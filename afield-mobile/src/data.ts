@@ -7,14 +7,9 @@ export type EntryLocation = {
   placeId?: string;
 };
 export type ActivityTag =
-  | "shopping"
-  | "sightseeing"
-  | "meal"
-  | "cafe"
-  | "stay"
-  | "transport"
-  | "other";
+  "shopping" | "sightseeing" | "meal" | "cafe" | "stay" | "transport" | "other";
 export type Entry = {
+  needsTransitCheck?: boolean;
   durationMinutes?: number;
   origin?: "ai";
   anchorKey?: string;
@@ -32,7 +27,15 @@ export type Day = {
   items: Entry[];
   travelModes?: Record<string, TravelMode>;
 };
-export type JournalEntry = { id: string; entryId: string; date: string; placeName: string; note: string; photoUri?: string; createdAt: string };
+export type JournalEntry = {
+  id: string;
+  entryId: string;
+  date: string;
+  placeName: string;
+  note: string;
+  photoUri?: string;
+  createdAt: string;
+};
 export type Trip = {
   journal?: JournalEntry[];
   coverUri?: string;

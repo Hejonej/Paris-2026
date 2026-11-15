@@ -311,3 +311,180 @@ test("failed full search reports all considered days, not one failed provisional
   assert.match(report.get("a"), /대중교통 시간이 확인되지/);
   assert.equal(report.get("a").includes("193분"), false);
 });
+
+test("geographic proposal marks unavailable transit pending and cannot apply without explicit acknowledgement", () => {
+  const t = fixture();
+  t.planning.selectedIds = ["a"];
+  t.planning.stays = [];
+  t.planning.rangeStart = t.planning.rangeEnd = "2027-02-01";
+  t.days[1].items = [
+    {
+      id: "reserved-b",
+      name: "b",
+      time: "18:00",
+      durationMinutes: 60,
+      must: true,
+      location: { label: "b", query: "b", description: "" },
+    },
+  ];
+  const f = facts();
+  f.allowUnverifiedTransit = true;
+  f.routes = f.routes.filter((r) => r.mode === "walking");
+  for (const r of f.routes) r.durationSeconds = 193 * 60;
+  const d = ai.decodePlan(t, { suggestions: [suggestion("a", "15:00")] }, f);
+  assert.equal(d.rows.length, 1);
+  assert.equal(d.pendingTransfers.length, 1);
+  assert.equal(d.pendingTransfers[0].planSlotMinutes, 30);
+  assert.match(d.rows[0].reason, /미확인/);
+  assert.equal(d.rows[0].reason.includes("193분"), false);
+  t.planDraft = d;
+  const before = JSON.stringify(t.days);
+  assert.equal(p.applyDraft([t], t.id, [d.rows[0].id]).ok, false);
+  assert.equal(JSON.stringify(t.days), before);
+  const approved = p.applyDraft([t], t.id, [d.rows[0].id], true);
+  assert.equal(approved.ok, true);
+  assert.equal(
+    approved.trips[0].days[1].items.find((e) => e.placeId === "a")
+      .needsTransitCheck,
+    true,
+  );
+  assert.equal(
+    approved.trips[0].days[1].items.find((e) => e.id === "reserved-b").time,
+    "18:00",
+  );
+});
+const { webGeography } = require("../scripts/web-geography.cjs");
+test("web optimization receives resolved Google IDs and maps only supplied places back to mobile IDs", async () => {
+  let calls = 0;
+  const result = await webGeography(
+    {
+      city: "Tokyo",
+      country: "Japan",
+      start: "2027-02-01",
+      end: "2027-02-01",
+      places: [
+        { id: "local-a", name: "A", query: "Address A" },
+        { id: "local-b", name: "B", query: "Address B" },
+      ],
+    },
+    async (url, options) => {
+      calls++;
+      if (calls === 1) {
+        assert.match(url, /computeRoutes/);
+        return {
+          ok: true,
+          json: async () => ({
+            geocodingResults: {
+              origin: { placeId: "google-a" },
+              destination: { placeId: "google-b" },
+            },
+            routes: [
+              {
+                legs: [
+                  {
+                    startLocation: { latLng: { latitude: 35, longitude: 139 } },
+                    endLocation: {
+                      latLng: { latitude: 35.1, longitude: 139.1 },
+                    },
+                  },
+                ],
+              },
+            ],
+          }),
+        };
+      }
+      assert.match(url, /optimize-trip/);
+      const body = JSON.parse(options.body);
+      assert.equal(body.places[0].placeId, "google-a");
+      assert.equal(body.places[0].lat, 35);
+      return {
+        ok: true,
+        json: async () => ({
+          plan: {
+            days: [
+              {
+                date: "2027-02-01",
+                items: [
+                  { placeId: "google-b" },
+                  { placeId: "invented" },
+                  { placeId: "google-a" },
+                  { placeId: "google-b" },
+                ],
+              },
+            ],
+          },
+        }),
+      };
+    },
+    "test-only-key",
+  );
+  assert.equal(calls, 2);
+  assert.deepEqual(result.groups[0].placeIds, ["local-b", "local-a"]);
+  assert.equal(JSON.stringify(result).includes("test-only-key"), false);
+});
+test("ambiguous resolution never fabricates coordinates or calls the web optimizer", async () => {
+  let calls = 0;
+  await assert.rejects(
+    () =>
+      webGeography(
+        {
+          start: "2027-02-01",
+          end: "2027-02-01",
+          places: [
+            { id: "a", name: "A", query: "A" },
+            { id: "b", name: "B", query: "B" },
+          ],
+        },
+        async () => {
+          calls++;
+          return {
+            ok: true,
+            json: async () => ({
+              geocodingResults: {
+                origin: { placeId: "a", partialMatch: true },
+              },
+              routes: [
+                {
+                  legs: [
+                    {
+                      startLocation: {
+                        latLng: { latitude: 35, longitude: 139 },
+                      },
+                    },
+                  ],
+                },
+              ],
+            }),
+          };
+        },
+        "test-only-key",
+      ),
+    /주소/,
+  );
+  assert.equal(calls, 1);
+});
+
+test("ported web grouping keeps nearby places together when the legacy calculation endpoint fails", () => {
+  const { localGrouping } = require("../scripts/web-geography.cjs");
+  const input = {
+    start: "2027-02-01",
+    end: "2027-02-02",
+    places: ["a", "b", "c", "d"].map((id) => ({ id, query: id })),
+  };
+  const points = new Map([
+    ["a", { lat: 35.67, lng: 139.76 }],
+    ["b", { lat: 35.66, lng: 139.7 }],
+    ["c", { lat: 35.671, lng: 139.761 }],
+    ["d", { lat: 35.661, lng: 139.701 }],
+  ]);
+  const grouped = localGrouping(input, points);
+  assert.deepEqual(
+    grouped.groups.map((g) => g.placeIds),
+    [
+      ["a", "c"],
+      ["b", "d"],
+    ],
+  );
+  assert.equal(grouped.source, "web_local_geographic_grouping");
+  assert.equal(new Set(grouped.groups.flatMap((g) => g.placeIds)).size, 4);
+});

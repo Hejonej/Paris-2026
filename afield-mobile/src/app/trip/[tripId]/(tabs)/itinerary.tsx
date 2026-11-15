@@ -309,7 +309,12 @@ export default function Itinerary() {
                 key={base.origin.query + firstStop.query}
                 from={base.origin.query}
                 to={firstStop.query}
-                mode={planningModes(trip?.planning)[0]}
+                mode={
+                  locatedStops[0]?.entry.needsTransitCheck
+                    ? "transit"
+                    : planningModes(trip?.planning)[0]
+                }
+                pendingTransit={!!locatedStops[0]?.entry.needsTransitCheck}
               />
             </View>
           )}
@@ -393,6 +398,18 @@ export default function Itinerary() {
                         }}
                       />
                     </View>
+                    {item.needsTransitCheck && (
+                      <Text
+                        style={{
+                          fontSize: 13,
+                          lineHeight: 20,
+                          color: ui.blue,
+                          marginBottom: 4,
+                        }}
+                      >
+                        대중교통 시간 확인 필요 · 임시 배치
+                      </Text>
+                    )}
                     <Text style={styles.description} numberOfLines={2}>
                       {entryDescription(stop.suggestion ? stop.entry : item)}
                     </Text>
@@ -501,7 +518,12 @@ export default function Itinerary() {
                       key={location.query + laterLocated.location.query}
                       from={location.query}
                       to={laterLocated.location.query}
-                      mode={planningModes(trip?.planning)[0]}
+                      mode={
+                        item.needsTransitCheck
+                          ? "transit"
+                          : planningModes(trip?.planning)[0]
+                      }
+                      pendingTransit={!!item.needsTransitCheck}
                     />
                     <Text
                       style={{ fontSize: 12, lineHeight: 18, color: ui.muted }}
@@ -571,6 +593,9 @@ export default function Itinerary() {
                               from={location!.query}
                               to={nextStop!.location!.query}
                               mode={mode}
+                              pendingTransit={
+                                !!item.needsTransitCheck && mode === "transit"
+                              }
                             />
                             <Pressable
                               accessibilityRole="button"
@@ -657,7 +682,15 @@ export default function Itinerary() {
                 key={lastStop.query + base.destination.query}
                 from={lastStop.query}
                 to={base.destination.query}
-                mode={planningModes(trip?.planning)[0]}
+                mode={
+                  locatedStops[locatedStops.length - 1]?.entry.needsTransitCheck
+                    ? "transit"
+                    : planningModes(trip?.planning)[0]
+                }
+                pendingTransit={
+                  !!locatedStops[locatedStops.length - 1]?.entry
+                    .needsTransitCheck
+                }
               />
             </View>
           )}

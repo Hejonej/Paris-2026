@@ -2142,7 +2142,7 @@ test("adding an unverified saved place to a day confirms its address before open
   await act(async () => view.tree.unmount());
 });
 
-test("Tokyo mixed-mode failure explains missing transit and the full search, not a rejected 193-minute walking placement", async () => {
+test("Tokyo can propose a geographic insertion with unknown transit, but requires explicit provisional acceptance", async () => {
   const seed = harness({}),
     source = JSON.parse(JSON.stringify(seed.load("src/data.ts").trips)),
     t = source[0];
@@ -2229,10 +2229,34 @@ test("Tokyo mixed-mode failure explains missing transit and the full search, not
   assert.ok(
     visible.includes("Google API는 일본 대중교통 시간을 제공하지 않아요"),
   );
-  assert.ok(visible.includes("후보 시간"));
-  assert.ok(visible.includes("대중교통 시간이 확인되지"));
+  assert.ok(visible.includes("대중교통 시간 확인이 필요한 배치안"));
+  assert.ok(visible.includes("실제 소요시간이 아니에요"));
   assert.equal(visible.includes("193분"), false);
   assert.equal(JSON.stringify(view.store.trips[0].days), before);
-  assert.equal(view.store.trips[0].planDraft.rows.length, 0);
+  assert.equal(view.store.trips[0].planDraft.rows.length, 1);
+  const selected = view.store.trips[0].planDraft.rows.map((r) => r.id);
+  assert.equal(view.store.applyDraft(t.id, selected).ok, false);
+  const action = view.tree.root.findAll(
+    (n) =>
+      n.type === "Text" && n.children.includes("선택한 1곳 임시 일정으로 추가"),
+  )[0].parent;
+  assert.equal(action.props.disabled, true);
+  await act(async () =>
+    view.tree.root
+      .findAll(
+        (n) =>
+          n.type === "Pressable" &&
+          n.props.accessibilityLabel ===
+            "대중교통 시간 미확인 구간을 확인하고 임시 일정으로 추가",
+      )[0]
+      .props.onPress(),
+  );
+  await act(async () => tapText(view, "선택한 1곳 임시 일정으로 추가"));
+  const stored = view.store.trips[0].days[0].items;
+  assert.equal(stored.find((e) => e.id === "protected-tsuchiya").time, "18:00");
+  assert.equal(
+    stored.find((e) => e.placeId === "ozeki").needsTransitCheck,
+    true,
+  );
   await act(async () => view.tree.unmount());
 });

@@ -1,6 +1,6 @@
-import { routeConflicts } from "./routeChecks";
+import { routeConflicts, collectPendingTransfers } from "./routeChecks";
 import { bestRoute, validRouteContext } from "./routeFacts";
-import type { RouteContext } from "./routeFacts";
+import type { RouteContext, PendingTransfer } from "./routeFacts";
 import { legKey } from "./routing";
 import { tripPlaces } from "./data";
 import type { Trip, Entry, ActivityTag } from "./data";
@@ -65,6 +65,7 @@ export type PlanRow = {
   tag: ActivityTag;
 };
 export type PlanDraft = {
+  pendingTransfers?: PendingTransfer[];
   routeContext?: RouteContext;
   id: string;
   generatedAt: string;
@@ -677,7 +678,12 @@ export function savePlanning(trips: Trip[], id: string, c: PlanningConditions) {
     message: "여행 조건을 저장했어요.",
   };
 }
-export function applyDraft(trips: Trip[], id: string, selected: string[]) {
+export function applyDraft(
+  trips: Trip[],
+  id: string,
+  selected: string[],
+  acceptUnverifiedTransit = false,
+) {
   const trip = trips.find((t) => t.id === id && !t.deletedAt);
   const draft = trip?.planDraft;
   const c = trip?.planning;
@@ -703,6 +709,20 @@ export function applyDraft(trips: Trip[], id: string, selected: string[]) {
     return fail(
       "고정 조건과 충돌하는 제안이 있어요. 조건을 수정하고 다시 받아 주세요.",
     );
+  const pending = draft.routeContext
+    ? collectPendingTransfers(
+        trip,
+        c,
+        checked.accepted,
+        checked.bases,
+        draft.routeContext,
+      )
+    : [];
+  if (pending.length && !acceptUnverifiedTransit)
+    return fail(
+      "대중교통 시간이 미확인인 구간을 확인하고 임시 일정 적용에 동의해 주세요.",
+    );
+  const pendingIds = new Set(pending.flatMap((p) => p.rowIds));
   rows = checked.accepted;
   const plannedIds = new Set(
     trip.days.flatMap((d) =>
@@ -745,6 +765,7 @@ export function applyDraft(trips: Trip[], id: string, selected: string[]) {
             time: r.time,
             durationMinutes: r.duration,
             origin: "ai",
+            ...(pendingIds.has(r.id) ? { needsTransitCheck: true } : {}),
             anchorKey: r.kind !== "place" ? r.id : undefined,
             placeId: r.placeId,
             tag: r.tag,
@@ -795,6 +816,19 @@ export function validDraft(x: unknown): x is PlanDraft {
   if (!x || typeof x !== "object") return false;
   const d = x as PlanDraft;
   return (
+    (d.pendingTransfers === undefined ||
+      (Array.isArray(d.pendingTransfers) &&
+        d.pendingTransfers.length <= 300 &&
+        d.pendingTransfers.every(
+          (p) =>
+            p &&
+            [p.date, p.from, p.to, p.fromName, p.toName].every(
+              (v) => typeof v === "string",
+            ) &&
+            p.planSlotMinutes === 30 &&
+            Array.isArray(p.rowIds) &&
+            p.rowIds.every((id) => typeof id === "string"),
+        ))) &&
     (d.routeContext === undefined || validRouteContext(d.routeContext)) &&
     [d.id, d.generatedAt, d.baseSnapshot].every((v) => typeof v === "string") &&
     Array.isArray(d.rows) &&

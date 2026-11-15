@@ -59,7 +59,11 @@ type Store = {
   restoreTrip: (id: string) => Result;
   savePlanning: (id: string, conditions: PlanningConditions) => Result;
   saveDraft: (id: string, draft: PlanDraft) => Result;
-  applyDraft: (id: string, selected: string[]) => Result;
+  applyDraft: (
+    id: string,
+    selected: string[],
+    acceptUnverifiedTransit?: boolean,
+  ) => Result;
   addManualPlace: (
     id: string,
     name: string,
@@ -378,8 +382,13 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       );
       return { ok: true, message: "검토할 제안을 저장했어요." };
     },
-    applyDraft: (id, selected) => {
-      const r = applyDraft(current.current, id, selected);
+    applyDraft: (id, selected, acceptUnverifiedTransit = false) => {
+      const r = applyDraft(
+        current.current,
+        id,
+        selected,
+        acceptUnverifiedTransit,
+      );
       if (r.ok) update(r.trips);
       return { ok: r.ok, message: r.message };
     },
