@@ -228,7 +228,8 @@ export default function Plan() {
     const mustIds = trip.planning?.mustIds || [];
     const missingMust = draft.unplaced.some((p) => mustIds.includes(p.id));
     const legacyRouting =
-      !!draft.routeContext && draft.routeContext.policyVersion !== 3;
+      draft.visitTiming !== "flexible" ||
+      (!!draft.routeContext && draft.routeContext.policyVersion !== 3);
     const context = (
       <View
         style={{
@@ -286,8 +287,8 @@ export default function Plan() {
               marginTop: 10,
             }}
           >
-            이전 이동 기준으로 만든 결과예요. 긴 도보 대체 처리가 수정됐으니
-            같은 조건으로 새로 만들어 주세요.
+            이전 기준으로 만든 결과예요. 방문 시간을 유동적으로 계획하도록
+            바뀌었으니 같은 조건으로 새로 만들어 주세요.
           </Text>
         )}
         {draft?.routeContext?.warnings?.map((warning, i) => (
@@ -482,9 +483,7 @@ export default function Plan() {
                             marginTop: 6,
                           }}
                         >
-                          {row.duration}분 체류 가정{" "}
-                          {mustIds.includes(row.placeId!) ? "· 꼭 가기" : ""}
-                          {"\n"}
+                          {mustIds.includes(row.placeId!) ? "꼭 가기 · " : ""}
                           {row.reason}
                         </Text>
                       </Pressable>
@@ -752,6 +751,10 @@ export default function Plan() {
           {error}
         </Text>
       )}
+      <P>
+        일반 장소는 방문 순서와 도착 시각만 제안해요. 머무는 시간은 자유롭게
+        조절하고, 예약·항공편처럼 시간이 정해진 일정만 보호해요.
+      </P>
       {busy && (
         <View
           style={{
@@ -846,19 +849,6 @@ export default function Plan() {
                             : [...c.mustIds, place.id],
                         )
                       }
-                    />
-                    <Label>예상 체류 · 분</Label>
-                    <Field
-                      accessibilityLabel={`${place.name} 체류 시간`}
-                      value={String(c.durations[place.id] || 60)}
-                      keyboardType="number-pad"
-                      onChangeText={(v) =>
-                        update("durations", {
-                          ...c.durations,
-                          [place.id]: Number(v),
-                        })
-                      }
-                      maxLength={3}
                     />
                   </>
                 )}
@@ -1020,8 +1010,7 @@ export default function Plan() {
               />
             </View>
             <P>
-              점심·저녁은 60분, 휴식은 30분을 비워요. 고정 일정과 겹치면
-              제안에서 알려드려요.
+              식사·휴식은 희망 시각만 참고해요. 머무는 시간은 고정하지 않아요.
             </P>
             <Label>이동 방식 · 여러 개 선택 가능</Label>
             <View
@@ -1329,9 +1318,9 @@ export default function Plan() {
                     value={event.time}
                     onChange={(v) => change("time", v)}
                   />
-                  <Label>머무를 시간 · 분</Label>
+                  <Label>예약으로 고정할 시간 · 분</Label>
                   <Field
-                    accessibilityLabel={`고정 일정 ${index + 1} 체류`}
+                    accessibilityLabel={`고정 일정 ${index + 1} 예약 시간 구간`}
                     value={String(event.duration)}
                     keyboardType="number-pad"
                     onChangeText={(v) => change("duration", Number(v))}

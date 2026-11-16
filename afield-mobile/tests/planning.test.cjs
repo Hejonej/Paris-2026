@@ -11,7 +11,8 @@ function load(path) {
   vm.runInNewContext(output, {
     exports: module.exports,
     module,
-    require,
+    require: (name) =>
+      name === "./visitTiming" ? load("src/visitTiming.ts") : require(name),
     Date,
     Math,
     Set,
@@ -86,9 +87,30 @@ test("date range crosses month and year without leaking seed days", () => {
 });
 
 test("suggested visit time avoids occupied intervals without mutating the day", () => {
-  const day = { date: "2027-01-01", items: [{ id: "a", name: "Reserved", time: "11:00", durationMinutes: 90 }] };
+  const day = {
+    date: "2027-01-01",
+    items: [
+      {
+        id: "a",
+        name: "Reserved",
+        time: "11:00",
+        durationMinutes: 90,
+        anchorKey: "actual-booking",
+      },
+    ],
+  };
   const before = JSON.stringify(day);
   assert.equal(suggestedVisitTime(day), "12:30");
   assert.equal(JSON.stringify(day), before);
-  assert.equal(suggestedVisitTime({ ...day, items: Array.from({length: 24}, (_, h) => ({ id: String(h), name: "full", time: `${String(h).padStart(2, "0")}:00` })) }), "");
+  assert.equal(
+    suggestedVisitTime({
+      ...day,
+      items: Array.from({ length: 24 }, (_, h) => ({
+        id: String(h),
+        name: "full",
+        time: `${String(h).padStart(2, "0")}:00`,
+      })),
+    }),
+    "11:30",
+  );
 });

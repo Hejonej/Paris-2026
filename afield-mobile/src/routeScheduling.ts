@@ -113,7 +113,7 @@ export function fillRouteSlots(
           id: `route-slot-${p.id}`,
           date: base.date,
           time: clock(t),
-          duration: c.durations[p.id] || 60,
+          duration: 0,
           kind: "place",
           name: p.name,
           query: p.query,
@@ -157,7 +157,7 @@ export function fillRouteSlots(
         ? "대중교통 시간이 확인되지 않는 구간이 있어요. 긴 도보로 대체하지 않고 이동 확인을 기다려요."
         : [...reasons].some((r) => r.includes("하루 방문 수"))
           ? "선택한 여행 속도의 방문 수 제한과 기존 일정·고정 시간을 함께 지키는 자리를 찾지 못했어요."
-          : "기존 일정·고정 시간·체류 시간과 이동 간격을 모두 지키는 빈자리를 찾지 못했어요.";
+          : "기존 일정·예약 시간과 이동 간격을 지키는 빈자리를 찾지 못했어요.";
       report.set(
         p.id,
         `${c.rangeStart || trip.start} ~ ${c.rangeEnd || trip.end}의 ${bases.length}일, 후보 시간 ${searched}개를 검토했어요. ${summary}`,

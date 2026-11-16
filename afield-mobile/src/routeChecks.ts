@@ -1,3 +1,4 @@
+import { reservedMinutes } from "./visitTiming";
 import type { Trip, TravelMode } from "./data";
 import type { PlanRow, PlanningConditions } from "./planner";
 import { entryLocation } from "./routing";
@@ -34,7 +35,7 @@ function edgesFor(trip: Trip, base: Base, rows: PlanRow[]): [Stop, Stop][] {
       id: e.id,
       name: e.name,
       time: minute(e.time),
-      duration: e.durationMinutes || 60,
+      duration: reservedMinutes(e, trip, base.date),
       query: entryLocation(e)?.query,
       proposal: false,
     })),
@@ -54,7 +55,7 @@ function edgesFor(trip: Trip, base: Base, rows: PlanRow[]): [Stop, Stop][] {
         id: r.id,
         name: r.name,
         time: minute(r.time),
-        duration: r.duration,
+        duration: 0,
         query: r.query,
         proposal: true,
       })),

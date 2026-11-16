@@ -1,3 +1,4 @@
+import { reservedMinutes } from "./visitTiming";
 import type { Trip } from "./data";
 export function addCandidate(
   trips: Trip[],
@@ -63,10 +64,14 @@ export function addToPlan(
 
 // Suggest an editable start time, never add a visit or change an existing entry.
 export function suggestedVisitTime(day?: Trip["days"][number]): string {
-  const toMinute = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3));
-  const blocks = (day?.items || []).map((e) => ({ start: toMinute(e.time), end: toMinute(e.time) + (e.durationMinutes || 60) }));
+  const toMinute = (time: string) =>
+    Number(time.slice(0, 2)) * 60 + Number(time.slice(3));
+  const blocks = (day?.items || []).map((e) => ({
+    start: toMinute(e.time),
+    end: toMinute(e.time) + reservedMinutes(e),
+  }));
   for (let t = 11 * 60; t <= 23 * 60; t += 30) {
-    if (!blocks.some((b) => t < b.end && t + 60 > b.start))
+    if (!blocks.some((b) => t === b.start || (t < b.end && t >= b.start)))
       return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
   }
   return "";

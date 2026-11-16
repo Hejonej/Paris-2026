@@ -59,6 +59,7 @@ function trip() {
             name: "Booking",
             time: "12:00",
             anchorKey: "reservation",
+            durationMinutes: 60,
           },
           { id: "b", name: "B", time: "15:00", placeId: "b", tag: "shopping" },
         ],

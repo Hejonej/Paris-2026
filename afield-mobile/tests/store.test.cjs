@@ -17,7 +17,7 @@ function moduleFor(path, storage) {
     },
   }).outputText;
   const resolver = (name) =>
-    ["./routeChecks", "./routeFacts"].includes(name)
+    ["./routeChecks", "./routeFacts", "./visitTiming"].includes(name)
       ? moduleFor("src/" + name.slice(2) + ".ts", storage)
       : name === "@react-native-async-storage/async-storage"
         ? storage

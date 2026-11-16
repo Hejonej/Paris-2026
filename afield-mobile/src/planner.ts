@@ -1,3 +1,4 @@
+import { reservedMinutes } from "./visitTiming";
 import { routeConflicts, collectPendingTransfers } from "./routeChecks";
 import { bestRoute, validRouteContext } from "./routeFacts";
 import type { RouteContext, PendingTransfer } from "./routeFacts";
@@ -65,6 +66,7 @@ export type PlanRow = {
   tag: ActivityTag;
 };
 export type PlanDraft = {
+  visitTiming?: "flexible";
   pendingTransfers?: PendingTransfer[];
   routeContext?: RouteContext;
   id: string;
@@ -157,7 +159,7 @@ export function validConditions(c: unknown): c is PlanningConditions {
     typeof x.durations === "object" &&
     !Array.isArray(x.durations) &&
     Object.entries(x.durations).every(
-      ([k, v]) => k.length <= 200 && Number.isInteger(v) && v >= 15 && v <= 240,
+      ([k, v]) => k.length <= 200 && Number.isFinite(v),
     ) &&
     Array.isArray(x.stays) &&
     x.stays.length <= 30 &&
@@ -304,9 +306,8 @@ export function dayBase(trip: Trip, c: PlanningConditions, date: string) {
     if (
       existing.some(
         (e) =>
-          e.anchorKey === row.id &&
-          e.time === row.time &&
-          e.durationMinutes === row.duration,
+          (e.anchorKey === row.id && e.time === row.time) ||
+          (row.kind === "fixed" && e.name === row.name && e.time === row.time),
       )
     )
       return;
@@ -317,7 +318,7 @@ export function dayBase(trip: Trip, c: PlanningConditions, date: string) {
           t,
           t + row.duration,
           minutes(e.time) - pad,
-          minutes(e.time) + (e.durationMinutes || 60) + pad,
+          minutes(e.time) + reservedMinutes(e, trip, date) + pad,
         ),
       ) ||
       anchors.some((e) =>
@@ -472,21 +473,21 @@ export function dayBase(trip: Trip, c: PlanningConditions, date: string) {
     {
       name: "점심",
       time: c.lunch,
-      duration: 60,
+      duration: 0,
       kind: "meal" as const,
       tag: "meal" as const,
     },
     {
       name: "저녁",
       time: c.dinner,
-      duration: 60,
+      duration: 0,
       kind: "meal" as const,
       tag: "meal" as const,
     },
     {
       name: "휴식",
       time: c.rest,
-      duration: 30,
+      duration: 0,
       kind: "rest" as const,
       tag: "cafe" as const,
     },
@@ -503,7 +504,7 @@ export function dayBase(trip: Trip, c: PlanningConditions, date: string) {
         ...a,
         id: `${a.name}-${date}`,
         date,
-        reason: "선호 시간에 확보한 자리 · 실제 장소는 아직 미정",
+        reason: "식사·휴식의 희망 시각 · 머무는 시간은 자유롭게",
       },
       true,
     );
@@ -584,12 +585,11 @@ export function validateRows(
       !base ||
       !Number.isFinite(t) ||
       !Number.isInteger(row.duration) ||
-      row.duration < 15 ||
-      row.duration > 240 ||
-      row.duration !== (c.durations[row.placeId!] || 60)
+      row.duration < 0 ||
+      row.duration > 1440
     )
-      reason = "날짜·시간·체류 시간 오류";
-    else if (t < base.start || t + row.duration > base.end)
+      reason = "날짜·시간 오류";
+    else if (t < base.start || t >= base.end)
       reason = "하루 활동/항공편 가능 시간 밖";
     else if (used.has(p.id)) reason = "이미 일정에 있거나 중복된 장소";
     else {
@@ -599,11 +599,14 @@ export function validateRows(
           a.time === row.time &&
           ((a.kind === "meal" && tag === "meal") ||
             (a.kind === "rest" && tag === "cafe")) &&
-          row.duration <= a.duration,
+          true,
       );
       const busy = [
         ...(trip.days.find((d) => d.date === row.date)?.items || []).map(
-          (e) => ({ time: e.time, duration: e.durationMinutes || 60 }),
+          (e) => ({
+            time: e.time,
+            duration: reservedMinutes(e, trip, row.date),
+          }),
         ),
         ...base.anchors.filter((a) => a.id !== replaceable?.id),
         ...accepted.filter((a) => a.date === row.date),
@@ -621,13 +624,15 @@ export function validateRows(
       else if (count >= { relaxed: 3, balanced: 5, active: 7 }[c.pace])
         reason = "선택한 여행 속도의 하루 방문 수 초과";
       else if (
-        busy.some((b) =>
-          overlaps(
-            t,
-            t + row.duration,
-            minutes(b.time) - c.buffer,
-            minutes(b.time) + b.duration + c.buffer,
-          ),
+        busy.some(
+          (b) =>
+            t === minutes(b.time) ||
+            overlaps(
+              t,
+              t,
+              minutes(b.time) - c.buffer,
+              minutes(b.time) + b.duration + c.buffer,
+            ),
         )
       )
         reason = "기존 일정·고정 조건·이동 여유 시간과 겹침";
@@ -636,6 +641,7 @@ export function validateRows(
     else {
       accepted.push({
         ...row,
+        duration: 0,
         name: p!.name,
         query: p!.query,
         tag: inferActivity(p!.name, p!.category),
@@ -763,7 +769,9 @@ export function applyDraft(
             id: `ai-${draft.id}-${r.id}`,
             name: r.name,
             time: r.time,
-            durationMinutes: r.duration,
+            ...(r.kind !== "place" && r.duration > 0
+              ? { durationMinutes: r.duration }
+              : {}),
             origin: "ai",
             ...(pendingIds.has(r.id) ? { needsTransitCheck: true } : {}),
             anchorKey: r.kind !== "place" ? r.id : undefined,
@@ -816,6 +824,7 @@ export function validDraft(x: unknown): x is PlanDraft {
   if (!x || typeof x !== "object") return false;
   const d = x as PlanDraft;
   return (
+    (d.visitTiming === undefined || d.visitTiming === "flexible") &&
     (d.pendingTransfers === undefined ||
       (Array.isArray(d.pendingTransfers) &&
         d.pendingTransfers.length <= 300 &&
@@ -843,7 +852,8 @@ export function validDraft(x: unknown): x is PlanDraft {
           (v) => typeof v === "string",
         ) &&
         Number.isInteger(r.duration) &&
-        r.duration > 0 &&
+        r.duration >= 0 &&
+        (r.duration > 0 || ["place", "meal", "rest"].includes(r.kind)) &&
         r.duration <= 1440 &&
         validDate(r.date) &&
         Number.isFinite(minutes(r.time)) &&

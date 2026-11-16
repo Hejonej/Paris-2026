@@ -124,7 +124,7 @@ test("selected-only apply rechecks direct edge after deselecting an intermediate
   const t = fixture(),
     f = facts();
   for (const r of f.routes)
-    if (r.from === "a" && r.to === "hotel") r.durationSeconds = 36000;
+    if (r.from === "a" && r.to === "hotel") r.durationSeconds = 43200;
   const d = ai.decodePlan(
     t,
     { suggestions: [suggestion("a", "09:30"), suggestion("b", "11:00")] },
@@ -286,7 +286,7 @@ test("a missing route between two unrelated protected entries does not block eve
   const before = JSON.stringify(t.days),
     filled = fillRouteSlots(t, ai.decodePlan(t, { suggestions: [] }, f), f);
   assert.equal(filled.length, 1);
-  assert.ok(filled[0].time > "09:00" && filled[0].time < "11:00");
+  assert.ok(filled[0].time >= "09:00" && filled[0].time < "11:00");
   assert.equal(JSON.stringify(t.days), before);
 });
 
@@ -487,4 +487,109 @@ test("ported web grouping keeps nearby places together when the legacy calculati
   );
   assert.equal(grouped.source, "web_local_geographic_grouping");
   assert.equal(new Set(grouped.groups.flatMap((g) => g.placeIds)).size, 4);
+});
+
+test("18 legacy entries do not reserve fixed visit durations when inserting an undecided place", () => {
+  const { fillRouteSlots } = load("src/routeScheduling.ts");
+  const t = fixture();
+  t.start = "2027-02-01";
+  t.end = "2027-02-03";
+  t.days = ["2027-02-01", "2027-02-02", "2027-02-03"].map((date, day) => ({
+    date,
+    items: [
+      ...["10:00", "13:00", "16:00"].map((time, i) => ({
+        id: `visit-${day}-${i}`,
+        name: `Existing ${i}`,
+        time,
+        placeId: `old-${day}-${i}`,
+        durationMinutes: 60,
+        location: { label: `Existing ${i}`, query: "b", description: "" },
+      })),
+      ...[
+        ["점심", "12:30", 60, "meal"],
+        ["휴식", "16:30", 30, "cafe"],
+        ["저녁", "18:30", 60, "meal"],
+      ].map(([name, time, durationMinutes, tag]) => ({
+        id: `${name}-${day}`,
+        name,
+        time,
+        durationMinutes,
+        tag,
+        origin: "ai",
+        anchorKey: `${name}-${date}`,
+      })),
+    ].sort((a, b) => a.time.localeCompare(b.time)),
+  }));
+  t.planning = p.defaultConditions(t);
+  t.planning.selectedIds = ["a"];
+  t.planning.durations = { a: 240 };
+  const f = facts();
+  f.allowUnverifiedTransit = true;
+  f.routes = f.routes.filter((r) => r.mode === "walking");
+  for (const r of f.routes) r.durationSeconds = 193 * 60;
+  const before = JSON.stringify(t.days);
+  assert.equal(t.days.flatMap((d) => d.items).length, 18);
+  const filled = fillRouteSlots(t, ai.decodePlan(t, { suggestions: [] }, f), f);
+  assert.equal(filled.length, 1);
+  assert.equal(filled[0].duration, 0);
+  const d = ai.decodePlan(
+    t,
+    { suggestions: filled.map((r) => suggestion(r.placeId, r.time, r.date)) },
+    f,
+  );
+  assert.equal(d.rows.length, 1);
+  t.planDraft = d;
+  const applied = p.applyDraft(
+    [t],
+    t.id,
+    d.rows.map((r) => r.id),
+    true,
+  );
+  assert.equal(applied.ok, true);
+  assert.equal(JSON.stringify(t.days), before);
+  assert.equal(
+    applied.trips[0].days.flatMap((d) => d.items).find((e) => e.placeId === "a")
+      .durationMinutes,
+    undefined,
+  );
+});
+test("ordinary visits ignore legacy dwell settings while real reservation intervals still block arrival", () => {
+  const t = fixture();
+  t.planning.stays = [];
+  t.planning.selectedIds = ["a"];
+  t.planning.rangeStart = t.planning.rangeEnd = "2027-02-01";
+  t.days[1].items = [
+    {
+      id: "ordinary",
+      name: "Ordinary",
+      time: "09:00",
+      durationMinutes: 240,
+      must: true,
+    },
+  ];
+  let d = ai.decodePlan(t, { suggestions: [suggestion("a", "09:30")] });
+  assert.equal(d.rows.length, 1);
+  assert.equal(d.rows[0].duration, 0);
+  t.planning.fixed = [
+    {
+      id: "booking",
+      name: "Reserved",
+      date: "2027-02-01",
+      time: "10:00",
+      duration: 120,
+      query: "b",
+    },
+  ];
+  d = ai.decodePlan(t, { suggestions: [suggestion("a", "11:00")] });
+  assert.equal(d.rows.length, 0);
+  t.planning.durations = { a: 240 };
+  const body = ai.buildPlanRequest(t);
+  assert.equal("durationMinutes" in body.places[0], false);
+  assert.equal(Object.keys(body.conditions.durations).length, 0);
+  assert.match(body.request, /NO fixed stay duration/);
+  assert.equal(
+    ai.decodePlan(t, { suggestions: [suggestion("a", t.planning.end)] }).rows
+      .length,
+    0,
+  );
 });

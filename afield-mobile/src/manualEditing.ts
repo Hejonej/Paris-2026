@@ -1,3 +1,4 @@
+import { reservedMinutes } from "./visitTiming";
 import type { Trip, Day, Entry } from "./data";
 import { minutes, clock } from "./planner";
 import { legKey } from "./routing";
@@ -82,7 +83,7 @@ export function moveToDate(
       days,
       message: "예약·꼭 갈 곳·기록 연결 일정은 이동하지 않아요.",
     };
-  const duration = source.entry.durationMinutes || 60;
+  const duration = reservedMinutes(source.entry, trip, source.date);
   const blocks = target.items.filter((e) => e.id !== entryId);
   let chosen = time;
   if (chosen === undefined) {
@@ -93,8 +94,10 @@ export function moveToDate(
       if (
         !blocks.some(
           (e) =>
-            t < minutes(e.time) + (e.durationMinutes || 60) + buffer &&
-            t + duration > minutes(e.time) - buffer,
+            t === minutes(e.time) ||
+            (t <
+              minutes(e.time) + reservedMinutes(e, trip, targetDate) + buffer &&
+              t + duration > minutes(e.time) - buffer),
         )
       ) {
         chosen = clock(t);
@@ -152,7 +155,7 @@ export function validateEdit(trip: Trip, days: Day[]): string {
       return "장소 정보와 태그는 그대로 보존해야 해요.";
     if (
       !Number.isFinite(minutes(r.entry.time)) ||
-      minutes(r.entry.time) + (r.entry.durationMinutes || 60) > 1440
+      minutes(r.entry.time) + reservedMinutes(r.entry, trip, r.date) > 1440
     )
       return "방문 시간을 확인해 주세요.";
     if (original.date !== r.date || original.entry.time !== r.entry.time) {
@@ -174,8 +177,11 @@ export function validateEdit(trip: Trip, days: Day[]): string {
         )
           return `${day.date}: 같은 장소가 두 번 배치돼요.`;
         if (
-          minutes(a.time) < minutes(b.time) + (b.durationMinutes || 60) &&
-          minutes(a.time) + (a.durationMinutes || 60) > minutes(b.time)
+          a.time === b.time ||
+          (minutes(a.time) <
+            minutes(b.time) + reservedMinutes(b, trip, day.date) &&
+            minutes(a.time) + reservedMinutes(a, trip, day.date) >
+              minutes(b.time))
         )
           return `${day.date}: ${a.name}와 ${b.name}의 시간이 겹쳐요.`;
       }

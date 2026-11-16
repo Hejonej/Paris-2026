@@ -217,6 +217,7 @@ test("malicious unknown place, move operations, duplicates, bad dates and confli
       time: "09:00",
       durationMinutes: 60,
       name: "User fixed",
+      anchorKey: "actual-booking",
       must: true,
     },
   ];
@@ -428,12 +429,15 @@ test("more than 100 available venues require an explicit subset rather than sile
   assert.equal(planner.defaultConditions(t).selectedIds.length, 0);
 });
 
-
 test("new unscheduled saved places enter future planning while deliberate deselection is preserved", () => {
   const t = trip();
   t.planning.selectedIds = t.planning.selectedIds.filter((id) => id !== "p2");
   t.candidates.push("new");
-  t.importedPlaces.push({ ...t.importedPlaces[0], id: "new", name: "New Museum" });
+  t.importedPlaces.push({
+    ...t.importedPlaces[0],
+    id: "new",
+    name: "New Museum",
+  });
   const synced = planner.syncPlanningPlaces(t, t.planning);
   assert.equal(synced.selectedIds.includes("new"), true);
   assert.equal(synced.selectedIds.includes("p2"), false);
@@ -444,96 +448,199 @@ test("new unscheduled saved places enter future planning while deliberate desele
 test("every nonempty transport combination persists and reaches the AI request without invented combinations", () => {
   for (let bits = 1; bits < 8; bits++) {
     const t = trip();
-    t.planning.modes = ["walking", "transit", "driving"].filter((_, i) => bits & (1 << i));
+    t.planning.modes = ["walking", "transit", "driving"].filter(
+      (_, i) => bits & (1 << i),
+    );
     assert.equal(planner.validConditions(t.planning), true);
     const r = ai.buildPlanRequest(t);
     assert.ok(r.request.includes(JSON.stringify(t.planning.modes)));
-    assert.deepEqual(Array.from(planner.planningModes(t.planning)), t.planning.modes);
+    assert.deepEqual(
+      Array.from(planner.planningModes(t.planning)),
+      t.planning.modes,
+    );
   }
-  const t = trip(); t.planning.modes = []; assert.equal(planner.validConditions(t.planning), false);
-  t.planning.modes = ["walking", "walking"]; assert.equal(planner.validConditions(t.planning), false);
-  delete t.planning.modes; t.planning.mode = "driving";
+  const t = trip();
+  t.planning.modes = [];
+  assert.equal(planner.validConditions(t.planning), false);
+  t.planning.modes = ["walking", "walking"];
+  assert.equal(planner.validConditions(t.planning), false);
+  delete t.planning.modes;
+  t.planning.mode = "driving";
   assert.equal(planner.routeMode(t.planning), "driving");
 });
 
 test("undecided visits get one automatic AI repair request, keeping accepted rows protected", async () => {
-  const t = trip(); t.planning.selectedIds = ["p1", "p2"]; t.planning.mustIds = ["p2"];
+  const t = trip();
+  t.planning.selectedIds = ["p1", "p2"];
+  t.planning.mustIds = ["p2"];
   const before = JSON.stringify(t);
   const requests = [];
   const draft = await ai.generatePlan(t, undefined, async (_, options) => {
-    const payload = JSON.parse(options.body); requests.push(payload);
-    return { ok: true, json: async () => ({ suggestions: requests.length === 1
-      ? [suggestion("p1", "09:00"), { type: "ADD", action: "Test Shop 나중에 방문" }]
-      : [suggestion("p2", "10:30")] }) };
+    const payload = JSON.parse(options.body);
+    requests.push(payload);
+    return {
+      ok: true,
+      json: async () => ({
+        suggestions:
+          requests.length === 1
+            ? [
+                suggestion("p1", "09:00"),
+                { type: "ADD", action: "Test Shop 나중에 방문" },
+              ]
+            : [suggestion("p2", "10:30")],
+      }),
+    };
   });
   assert.equal(requests.length, 2);
-  assert.deepEqual(requests[1].places.map((p) => p.name), ["Test Shop"]);
-  assert.deepEqual(requests[1].places.map((p) => p.id), ["AFIELD_001"]);
-  assert.ok(requests[1].itinerary[0].existing.some((e) => e.placeId === "p1" && e.immutable));
-  assert.equal(draft.rows.length, 2); assert.equal(draft.unplaced.length, 0);
+  assert.deepEqual(
+    requests[1].places.map((p) => p.name),
+    ["Test Shop"],
+  );
+  assert.deepEqual(
+    requests[1].places.map((p) => p.id),
+    ["AFIELD_001"],
+  );
+  assert.ok(
+    requests[1].itinerary[0].existing.some(
+      (e) => e.placeId === "p1" && e.immutable,
+    ),
+  );
+  assert.equal(draft.rows.length, 2);
+  assert.equal(draft.unplaced.length, 0);
   assert.equal(JSON.stringify(t), before);
-  assert.ok(requests[1].request.toLowerCase().includes("choose dates and times yourself"));
-  assert.equal(planner.applyDraft([{ ...t, planDraft: draft }], t.id, draft.rows.map((r) => r.id)).ok, true);
+  assert.ok(
+    requests[1].request
+      .toLowerCase()
+      .includes("choose dates and times yourself"),
+  );
+  assert.equal(
+    planner.applyDraft(
+      [{ ...t, planDraft: draft }],
+      t.id,
+      draft.rows.map((r) => r.id),
+    ).ok,
+    true,
+  );
 });
 
 test("empty AI responses retry only once and never imply the user must supply visit times", async () => {
-  const t = trip(); let calls = 0;
+  const t = trip();
+  let calls = 0;
   const draft = await ai.generatePlan(t, undefined, async () => {
-    calls++; return { ok: true, json: async () => ({ suggestions: [] }) };
+    calls++;
+    return { ok: true, json: async () => ({ suggestions: [] }) };
   });
-  assert.equal(calls, 2); assert.equal(draft.rows.length, 0);
+  assert.equal(calls, 2);
+  assert.equal(draft.rows.length, 0);
   assert.equal(draft.unplaced.length, t.planning.selectedIds.length);
-  assert.ok(draft.unplaced.every((p) => p.reason.includes("직접 입력할 필요는 없어요")));
+  assert.ok(
+    draft.unplaced.every((p) => p.reason.includes("직접 입력할 필요는 없어요")),
+  );
 });
 
 test("repair network failure retains a valid first proposal and never creates a local fallback", async () => {
-  const t = trip(); t.planning.selectedIds = ["p1", "p2"]; let calls = 0;
+  const t = trip();
+  t.planning.selectedIds = ["p1", "p2"];
+  let calls = 0;
   const draft = await ai.generatePlan(t, undefined, async () => {
     if (++calls === 2) throw Error("network failure");
-    return { ok: true, json: async () => ({ suggestions: [suggestion("p1", "09:00")] }) };
+    return {
+      ok: true,
+      json: async () => ({ suggestions: [suggestion("p1", "09:00")] }),
+    };
   });
-  assert.equal(calls, 2); assert.equal(draft.rows.length, 1);
-  assert.equal(draft.rows[0].placeId, "p1"); assert.equal(draft.unplaced[0].id, "p2");
-  assert.ok(draft.issues.some((issue) => issue.includes("재시도를 완료하지 못했어요")));
+  assert.equal(calls, 2);
+  assert.equal(draft.rows.length, 1);
+  assert.equal(draft.rows[0].placeId, "p1");
+  assert.equal(draft.unplaced[0].id, "p2");
+  assert.ok(
+    draft.issues.some((issue) => issue.includes("재시도를 완료하지 못했어요")),
+  );
 });
-
 
 test("real server ID(name) action syntax is accepted only for an exact selected ID and exact matching name", () => {
   const t = trip();
-  const decode = (action) => ai.decodePlan(t, { suggestions: [{ type: "ADD", action }] });
-  assert.equal(decode("2027-02-02 09:00에 p2(Test Shop) 추가").rows[0].placeId, "p2");
+  const decode = (action) =>
+    ai.decodePlan(t, { suggestions: [{ type: "ADD", action }] });
+  assert.equal(
+    decode("2027-02-02 09:00에 p2(Test Shop) 추가").rows[0].placeId,
+    "p2",
+  );
   assert.equal(decode("2027-02-02 09:00에 p2 추가").rows[0].placeId, "p2");
-  assert.equal(decode("2027-02-02 09:00에 wrong(Test Shop) 추가").rows.length, 0);
+  assert.equal(
+    decode("2027-02-02 09:00에 wrong(Test Shop) 추가").rows.length,
+    0,
+  );
   assert.equal(decode("2027-02-02 09:00에 p2(Wrong Shop) 추가").rows.length, 0);
-  assert.equal(decode("2027-02-02 09:00에 p2(Test Shop) 추가 그리고 p1 방문").rows.length, 0);
+  assert.equal(
+    decode("2027-02-02 09:00에 p2(Test Shop) 추가 그리고 p1 방문").rows.length,
+    0,
+  );
 });
-
 
 test("wire IDs resolve translated names and prose variants without weakening unknown-ID or multi-operation rejection", () => {
-  const t = trip(); const wire = ai.encodePlanRequest(ai.buildPlanRequest(t));
+  const t = trip();
+  const wire = ai.encodePlanRequest(ai.buildPlanRequest(t));
   assert.equal(wire.payload.places[0].id, "AFIELD_001");
   assert.ok(wire.payload.request.includes("AFIELD_001"));
-  assert.equal(wire.payload.request.includes('"placeId":"p1"'),false);
-  const decode=(r)=>ai.decodePlan(t,ai.decodeWireResponse({suggestions:[r]},wire.ids));
-  const row={type:"ADD",action:"2027-02-01 09:00에 Gallery translation (AFIELD_001) 방문"};
-  assert.equal(decode(row).rows[0].placeId,"p1");
-  assert.equal(decode({...row,placeId:"AFIELD_001"}).rows[0].placeId,"p1");
-  assert.equal(decode({...row,placeId:"unknown"}).rows.length,0);
-  assert.equal(decode({...row,type:"MOVE"}).rows.length,0);
-  assert.equal(decode({...row,action:row.action+" AFIELD_002 추가"}).rows.length,0);
-  assert.equal(decode({...row,action:row.action+" 기존 예약 삭제"}).rows.length,0);
-  assert.equal(decode({...row,action:"2027-02-01 09:00 AFIELD_999 방문"}).rows.length,0);
-  assert.equal(decode({...row,action:"2027-02-01 09:00 AFIELD_001 방문 또는 10:00 방문"}).rows.length,0);
+  assert.equal(wire.payload.request.includes('"placeId":"p1"'), false);
+  const decode = (r) =>
+    ai.decodePlan(t, ai.decodeWireResponse({ suggestions: [r] }, wire.ids));
+  const row = {
+    type: "ADD",
+    action: "2027-02-01 09:00에 Gallery translation (AFIELD_001) 방문",
+  };
+  assert.equal(decode(row).rows[0].placeId, "p1");
+  assert.equal(decode({ ...row, placeId: "AFIELD_001" }).rows[0].placeId, "p1");
+  assert.equal(decode({ ...row, placeId: "unknown" }).rows.length, 0);
+  assert.equal(decode({ ...row, type: "MOVE" }).rows.length, 0);
+  assert.equal(
+    decode({ ...row, action: row.action + " AFIELD_002 추가" }).rows.length,
+    0,
+  );
+  assert.equal(
+    decode({ ...row, action: row.action + " 기존 예약 삭제" }).rows.length,
+    0,
+  );
+  assert.equal(
+    decode({ ...row, action: "2027-02-01 09:00 AFIELD_999 방문" }).rows.length,
+    0,
+  );
+  assert.equal(
+    decode({
+      ...row,
+      action: "2027-02-01 09:00 AFIELD_001 방문 또는 10:00 방문",
+    }).rows.length,
+    0,
+  );
 });
 
-test("wire transport does not send local journal photos or private memo text to AI",()=>{
- const t=trip();t.journal=[{id:"record",entryId:"entry",date:t.start,placeName:"Place",note:"PRIVATE JOURNAL",photoUri:"file:///private/photo.jpg",createdAt:new Date().toISOString()}];
- const raw=JSON.stringify(ai.encodePlanRequest(ai.buildPlanRequest(t)).payload);
- assert.equal(raw.includes("PRIVATE JOURNAL"),false);assert.equal(raw.includes("file:///private/photo.jpg"),false);
+test("wire transport does not send local journal photos or private memo text to AI", () => {
+  const t = trip();
+  t.journal = [
+    {
+      id: "record",
+      entryId: "entry",
+      date: t.start,
+      placeName: "Place",
+      note: "PRIVATE JOURNAL",
+      photoUri: "file:///private/photo.jpg",
+      createdAt: new Date().toISOString(),
+    },
+  ];
+  const raw = JSON.stringify(
+    ai.encodePlanRequest(ai.buildPlanRequest(t)).payload,
+  );
+  assert.equal(raw.includes("PRIVATE JOURNAL"), false);
+  assert.equal(raw.includes("file:///private/photo.jpg"), false);
 });
 
-test("wire identifiers do not rewrite user notes or place names that happen to equal a local ID",()=>{
- const t=trip();t.planning.notes="p1";t.importedPlaces[0].name="p1";
- const payload=ai.encodePlanRequest(ai.buildPlanRequest(t)).payload;
- assert.equal(payload.conditions.notes,"p1");assert.equal(payload.places[0].name,"p1");assert.equal(payload.places[0].id,"AFIELD_001");
+test("wire identifiers do not rewrite user notes or place names that happen to equal a local ID", () => {
+  const t = trip();
+  t.planning.notes = "p1";
+  t.importedPlaces[0].name = "p1";
+  const payload = ai.encodePlanRequest(ai.buildPlanRequest(t)).payload;
+  assert.equal(payload.conditions.notes, "p1");
+  assert.equal(payload.places[0].name, "p1");
+  assert.equal(payload.places[0].id, "AFIELD_001");
 });
