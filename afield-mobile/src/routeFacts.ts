@@ -82,17 +82,7 @@ export function bestRoute(
   modes: TravelMode[],
 ) {
   return facts.routes
-    .filter(
-      (r) =>
-        r.from === from &&
-        r.to === to &&
-        modes.includes(r.mode) &&
-        !(
-          r.mode === "walking" &&
-          modes.includes("transit") &&
-          r.durationSeconds > MAX_AUTO_WALK_MINUTES * 60
-        ),
-    )
+    .filter((r) => r.from === from && r.to === to && modes.includes(r.mode))
     .sort((a, b) => a.durationSeconds - b.durationSeconds)[0];
 }
 
@@ -126,7 +116,10 @@ export function assessRoute(
 ) {
   if (from === to) return { kind: "known" as const, minutes: 0 };
   const route = bestRoute(facts, from, to, modes);
-  if (route)
+  if (
+    route &&
+    !(route.mode === "walking" && transitUnavailable(facts, from, to, modes))
+  )
     return {
       kind: "known" as const,
       minutes: Math.ceil(route.durationSeconds / 60),

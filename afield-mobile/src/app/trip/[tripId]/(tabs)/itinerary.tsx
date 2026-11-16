@@ -310,9 +310,12 @@ export default function Itinerary() {
                 from={base.origin.query}
                 to={firstStop.query}
                 mode={
-                  locatedStops[0]?.entry.needsTransitCheck
+                  day.travelModes?.[
+                    legKey("origin", locatedStops[0].entry.id)
+                  ] ||
+                  (locatedStops[0]?.entry.needsTransitCheck
                     ? "transit"
-                    : planningModes(trip?.planning)[0]
+                    : planningModes(trip?.planning)[0])
                 }
                 pendingTransit={!!locatedStops[0]?.entry.needsTransitCheck}
               />
@@ -519,9 +522,12 @@ export default function Itinerary() {
                       from={location.query}
                       to={laterLocated.location.query}
                       mode={
-                        item.needsTransitCheck
+                        day.travelModes?.[
+                          legKey(item.id, laterLocated.entry.id)
+                        ] ||
+                        (item.needsTransitCheck
                           ? "transit"
-                          : planningModes(trip?.planning)[0]
+                          : planningModes(trip?.planning)[0])
                       }
                       pendingTransit={!!item.needsTransitCheck}
                     />
@@ -683,9 +689,16 @@ export default function Itinerary() {
                 from={lastStop.query}
                 to={base.destination.query}
                 mode={
-                  locatedStops[locatedStops.length - 1]?.entry.needsTransitCheck
+                  day.travelModes?.[
+                    legKey(
+                      locatedStops[locatedStops.length - 1].entry.id,
+                      "destination",
+                    )
+                  ] ||
+                  (locatedStops[locatedStops.length - 1]?.entry
+                    .needsTransitCheck
                     ? "transit"
-                    : planningModes(trip?.planning)[0]
+                    : planningModes(trip?.planning)[0])
                 }
                 pendingTransit={
                   !!locatedStops[locatedStops.length - 1]?.entry

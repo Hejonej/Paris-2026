@@ -3,7 +3,7 @@ import { planningRoutes } from "../../../liveRoutes";
 import { placeText } from "../../../placeText";
 import { Sheet } from "../../../sheet";
 import { PlaceSearch } from "../../../placeSearch";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
   Linking,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useNavigation } from "expo-router";
 import { Page, H, P, Label, Field, Action, s } from "../../../ui";
 import { DateField } from "../../../tripFields";
 import { useTripParams } from "../../../route";
@@ -53,6 +53,7 @@ function TimeInput({
 }
 export default function Plan() {
   const { tripId } = useTripParams();
+  const navigation = useNavigation();
   const router = useRouter();
   const store = useTrips();
   const trip = store.trips.find((t) => t.id === tripId);
@@ -71,11 +72,45 @@ export default function Plan() {
         },
       ),
   );
-  const [section, setSection] = useState("places");
+  const [section, setSection] = useState("stays");
+  const [step, setStep] = useState<0 | 1 | 2>(trip?.planning?.wizardStep || 0);
   const [review, setReview] = useState(!!trip?.planDraft);
   const [selected, setSelected] = useState<Set<string>>(
     new Set(trip?.planDraft?.rows.map((r) => r.id) || []),
   );
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerLeft:
+        step > 0 || review
+          ? () => (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  review ? "여행 조건으로 돌아가기" : "이전 단계로 돌아가기"
+                }
+                hitSlop={8}
+                onPress={() => {
+                  if (review) setReview(false);
+                  else setStep((step - 1) as 0 | 1);
+                  setError("");
+                }}
+                style={{
+                  minHeight: 48,
+                  paddingHorizontal: 16,
+                  justifyContent: "center",
+                }}
+              >
+                <Text
+                  style={{ fontSize: 18, fontWeight: "600", color: ui.ink }}
+                >
+                  ‹ 뒤로
+                </Text>
+              </Pressable>
+            )
+          : undefined,
+    });
+    return () => navigation.setOptions({ headerLeft: undefined });
+  }, [step, review, navigation]);
   const [busy, setBusy] = useState(false);
   const [feedbackKey, setFeedbackKey] = useState(0);
   const [error, setError] = useState("");
@@ -95,8 +130,10 @@ export default function Plan() {
   const running = useRef(false);
   useEffect(() => () => controller.current?.abort(), []);
   useEffect(() => {
-    if (store.ready && trip)
+    if (store.ready && trip) {
       setC(syncPlanningPlaces(trip, trip.planning || defaultConditions(trip)));
+      setStep(trip.planning?.wizardStep || 0);
+    }
   }, [store.ready, tripId]);
   const readyKey = trip
     ? readyPlaces(trip)
@@ -180,28 +217,52 @@ export default function Plan() {
     }
   }
   const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-  const panel = (key: string, title: string, children: React.ReactNode) => (
-    <View
-      style={{
-        borderBottomWidth: 1,
-        borderColor: ui.line,
-        paddingVertical: 16,
-        marginBottom: 8,
-      }}
-    >
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ expanded: section === key }}
-        onPress={() => setSection(section === key ? "" : key)}
-        style={{ minHeight: 48, justifyContent: "center" }}
+  const panel = (key: string, title: string, children: React.ReactNode) => {
+    const required = key === "places" ? 1 : key === "rhythm" ? 2 : 0;
+    if (step !== required) return null;
+    return (
+      <View
+        style={{
+          borderBottomWidth: 1,
+          borderColor: ui.line,
+          paddingVertical: 16,
+          marginBottom: 8,
+        }}
       >
-        <Text style={s.title}>
-          {title} {section === key ? "−" : "＋"}
-        </Text>
-      </Pressable>
-      {section === key && <View style={{ paddingTop: 16 }}>{children}</View>}
-    </View>
-  );
+        <Text style={s.title}>{title}</Text>
+        <View style={{ paddingTop: 16 }}>{children}</View>
+      </View>
+    );
+  };
+  function openPlaces(instagram: boolean) {
+    const saved = { ...c, wizardStep: 1 as const };
+    const result = store.savePlanning(tripId, saved);
+    if (!result.ok) {
+      setError(result.message);
+      return;
+    }
+    setC(saved);
+    router.push({
+      pathname: instagram
+        ? "/trip/[tripId]/instagram"
+        : "/trip/[tripId]/candidates",
+      params: { tripId, section: "places", returnTo: "plan" },
+    });
+  }
+  function nextStep() {
+    const next = Math.min(2, step + 1) as 0 | 1 | 2;
+    const updated = { ...c, wizardStep: next };
+    const result = store.savePlanning(tripId, updated);
+    if (!result.ok) {
+      setError(result.message);
+      return;
+    }
+    setC(updated);
+    setStep(next);
+    setError("");
+    setMessage("저장했어요.");
+    setFeedbackKey((v) => v + 1);
+  }
   if (review && draft) {
     const stale = planningSnapshot(trip) !== draft.baseSnapshot;
     const chosen = draft.rows.filter((r) => selected.has(r.id));
@@ -696,47 +757,65 @@ export default function Plan() {
     );
   }
   return (
-    <Page resetKey={`form-${feedbackKey}`}>
-      <Label>1 · 여행 조건</Label>
-      <H>모아 둔 곳을 하나의 여행으로</H>
-      <P>장소를 고르고, 필요한 여행 조건만 더해 주세요.</P>
-      <View
-        style={{
-          borderLeftWidth: 2,
-          borderColor: ui.ink,
-          paddingLeft: 14,
-          paddingVertical: 8,
-          marginBottom: 20,
-        }}
-      >
-        <Text style={s.title}>
-          주소 확인 {eligible.length}곳 · 이번 계획에 {active.length}곳
-        </Text>
-        <P>
-          {eligible.length - active.length > 0
-            ? `저장한 곳 중 ${eligible.length - active.length}곳은 아직 선택되지 않았어요.`
-            : "선택한 장소를 바탕으로 날짜와 시간을 제안해요. Google에서 실제 거리와 이동 시간을 조회해 반영해요."}
-        </P>
-        <Action
-          title="계획할 장소 확인"
-          tone="link"
-          onPress={() => setSection("places")}
-        />
-        {!!eligible.length && (
-          <Action
-            title="미배치 장소 모두 선택"
-            tone="secondary"
-            onPress={() => {
-              setC((prev) => ({
-                ...prev,
-                selectedIds: eligible.slice(0, 100).map((p) => p.id),
-                knownPlaceIds: eligible.map((p) => p.id),
-              }));
-              setSection("places");
+    <Page resetKey={`form-${step}-${feedbackKey}`}>
+      <Label>
+        {step + 1} / 3 ·{" "}
+        {["숙소·항공편·예약", "장소 모으기", "하루 리듬과 취향"][step]}
+      </Label>
+      <H>
+        {
+          [
+            "먼저 정해진 시간을 알려주세요",
+            "가고 싶은 곳을 모아보세요",
+            "어떤 하루를 보내고 싶나요?",
+          ][step]
+        }
+      </H>
+      <P>
+        {
+          [
+            "숙소·항공편·예약을 먼저 저장해요. 아직 미정인 항목은 건너뛸 수 있어요.",
+            "Instagram에서 가져오거나 직접 저장한 장소 중 이번에 계획할 곳을 골라요.",
+            "하루의 속도와 식사, 이동수단과 추가 요청을 간단히 알려주세요.",
+          ][step]
+        }
+      </P>
+      {step === 1 && (
+        <>
+          <View
+            style={{
+              borderLeftWidth: 2,
+              borderColor: ui.ink,
+              paddingLeft: 14,
+              paddingVertical: 8,
+              marginBottom: 20,
             }}
-          />
-        )}
-      </View>
+          >
+            <Text style={s.title}>
+              주소 확인 {eligible.length}곳 · 이번 계획에 {active.length}곳
+            </Text>
+            <P>
+              {eligible.length - active.length > 0
+                ? `저장한 곳 중 ${eligible.length - active.length}곳은 아직 선택되지 않았어요.`
+                : "선택한 장소를 바탕으로 날짜와 시간을 제안해요. Google에서 실제 거리와 이동 시간을 조회해 반영해요."}
+            </P>
+            {!!eligible.length && (
+              <Action
+                title="미배치 장소 모두 선택"
+                tone="secondary"
+                onPress={() => {
+                  setC((prev) => ({
+                    ...prev,
+                    selectedIds: eligible.slice(0, 100).map((p) => p.id),
+                    knownPlaceIds: eligible.map((p) => p.id),
+                  }));
+                  setSection("places");
+                }}
+              />
+            )}
+          </View>
+        </>
+      )}
       {!!error && (
         <Text
           accessibilityRole="alert"
@@ -751,10 +830,12 @@ export default function Plan() {
           {error}
         </Text>
       )}
-      <P>
-        일반 장소는 방문 순서와 도착 시각만 제안해요. 머무는 시간은 자유롭게
-        조절하고, 예약·항공편처럼 시간이 정해진 일정만 보호해요.
-      </P>
+      {step === 2 && (
+        <P>
+          일반 장소는 방문 순서와 도착 시각만 제안해요. 머무는 시간은 자유롭게
+          조절하고, 예약·항공편처럼 시간이 정해진 일정만 보호해요.
+        </P>
+      )}
       {busy && (
         <View
           style={{
@@ -861,14 +942,14 @@ export default function Plan() {
               </P>
             )}
             <Action
+              title="Instagram JSON에서 장소 가져오기"
+              secondary
+              onPress={() => openPlaces(true)}
+            />
+            <Action
               title="가고 싶은 곳에서 위치 확인"
               secondary
-              onPress={() =>
-                router.push({
-                  pathname: "/trip/[tripId]/candidates",
-                  params: { tripId, section: "places" },
-                })
-              }
+              onPress={() => openPlaces(false)}
             />
             <Action
               title="장소 직접 추가"
@@ -1013,6 +1094,10 @@ export default function Plan() {
               식사·휴식은 희망 시각만 참고해요. 머무는 시간은 고정하지 않아요.
             </P>
             <Label>이동 방식 · 여러 개 선택 가능</Label>
+            <P>
+              선택한 수단 중 실제 조회 시간이 더 짧은 수단으로 구간을 계획해요.
+              미확인 시간은 더 빠르다고 가정하지 않아요.
+            </P>
             <View
               style={{
                 flexDirection: "row",
@@ -1364,24 +1449,28 @@ export default function Plan() {
             />
           </>,
         )}
-        <View style={{ marginTop: 18 }}>
-          <Label>여행 취향·짐 보관·추가 요청 · 선택</Label>
-          <Field
-            accessibilityLabel="AI에게 전할 여행 요청"
-            value={c.notes}
-            onChangeText={(v) => update("notes", v)}
-            multiline
-            style={{ minHeight: 100 }}
-            maxLength={1000}
-            placeholder="많이 걷지 않기, 마지막 날 짐 보관 장소 등"
-          />
-        </View>
+        {step === 2 && (
+          <View style={{ marginTop: 18 }}>
+            <Label>여행 취향·짐 보관·추가 요청 · 선택</Label>
+            <Field
+              accessibilityLabel="AI에게 전할 여행 요청"
+              value={c.notes}
+              onChangeText={(v) => update("notes", v)}
+              multiline
+              style={{ minHeight: 100 }}
+              maxLength={1000}
+              placeholder="많이 걷지 않기, 마지막 날 짐 보관 장소 등"
+            />
+          </View>
+        )}
       </View>
-      <P>
-        선택한 장소·주소·여행 조건·기존 일정만 AI에 보내요. 영업시간·날씨·실제
-        이동은 별도 확인이 필요해요. 제안을 검토한 뒤 적용합니다.
-      </P>
-      {!active.length && (
+      {step === 2 && (
+        <P>
+          선택한 장소·주소·여행 조건·기존 일정만 AI에 보내요. 영업시간·날씨·실제
+          이동은 별도 확인이 필요해요. 제안을 검토한 뒤 적용합니다.
+        </P>
+      )}
+      {step === 1 && !active.length && (
         <P>
           제안할 장소가 없어요. ‘새로 넣을 장소’에서 위치가 확인된 곳을
           선택하거나 직접 추가해 주세요.
@@ -1399,18 +1488,40 @@ export default function Plan() {
         <P>제안을 생성하고 있어요. 위에서 취소할 수 있어요.</P>
       ) : (
         <>
-          <Action
-            title="조건 저장하고 AI 제안받기"
-            tone="primary"
-            disabled={!trip.days.length || !active.length}
-            onPress={generate}
-          />
+          {step < 2 ? (
+            <Action
+              title={
+                step === 0
+                  ? "저장하고 장소 모으기"
+                  : "저장하고 여행 리듬 정하기"
+              }
+              onPress={nextStep}
+            />
+          ) : (
+            <Action
+              title="조건 저장하고 AI 제안받기"
+              tone="primary"
+              disabled={!trip.days.length || !active.length}
+              onPress={generate}
+            />
+          )}
+          {step > 0 && (
+            <Action
+              title="이전 단계"
+              secondary
+              onPress={() => {
+                setStep((step - 1) as 0 | 1);
+                setError("");
+                setMessage("");
+              }}
+            />
+          )}
           <Action
             title="조건만 저장"
             secondary
             onPress={() => {
               setFeedbackKey((v) => v + 1);
-              const r = store.savePlanning(tripId, c);
+              const r = store.savePlanning(tripId, { ...c, wizardStep: step });
               if (r.ok) {
                 setError("");
                 setMessage(r.message);

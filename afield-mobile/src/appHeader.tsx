@@ -6,9 +6,11 @@ import { ui } from "./theme";
 export function AppHeader({
   title,
   back = true,
+  backContent,
 }: {
   title: string;
   back?: boolean;
+  backContent?: React.ReactNode;
 }) {
   const insets = useSafeAreaInsets();
   return (
@@ -43,7 +45,7 @@ export function AppHeader({
               justifyContent: "center",
             }}
           >
-            <DetailBack />
+            {backContent || <DetailBack />}
           </View>
         )}
       </View>

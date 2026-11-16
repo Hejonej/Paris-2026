@@ -11,7 +11,7 @@ import {
 } from "./planner";
 import { entryLocation } from "./routing";
 import { inferActivity } from "./activities";
-import { bestRoute } from "./routeFacts";
+import { bestRoute, assessRoute } from "./routeFacts";
 import type { RouteContext } from "./routeFacts";
 // A constraint-based scheduling pass, not another AI response. It never moves an existing stop.
 export function fillRouteSlots(
@@ -69,7 +69,16 @@ export function fillRouteSlots(
             r.mode === "walking",
         );
       if (!geographic) continue;
-      cost += geographic.distanceMeters;
+      const assessment = assessRoute(
+        facts,
+        addresses[i - 1],
+        addresses[i],
+        modes,
+      );
+      cost +=
+        assessment.kind === "known"
+          ? assessment.minutes * 60
+          : geographic.distanceMeters;
     }
     return cost;
   };

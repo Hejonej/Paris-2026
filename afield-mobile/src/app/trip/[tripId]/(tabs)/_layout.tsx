@@ -1,5 +1,10 @@
 import React from "react";
-import { Tabs, useLocalSearchParams, useRouter, usePathname } from "expo-router";
+import {
+  Tabs,
+  useLocalSearchParams,
+  useRouter,
+  usePathname,
+} from "expo-router";
 import { Pressable, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -7,10 +12,16 @@ import { ui } from "../../../../theme";
 import { useTrips } from "../../../../store";
 import { Redirect } from "expo-router";
 export default function TripTabs() {
-  const { tripId, returnTo, date } = useLocalSearchParams<{ tripId: string; returnTo?: string; date?: string }>();
+  const { tripId, returnTo, date } = useLocalSearchParams<{
+    tripId: string;
+    returnTo?: string;
+    date?: string;
+  }>();
   const router = useRouter();
   const pathname = usePathname();
-  const returning = returnTo === "itinerary" && pathname.endsWith("/candidates");
+  const returningPlan = returnTo === "plan" && pathname.endsWith("/candidates");
+  const returning =
+    returnTo === "itinerary" && pathname.endsWith("/candidates");
   const insets = useSafeAreaInsets();
   const { trips } = useTrips();
   const trip = trips.find((t) => t.id === tripId);
@@ -27,21 +38,50 @@ export default function TripTabs() {
         headerLeft: () => (
           <Pressable
             accessibilityRole="button"
-      hitSlop={8}
-            accessibilityLabel={returning ? "일정으로 돌아가기" : "여행 목록으로"}
-            onPress={() => returning ? router.navigate({ pathname: "/trip/[tripId]/itinerary", params: { tripId, date, returnTo: "" } }) : router.dismissTo("/chapters")}
+            hitSlop={8}
+            accessibilityLabel={
+              returningPlan
+                ? "AI 계획으로 돌아가기"
+                : returning
+                  ? "일정으로 돌아가기"
+                  : "여행 목록으로"
+            }
+            onPress={() =>
+              returningPlan
+                ? router.dismissTo({
+                    pathname: "/trip/[tripId]/plan",
+                    params: { tripId },
+                  })
+                : returning
+                  ? router.navigate({
+                      pathname: "/trip/[tripId]/itinerary",
+                      params: { tripId, date, returnTo: "" },
+                    })
+                  : router.dismissTo("/chapters")
+            }
             style={{
               paddingHorizontal: 16,
               minHeight: 48,
               justifyContent: "center",
             }}
           >
-            <Text style={{ color: ui.accent, fontSize: 18, fontWeight: "600" }}>{returning ? "‹ 일정" : "‹ 여행 목록"}</Text>
+            <Text style={{ color: ui.accent, fontSize: 18, fontWeight: "600" }}>
+              {returningPlan
+                ? "‹ AI 계획"
+                : returning
+                  ? "‹ 일정"
+                  : "‹ 여행 목록"}
+            </Text>
           </Pressable>
         ),
         headerStyle: { backgroundColor: ui.bg },
         headerTitleAlign: "center",
-        tabBarLabelStyle: { fontSize: 11, lineHeight: 14, marginTop: 2, fontWeight: "500" },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          lineHeight: 14,
+          marginTop: 2,
+          fontWeight: "500",
+        },
         tabBarIconStyle: { width: 24, height: 24 },
         tabBarItemStyle: { minHeight: 44 },
         headerTitleStyle: { fontWeight: "700" },

@@ -640,7 +640,7 @@ export function encodePlanRequest(
     boundary < 0 ? body.request : body.request.slice(0, boundary);
   payload.request =
     instruction +
-    " Walking legs longer than 30 minutes must use transit when transit is selected; unavailable transit must NOT be replaced by a long walking leg. Use ONLY the short AFIELD_NNN identifiers in places. Names are display text, not identifiers. The app will map IDs back; never omit an ID or ask the user to choose a date/time." +
+    " For every leg choose the SHORTEST actual duration among the user-selected modes: walking OR transit OR driving. Never force transit just because walking exceeds 30 minutes when a verified walking route is faster. If transit is unavailable, do not assume a long walking route is the best mixed-mode option; flag the leg as unverified. Use ONLY the short AFIELD_NNN identifiers in places. Names are display text, not identifiers. The app will map IDs back; never omit an ID or ask the user to choose a date/time." +
     marker +
     JSON.stringify({
       routeContext: payload.routeContext,

@@ -12,6 +12,10 @@ function harness(params, initialRaw = null, options = {}) {
   let raw = initialRaw;
   const navigation = [];
   const openedUrls = [];
+  const headerOptions = {};
+  const stackNavigation = {
+    setOptions: (options) => Object.assign(headerOptions, options),
+  };
   const storage = {
     getItem: async () => raw,
     setItem: async (k, v) => {
@@ -152,6 +156,7 @@ function harness(params, initialRaw = null, options = {}) {
           useLocalSearchParams: () => params,
           useGlobalSearchParams: () => params,
           useRouter: () => router,
+          useNavigation: () => stackNavigation,
           useFocusEffect: (callback) => React.useEffect(callback, [callback]),
         };
       if (name === "@react-native-async-storage/async-storage") return storage;
@@ -218,6 +223,7 @@ function harness(params, initialRaw = null, options = {}) {
     },
     navigation,
     openedUrls,
+    headerOptions,
   };
 }
 function tapText(view, text) {
@@ -227,6 +233,14 @@ function tapText(view, text) {
   while (n && typeof n.props.onPress !== "function") n = n.parent;
   if (!n) throw Error("No action for " + text);
   return n.props.onPress();
+}
+async function advancePlanner(view, target) {
+  for (const [index, title] of [
+    "저장하고 장소 모으기",
+    "저장하고 여행 리듬 정하기",
+  ].entries())
+    if (index < target && words(view.tree).includes(title))
+      await act(async () => tapText(view, title));
 }
 function words(tree) {
   return JSON.stringify(tree.toJSON());
@@ -1463,6 +1477,7 @@ test("native planning flows from a manual saved place to review, then explicit a
         .findAll((n) => n.type === "Text" && n.children.includes(text))[0]
         .parent.props.onPress(),
     );
+  await advancePlanner(view, 1);
   await press("장소 직접 추가");
   await act(async () => {
     view.tree.root
@@ -1476,6 +1491,7 @@ test("native planning flows from a manual saved place to review, then explicit a
   });
   await press("확인한 주소로 장소 저장");
   assert.equal(JSON.stringify(view.store.trips[0].days), before);
+  await advancePlanner(view, 2);
   await press("조건 저장하고 AI 제안받기");
   assert.ok(words(view.tree).includes("이렇게 여행해 볼까요?"));
   assert.equal(JSON.stringify(view.store.trips[0].days), before);
@@ -1536,6 +1552,7 @@ test("native planning reports AI connection failure without touching any existin
   });
   const form = await mountScreen(next, "src/app/trip/[tripId]/plan.tsx");
   const before = JSON.stringify(form.store.trips[0].days);
+  await advancePlanner(form, 2);
   await act(async () =>
     form.tree.root
       .findAll(
@@ -1720,6 +1737,7 @@ test("trip cover selection previews, saves persistently and can restore the defa
   });
   const form = await mountScreen(h, "src/app/trip/[tripId]/edit.tsx");
   const before = JSON.stringify(form.store.trips[0].days);
+  await advancePlanner(form, 2);
   const click = async (view, label) =>
     act(async () =>
       view.tree.root
@@ -1798,7 +1816,7 @@ test("transport controls independently toggle and keep at least one mode", async
     harness({ tripId: "paris" }),
     "src/app/trip/[tripId]/plan.tsx",
   );
-  await act(async () => tapText(view, "하루의 속도와 식사"));
+  await advancePlanner(view, 2);
   const control = (mode) =>
     view.tree.root.findAll(
       (n) =>
@@ -1838,9 +1856,10 @@ test("legacy planning with unselected saved places exposes counts and explicit s
       (n) =>
         n.type === "Text" && n.children.includes("조건 저장하고 AI 제안받기"),
     )[0].parent;
-  assert.equal(proposalButton().props.disabled, true);
+  await advancePlanner(view, 1);
   assert.ok(words(view.tree).includes("아직 선택되지 않았어요"));
   await act(async () => tapText(view, "미배치 장소 모두 선택"));
+  await advancePlanner(view, 2);
   assert.equal(proposalButton().props.disabled, false);
   await act(async () => view.tree.unmount());
 });
@@ -1972,6 +1991,7 @@ test("AI omissions are filled by the explicit constraint scheduling pass without
   });
   const view = await mountScreen(h, "src/app/trip/[tripId]/plan.tsx");
   const before = JSON.stringify(view.store.trips[0].days);
+  await advancePlanner(view, 2);
   await act(async () => tapText(view, "조건 저장하고 AI 제안받기"));
   assert.equal(calls, 2);
   assert.ok(words(view.tree).includes("이렇게 여행해 볼까요?"));
@@ -2224,6 +2244,7 @@ test("Tokyo can propose a geographic insertion with unknown transit, but require
   });
   const view = await mountScreen(h, "src/app/trip/[tripId]/plan.tsx"),
     before = JSON.stringify(view.store.trips[0].days);
+  await advancePlanner(view, 2);
   await act(async () => tapText(view, "조건 저장하고 AI 제안받기"));
   const visible = words(view.tree);
   assert.ok(
@@ -2258,5 +2279,55 @@ test("Tokyo can propose a geographic insertion with unknown transit, but require
     stored.find((e) => e.placeId === "ozeki").needsTransitCheck,
     true,
   );
+  await act(async () => view.tree.unmount());
+});
+
+test("planner wizard saves each stage, resumes after restart and keeps Instagram return in the place stage", async () => {
+  const h = harness({ tripId: "paris" });
+  const view = await mountScreen(h, "src/app/trip/[tripId]/plan.tsx");
+  const before = JSON.stringify(view.store.trips[0].days);
+  assert.ok(words(view.tree).includes("먼저 정해진 시간을 알려주세요"));
+  assert.equal(words(view.tree).includes("하루의 속도와 식사"), false);
+  assert.equal(words(view.tree).includes("조건 저장하고 AI 제안받기"), false);
+  await advancePlanner(view, 1);
+  assert.equal(view.store.trips[0].planning.wizardStep, 1);
+  assert.ok(words(view.tree).includes("Instagram JSON에서 장소 가져오기"));
+  assert.equal(words(view.tree).includes("하루의 속도와 식사"), false);
+  await act(async () => h.headerOptions.headerLeft().props.onPress());
+  assert.ok(words(view.tree).includes("먼저 정해진 시간을 알려주세요"));
+  await advancePlanner(view, 1);
+  await act(async () => tapText(view, "Instagram JSON에서 장소 가져오기"));
+  assert.equal(h.navigation.at(-1).pathname, "/trip/[tripId]/instagram");
+  assert.equal(h.navigation.at(-1).params.returnTo, "plan");
+  const raw = h.raw;
+  await act(async () => view.tree.unmount());
+  const resumed = await mountScreen(
+    harness({ tripId: "paris" }, raw),
+    "src/app/trip/[tripId]/plan.tsx",
+  );
+  assert.ok(words(resumed.tree).includes("가고 싶은 곳을 모아보세요"));
+  await advancePlanner(resumed, 2);
+  assert.equal(resumed.store.trips[0].planning.wizardStep, 2);
+  assert.ok(words(resumed.tree).includes("하루의 속도와 식사"));
+  assert.equal(
+    words(resumed.tree).includes("Instagram JSON에서 장소 가져오기"),
+    false,
+  );
+  assert.equal(JSON.stringify(resumed.store.trips[0].days), before);
+  await act(async () => tapText(resumed, "이전 단계"));
+  assert.ok(words(resumed.tree).includes("가고 싶은 곳을 모아보세요"));
+  await act(async () => resumed.tree.unmount());
+});
+test("candidate navigation launched from the wizard returns to AI planning instead of chapters", async () => {
+  const h = harness({ tripId: "paris", returnTo: "plan" }, null, {
+    pathname: "/trip/paris/candidates",
+  });
+  const view = await mountScreen(h, "src/app/trip/[tripId]/(tabs)/_layout.tsx");
+  const back = view.tree.root
+    .findByType("Tabs")
+    .props.screenOptions.headerLeft();
+  assert.equal(back.props.accessibilityLabel, "AI 계획으로 돌아가기");
+  await act(async () => back.props.onPress());
+  assert.equal(h.navigation.at(-1).pathname, "/trip/[tripId]/plan");
   await act(async () => view.tree.unmount());
 });

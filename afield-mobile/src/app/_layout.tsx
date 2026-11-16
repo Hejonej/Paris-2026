@@ -38,6 +38,10 @@ function Shell() {
             <AppHeader
               title={options.title || "Afield"}
               back={route.name !== "chapters"}
+              backContent={options.headerLeft?.({
+                tintColor: ui.ink,
+                canGoBack: true,
+              })}
             />
           ),
           headerShadowVisible: false,

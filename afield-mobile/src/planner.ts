@@ -1,8 +1,8 @@
 import { reservedMinutes } from "./visitTiming";
 import { routeConflicts, collectPendingTransfers } from "./routeChecks";
-import { bestRoute, validRouteContext } from "./routeFacts";
+import { bestRoute, assessRoute, validRouteContext } from "./routeFacts";
 import type { RouteContext, PendingTransfer } from "./routeFacts";
-import { legKey } from "./routing";
+import { legKey, entryLocation } from "./routing";
 import { tripPlaces } from "./data";
 import type { Trip, Entry, ActivityTag } from "./data";
 import { inferActivity } from "./activities";
@@ -33,6 +33,7 @@ export type FixedEvent = {
   query: string;
 };
 export type PlanningConditions = {
+  wizardStep?: 0 | 1 | 2;
   rangeStart?: string;
   rangeEnd?: string;
   pace: "relaxed" | "balanced" | "active";
@@ -155,6 +156,7 @@ export function validConditions(c: unknown): c is PlanningConditions {
     ) &&
     typeof x.notes === "string" &&
     x.notes.length <= 1000 &&
+    (x.wizardStep === undefined || [0, 1, 2].includes(x.wizardStep)) &&
     !!x.durations &&
     typeof x.durations === "object" &&
     !Array.isArray(x.durations) &&
@@ -271,7 +273,9 @@ export const planningSnapshot = (trip: Trip) =>
     start: trip.start,
     end: trip.end,
     days: trip.days,
-    conditions: trip.planning,
+    conditions: trip.planning
+      ? { ...trip.planning, wizardStep: undefined }
+      : undefined,
     places: readyPlaces(trip).map((p) => ({
       id: p.id,
       name: p.name,
@@ -674,7 +678,11 @@ export function savePlanning(trips: Trip[], id: string, c: PlanningConditions) {
             ...t,
             planning: c,
             planDraft:
-              JSON.stringify(t.planning) === JSON.stringify(c)
+              JSON.stringify(
+                t.planning
+                  ? { ...t.planning, wizardStep: undefined }
+                  : undefined,
+              ) === JSON.stringify({ ...c, wizardStep: undefined })
                 ? t.planDraft
                 : undefined,
           }
@@ -801,14 +809,61 @@ export function applyDraft(
         modes[key] === undefined
       )
         modes[key] = draft.routeContext
-          ? bestRoute(
-              draft.routeContext,
-              entry.location?.query || "",
-              after.location?.query || "",
-              planningModes(c),
-            )?.mode || routeMode(c)
+          ? (() => {
+              const route = assessRoute(
+                draft.routeContext!,
+                entry.location?.query || "",
+                after.location?.query || "",
+                planningModes(c),
+              );
+              return route.kind === "pending"
+                ? "transit"
+                : route.kind === "known"
+                  ? route.route?.mode || routeMode(c)
+                  : routeMode(c);
+            })()
           : routeMode(c);
     });
+    const physical = day.items.filter((e) => !!entryLocation(e));
+    const choose = (from: string, to: string) => {
+      if (!draft.routeContext) return routeMode(c);
+      const result = assessRoute(
+        draft.routeContext,
+        from,
+        to,
+        planningModes(c),
+      );
+      return result.kind === "pending"
+        ? "transit"
+        : result.kind === "known"
+          ? result.route?.mode || routeMode(c)
+          : routeMode(c);
+    };
+    for (let i = 1; i < physical.length; i++) {
+      const a = physical[i - 1],
+        b = physical[i];
+      const key = legKey(a.id, b.id);
+      if (
+        modes[key] === undefined &&
+        (addedIds.has(a.id) || addedIds.has(b.id))
+      )
+        modes[key] = choose(entryLocation(a)!.query, entryLocation(b)!.query);
+    }
+    const base = checked.bases.find((b) => b.date === day.date);
+    if (physical.length && base?.origin) {
+      const key = legKey("origin", physical[0].id);
+      if (modes[key] === undefined)
+        modes[key] = choose(
+          base.origin.query,
+          entryLocation(physical[0])!.query,
+        );
+    }
+    if (physical.length && base?.destination) {
+      const last = physical[physical.length - 1],
+        key = legKey(last.id, "destination");
+      if (modes[key] === undefined)
+        modes[key] = choose(entryLocation(last)!.query, base.destination.query);
+    }
     return {
       ...day,
       travelModes: Object.keys(modes).length ? modes : day.travelModes,

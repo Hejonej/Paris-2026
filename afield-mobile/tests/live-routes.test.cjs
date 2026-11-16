@@ -235,7 +235,11 @@ test("mixed walking/transit never silently substitutes a 193-minute walk when tr
       },
     ],
   };
-  assert.equal(bestRoute(f, "a", "b", ["walking", "transit"]), undefined);
+  assert.equal(
+    load("src/routeFacts.ts").assessRoute(f, "a", "b", ["walking", "transit"])
+      .kind,
+    "missing",
+  );
   assert.equal(bestRoute(f, "a", "b", ["walking"]).durationSeconds, 193 * 60);
   f.routes.push({
     from: "a",
@@ -592,4 +596,31 @@ test("ordinary visits ignore legacy dwell settings while real reservation interv
       .length,
     0,
   );
+});
+
+test("verified walking versus transit always uses the shortest allowed duration even over 30 minutes", () => {
+  const f = facts();
+  for (const r of f.routes)
+    if (r.from === "a" && r.to === "b")
+      r.durationSeconds = r.mode === "walking" ? 35 * 60 : 45 * 60;
+  assert.equal(bestRoute(f, "a", "b", ["walking", "transit"]).mode, "walking");
+  assert.equal(
+    load("src/routeFacts.ts").assessRoute(f, "a", "b", ["walking", "transit"])
+      .minutes,
+    35,
+  );
+  for (const r of f.routes)
+    if (r.from === "a" && r.to === "b" && r.mode === "transit")
+      r.durationSeconds = 20 * 60;
+  assert.equal(bestRoute(f, "a", "b", ["walking", "transit"]).mode, "transit");
+  assert.equal(bestRoute(f, "a", "b", ["walking"]).mode, "walking");
+});
+test("wizard navigation metadata does not invalidate a reviewed plan or change the scheduling snapshot", () => {
+  const t = fixture();
+  t.planDraft = ai.decodePlan(t, { suggestions: [suggestion("a", "10:00")] });
+  const before = p.planningSnapshot(t);
+  const saved = p.savePlanning([t], t.id, { ...t.planning, wizardStep: 1 });
+  assert.equal(saved.ok, true);
+  assert.equal(saved.trips[0].planDraft.id, t.planDraft.id);
+  assert.equal(p.planningSnapshot(saved.trips[0]), before);
 });
