@@ -1,5 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
-import { View, Text, Linking } from "react-native";
+import { View, Text, Linking, Pressable, Keyboard } from "react-native";
+import { ui } from "./theme";
+import {
+  SearchDropdown,
+  searchStyles,
+  useSearchVisibility,
+} from "./searchDropdown";
 import { Action, Field, P, s } from "./ui";
 import { searchPlaceAddress } from "./liveRoutes";
 import { matchPlace } from "./matching";
@@ -24,6 +30,11 @@ export function PlaceSearch({
   const [results, setResults] = useState<GoogleMatch[]>([]);
   const [message, setMessage] = useState("");
   const request = useRef(0);
+  const anchor = useRef<View>(null);
+  const reveal = useSearchVisibility();
+  useEffect(() => {
+    if (results.length) reveal(anchor, Math.min(results.length * 88, 200) + 36);
+  }, [results]);
   useEffect(() => {
     setQuery(name);
     setResults([]);
@@ -75,25 +86,61 @@ export function PlaceSearch({
     }
   }
   return (
-    <View style={{ marginBottom: 12 }}>
-      <Field
-        accessibilityLabel="장소 검색어"
-        placeholder="호텔·장소 이름으로 검색"
-        value={query}
-        onChangeText={(v) => {
-          request.current++;
-          setBusy(false);
-          setQuery(v);
-          onNameChange?.(v);
-          setResults([]);
-          setMessage("");
-        }}
-        maxLength={120}
-        returnKeyType="search"
-        onSubmitEditing={() => {
-          if (query.trim() && !busy) void search();
-        }}
-      />
+    <View style={{ marginBottom: 12, zIndex: results.length ? 100 : 0 }}>
+      <View ref={anchor} collapsable={false} style={{ zIndex: 100 }}>
+        <Field
+          accessibilityLabel="장소 검색어"
+          placeholder="호텔·장소 이름으로 검색"
+          value={query}
+          style={{
+            marginBottom: 0,
+            ...(results.length ? { borderColor: ui.blue } : {}),
+          }}
+          onChangeText={(v) => {
+            request.current++;
+            setBusy(false);
+            setQuery(v);
+            onNameChange?.(v);
+            setResults([]);
+            setMessage("");
+          }}
+          maxLength={120}
+          returnKeyType="search"
+          onSubmitEditing={() => {
+            if (query.trim() && !busy) void search();
+          }}
+        />
+        {!!results.length && (
+          <SearchDropdown
+            count={results.length}
+            label="Google Maps · 검색 결과"
+          >
+            {results.map((r) => (
+              <Pressable
+                key={r.googlePlaceId}
+                accessibilityRole="button"
+                accessibilityLabel={`이 장소 선택 · 주소 가져오기: ${r.name}`}
+                onPress={() => {
+                  onSelect(r);
+                  setResults([]);
+                  setMessage("선택한 장소의 주소를 가져왔어요.");
+                  Keyboard?.dismiss();
+                }}
+                style={({ pressed }) => [
+                  searchStyles.row,
+                  pressed && { backgroundColor: ui.blueSoft },
+                ]}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={searchStyles.name}>{r.name}</Text>
+                  <Text style={searchStyles.detail}>{r.address}</Text>
+                </View>
+                <Text style={searchStyles.chevron}>›</Text>
+              </Pressable>
+            ))}
+          </SearchDropdown>
+        )}
+      </View>
       <Action
         title={busy ? "주소 찾는 중…" : "이름으로 주소 검색"}
         disabled={busy || !query.trim()}
@@ -103,23 +150,6 @@ export function PlaceSearch({
         이름과 여행 도시만 검색 서비스에 보내요. 결과를 선택하면 이름과 주소가
         자동으로 채워져요.
       </P>
-      {!!results.length && (
-        <P>Google Maps · 검색 결과에서 지점과 주소를 확인하고 선택해 주세요.</P>
-      )}
-      {results.map((r) => (
-        <View key={r.googlePlaceId} style={{ paddingVertical: 10 }}>
-          <Text style={s.title}>{r.name}</Text>
-          <P>{r.address}</P>
-          <Action
-            title="이 장소 선택 · 주소 가져오기"
-            onPress={() => {
-              onSelect(r);
-              setResults([]);
-              setMessage("선택한 장소의 주소를 가져왔어요.");
-            }}
-          />
-        </View>
-      ))}
       {!!message && (
         <Text accessibilityRole="alert" style={s.p}>
           {message}

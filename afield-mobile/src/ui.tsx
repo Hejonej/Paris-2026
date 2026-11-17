@@ -2,6 +2,8 @@ import { imageSource } from "./images";
 import React, { useEffect, useRef } from "react";
 import {
   ScrollView,
+  Keyboard,
+  useWindowDimensions,
   Text,
   View,
   Pressable,
@@ -10,23 +12,73 @@ import {
   TextInput,
   TextInputProps,
 } from "react-native";
+import { SearchVisibility, type SearchAnchor } from "./searchDropdown";
 import { ui } from "./theme";
-export function Page({ children, resetKey, stickyHeaderIndices }: { children: React.ReactNode; stickyHeaderIndices?: number[]; resetKey?: string }) {
+export function Page({
+  children,
+  resetKey,
+  stickyHeaderIndices,
+}: {
+  children: React.ReactNode;
+  stickyHeaderIndices?: number[];
+  resetKey?: string;
+}) {
   const scroll = useRef<ScrollView>(null);
-  useEffect(() => { scroll.current?.scrollTo({ y: 0, animated: false }); }, [resetKey]);
+  const offset = useRef(0);
+  const { height: viewportHeight } = useWindowDimensions();
+  const keyboardTop = useRef(viewportHeight);
+  const search = useRef<{ anchor: SearchAnchor; height: number } | null>(null);
+  function reveal() {
+    const active = search.current;
+    active?.anchor.current?.measureInWindow?.((_x, y, _w, height) => {
+      const overlap = y + height + active.height + 12 - keyboardTop.current;
+      if (overlap > 0 && Number.isFinite(overlap))
+        scroll.current?.scrollTo({
+          y: offset.current + overlap,
+          animated: true,
+        });
+    });
+  }
+  useEffect(() => {
+    const show = Keyboard?.addListener("keyboardDidShow", (e) => {
+      keyboardTop.current = e.endCoordinates.screenY;
+      reveal();
+    });
+    const hide = Keyboard?.addListener("keyboardDidHide", () => {
+      keyboardTop.current = viewportHeight;
+    });
+    return () => {
+      show?.remove();
+      hide?.remove();
+    };
+  }, []);
+  useEffect(() => {
+    scroll.current?.scrollTo({ y: 0, animated: false });
+  }, [resetKey]);
   return (
-    <ScrollView
-      ref={scroll}
-      stickyHeaderIndices={stickyHeaderIndices}
-      contentInsetAdjustmentBehavior="automatic"
-      automaticallyAdjustKeyboardInsets
-      keyboardDismissMode="interactive"
-      keyboardShouldPersistTaps="handled"
-      style={{ backgroundColor: ui.bg, flex: 1 }}
-      contentContainerStyle={{ padding: 20, paddingBottom: 112 }}
+    <SearchVisibility.Provider
+      value={(anchor, height) => {
+        search.current = { anchor, height };
+        reveal();
+      }}
     >
-      {children}
-    </ScrollView>
+      <ScrollView
+        ref={scroll}
+        onScroll={(event) => {
+          offset.current = event.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
+        stickyHeaderIndices={stickyHeaderIndices}
+        contentInsetAdjustmentBehavior="automatic"
+        automaticallyAdjustKeyboardInsets
+        keyboardDismissMode="interactive"
+        keyboardShouldPersistTaps="handled"
+        style={{ backgroundColor: ui.bg, flex: 1 }}
+        contentContainerStyle={{ padding: 20, paddingBottom: 112 }}
+      >
+        {children}
+      </ScrollView>
+    </SearchVisibility.Provider>
   );
 }
 export function H({ children }: { children: React.ReactNode }) {
@@ -62,15 +114,28 @@ export function Action({
       onPress={onPress}
       style={({ pressed }) => [
         s.button,
-        (secondary || tone === "secondary") && { backgroundColor: ui.surface, borderWidth: 1, borderColor: ui.line },
+        (secondary || tone === "secondary") && {
+          backgroundColor: ui.surface,
+          borderWidth: 1,
+          borderColor: ui.line,
+        },
         tone === "primary" && { backgroundColor: ui.ink },
-        tone === "link" && { backgroundColor: "transparent", alignItems: "flex-start", paddingHorizontal: 0 },
+        tone === "link" && {
+          backgroundColor: "transparent",
+          alignItems: "flex-start",
+          paddingHorizontal: 0,
+        },
         { opacity: disabled ? 0.45 : pressed ? 0.7 : 1 },
       ]}
     >
       <Text
         style={{
-          color: tone === "link" ? ui.blue : secondary || tone === "secondary" ? ui.ink : "white",
+          color:
+            tone === "link"
+              ? ui.blue
+              : secondary || tone === "secondary"
+                ? ui.ink
+                : "white",
           fontWeight: "600",
           fontSize: 17,
         }}

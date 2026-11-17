@@ -1638,10 +1638,11 @@ test("in-app place search fills the selected address without creating a timed vi
     detail.tree.root
       .findAll(
         (n) =>
-          n.type === "Text" &&
-          n.children.includes("이 장소 선택 · 주소 가져오기"),
+          n.type === "Pressable" &&
+          n.props.accessibilityLabel ===
+            "이 장소 선택 · 주소 가져오기: Exact Museum",
       )[0]
-      .parent.props.onPress(),
+      .props.onPress(),
   );
   assert.equal(
     detail.store.trips[0].importedPlaces[0].address,
