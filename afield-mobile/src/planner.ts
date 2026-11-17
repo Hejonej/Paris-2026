@@ -17,6 +17,15 @@ export type Stay = {
   outTime: string;
 };
 export type Flight = {
+  pending?: boolean;
+  fromAirport?: string;
+  toAirport?: string;
+  airline?: string;
+  number?: string;
+  departDate?: string;
+  departTime?: string;
+  arriveDate?: string;
+  arriveTime?: string;
   id: string;
   kind: "arrival" | "departure";
   date: string;
@@ -190,6 +199,19 @@ export function validConditions(c: unknown): c is PlanningConditions {
         [f.id, f.date, f.time, f.query].every(
           (v) => typeof v === "string" && v.length <= 300,
         ) &&
+        (f.pending === undefined || typeof f.pending === "boolean") &&
+        [
+          f.fromAirport,
+          f.toAirport,
+          f.airline,
+          f.number,
+          f.departDate,
+          f.departTime,
+          f.arriveDate,
+          f.arriveTime,
+        ].every(
+          (v) => v === undefined || (typeof v === "string" && v.length <= 300),
+        ) &&
         ["arrival", "departure"].includes(f.kind) &&
         validDate(f.date) &&
         Number.isFinite(minutes(f.time)) &&
@@ -250,7 +272,11 @@ export function conditionsError(trip: Trip, c: PlanningConditions) {
   const stays = [...c.stays].sort((a, b) => a.checkIn.localeCompare(b.checkIn));
   if (stays.some((s, i) => i > 0 && s.checkIn < stays[i - 1].checkOut))
     return "숙소의 숙박 날짜가 겹쳐요. 체크아웃 날짜와 다음 체크인 날짜를 확인해 주세요.";
-  if (c.flights.some((f) => !dates.has(f.date) || !f.query.trim()))
+  if (
+    c.flights
+      .filter((f) => !f.pending)
+      .some((f) => !f.pending && (!dates.has(f.date) || !f.query.trim()))
+  )
     return "항공편의 현지 날짜와 공항을 입력해 주세요.";
   if (
     c.fixed.some(
@@ -358,48 +384,53 @@ export function dayBase(trip: Trip, c: PlanningConditions, date: string) {
       });
   };
   const arrivalDates = c.flights
+    .filter((f) => !f.pending)
     .filter((f) => f.kind === "arrival")
     .map((f) => f.date)
     .sort();
   const departureDates = c.flights
+    .filter((f) => !f.pending)
     .filter((f) => f.kind === "departure")
     .map((f) => f.date)
     .sort();
   if (arrivalDates.length && date < arrivalDates[0]) end = 0;
   if (departureDates.length && date > departureDates[departureDates.length - 1])
     end = 0;
-  c.flights.forEach((f) => {
-    const absolute = stamp(f.date, f.time);
-    const t = absolute - epoch(date);
-    const a = f.kind === "arrival" ? t : t - f.buffer;
-    const b = f.kind === "arrival" ? t + f.buffer : t + 30;
-    if (f.kind === "arrival" && f.date === date) start = Math.max(start, b);
-    if (f.kind === "departure" && f.date === date) end = Math.min(end, a);
-    if (a < 1440 && b > 0) {
-      if (f.kind === "arrival" && f.date < date) start = Math.max(start, b);
-      if (f.kind === "departure" && f.date > date) end = Math.min(end, a);
-      addAt(
-        {
-          id: `flight-${f.id}`,
-          date,
-          kind: "flight",
-          name:
-            f.kind === "arrival"
-              ? `도착 · ${f.time} 항공편`
-              : `출발 준비 · ${f.time} 항공편`,
-          query: f.query,
-          reason: `입력한 현지 시각 · ${f.buffer}분 여유 (실제 이동 시간 아님)`,
-          tag: "transport",
-        },
-        f.kind === "arrival" ? absolute : absolute - f.buffer,
-        f.kind === "arrival" ? f.buffer : f.buffer + 30,
-      );
-    }
-  });
+  c.flights
+    .filter((f) => !f.pending)
+    .forEach((f) => {
+      const absolute = stamp(f.date, f.time);
+      const t = absolute - epoch(date);
+      const a = f.kind === "arrival" ? t : t - f.buffer;
+      const b = f.kind === "arrival" ? t + f.buffer : t + 30;
+      if (f.kind === "arrival" && f.date === date) start = Math.max(start, b);
+      if (f.kind === "departure" && f.date === date) end = Math.min(end, a);
+      if (a < 1440 && b > 0) {
+        if (f.kind === "arrival" && f.date < date) start = Math.max(start, b);
+        if (f.kind === "departure" && f.date > date) end = Math.min(end, a);
+        addAt(
+          {
+            id: `flight-${f.id}`,
+            date,
+            kind: "flight",
+            name:
+              f.kind === "arrival"
+                ? `도착 · ${f.time} 항공편`
+                : `출발 준비 · ${f.time} 항공편`,
+            query: f.query,
+            reason: `입력한 현지 시각 · ${f.buffer}분 여유 (실제 이동 시간 아님)`,
+            tag: "transport",
+          },
+          f.kind === "arrival" ? absolute : absolute - f.buffer,
+          f.kind === "arrival" ? f.buffer : f.buffer + 30,
+        );
+      }
+    });
   c.stays.forEach((stay) => {
     let checkIn = stamp(stay.checkIn, stay.inTime);
     let checkOut = stamp(stay.checkOut, stay.outTime);
     const arrival = c.flights
+      .filter((f) => !f.pending)
       .filter(
         (f) =>
           f.kind === "arrival" &&
@@ -408,6 +439,7 @@ export function dayBase(trip: Trip, c: PlanningConditions, date: string) {
       )
       .sort((a, b) => stamp(a.date, a.time) - stamp(b.date, b.time))[0];
     const departure = c.flights
+      .filter((f) => !f.pending)
       .filter((f) => f.kind === "departure" && f.date === stay.checkOut)
       .sort((a, b) => stamp(a.date, a.time) - stamp(b.date, b.time))[0];
     if (arrival)
@@ -524,29 +556,36 @@ export function dayBase(trip: Trip, c: PlanningConditions, date: string) {
     anchors,
     issues,
     hardIssues,
-    origin: c.flights.some((f) => f.kind === "arrival" && f.date === date)
+    origin: c.flights
+      .filter((f) => !f.pending)
+      .some((f) => f.kind === "arrival" && f.date === date)
       ? {
           name: "도착 공항",
-          query: c.flights.find((f) => f.kind === "arrival" && f.date === date)!
-            .query,
+          query: c.flights
+            .filter((f) => !f.pending)
+            .find((f) => f.kind === "arrival" && f.date === date)!.query,
         }
       : origin
         ? { name: origin.name, query: origin.query }
         : undefined,
-    destination: c.flights.some(
-      (f) =>
-        f.kind === "departure" &&
-        stamp(f.date, f.time) - f.buffer < epoch(date) + 1440 &&
-        stamp(f.date, f.time) + 30 > epoch(date),
-    )
+    destination: c.flights
+      .filter((f) => !f.pending)
+      .some(
+        (f) =>
+          f.kind === "departure" &&
+          stamp(f.date, f.time) - f.buffer < epoch(date) + 1440 &&
+          stamp(f.date, f.time) + 30 > epoch(date),
+      )
       ? {
           name: "출발 공항",
-          query: c.flights.find(
-            (f) =>
-              f.kind === "departure" &&
-              stamp(f.date, f.time) - f.buffer < epoch(date) + 1440 &&
-              stamp(f.date, f.time) + 30 > epoch(date),
-          )!.query,
+          query: c.flights
+            .filter((f) => !f.pending)
+            .find(
+              (f) =>
+                f.kind === "departure" &&
+                stamp(f.date, f.time) - f.buffer < epoch(date) + 1440 &&
+                stamp(f.date, f.time) + 30 > epoch(date),
+            )!.query,
         }
       : destination
         ? { name: destination.name, query: destination.query }

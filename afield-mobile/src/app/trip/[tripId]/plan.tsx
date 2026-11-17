@@ -2,6 +2,7 @@ import { collectPendingTransfers } from "../../../routeChecks";
 import { planningRoutes } from "../../../liveRoutes";
 import { placeText } from "../../../placeText";
 import { Sheet } from "../../../sheet";
+import { AirportField } from "../../../airportField";
 import { PlaceSearch } from "../../../placeSearch";
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
@@ -315,7 +316,7 @@ export default function Plan() {
         >
           선택 장소 {trip.planning?.selectedIds.length || 0}곳 · 숙소{" "}
           {trip.planning?.stays.length || 0} · 항공편{" "}
-          {trip.planning?.flights.length || 0} · 예약{" "}
+          {trip.planning?.flights.filter((f) => !f.pending).length || 0} · 예약{" "}
           {trip.planning?.fixed.length || 0}
         </Text>
         <Text style={{ fontSize: 13, lineHeight: 22, color: ui.muted }}>
@@ -1199,6 +1200,7 @@ export default function Plan() {
                     city={trip.city}
                     country={trip.country}
                     name={stay.name}
+                    onNameChange={(value) => change("name", value)}
                     onSelect={(m) =>
                       update(
                         "stays",
@@ -1287,89 +1289,189 @@ export default function Plan() {
           `항공편 ${c.flights.length}개`,
           <>
             <P>
-              이 여행지의 현지 날짜·시각으로 입력하세요. 도착 후와 출발 전 준비
-              시간을 비워 둡니다.
+              아직 예약하지 않았다면 입력하지 않고 다음으로 넘어가세요. 입력
+              중인 항공편은 보관만 하고, ‘이 항공편 사용’을 눌러야 계획에
+              반영해요.
             </P>
             {c.flights.map((flight, index) => {
-              const change = (field: string, value: string | number) =>
+              const change = (field: string, value: string) =>
                 update(
                   "flights",
-                  c.flights.map((f, i) =>
-                    i === index ? { ...f, [field]: value } : f,
+                  c.flights.map((f) =>
+                    f.id === flight.id
+                      ? { ...f, [field]: value, pending: true }
+                      : f,
                   ),
                 );
               return (
                 <View key={flight.id} style={{ paddingVertical: 14 }}>
-                  <Label>항공편 {index + 1}</Label>
-                  <Action
-                    title={
-                      flight.kind === "arrival"
-                        ? "여행지 도착편 · 눌러 출발편으로 변경"
-                        : "여행지 출발편 · 눌러 도착편으로 변경"
-                    }
-                    secondary
-                    onPress={() =>
-                      change(
-                        "kind",
-                        flight.kind === "arrival" ? "departure" : "arrival",
-                      )
-                    }
+                  <Label>
+                    {flight.kind === "arrival"
+                      ? "가는 항공편 · 여행지 도착"
+                      : "돌아오는 항공편 · 여행지 출발"}{" "}
+                    {flight.pending ? "· 입력 중" : "· 계획에 사용"}
+                  </Label>
+                  <AirportField
+                    label={`항공편 ${index + 1} 출발 공항`}
+                    value={flight.fromAirport || ""}
+                    onChange={(v) => change("fromAirport", v)}
+                  />
+                  <AirportField
+                    label={`항공편 ${index + 1} 도착 공항`}
+                    value={flight.toAirport || ""}
+                    onChange={(v) => change("toAirport", v)}
+                  />
+                  <Field
+                    accessibilityLabel={`항공편 ${index + 1} 항공사`}
+                    placeholder="항공사 (선택)"
+                    value={flight.airline || ""}
+                    onChangeText={(v) => change("airline", v)}
+                    maxLength={80}
+                  />
+                  <Field
+                    accessibilityLabel={`항공편 ${index + 1} 편명`}
+                    placeholder="항공편 번호 (선택 · KE2101)"
+                    value={flight.number || ""}
+                    onChangeText={(v) => change("number", v)}
+                    maxLength={20}
                   />
                   <DateField
-                    label={`항공편 ${index + 1} 날짜`}
-                    value={flight.date}
-                    onChange={(v) => change("date", v)}
+                    label={`항공편 ${index + 1} 출발 날짜 · 출발지 현지 기준`}
+                    value={flight.departDate || flight.date}
+                    onChange={(v) => change("departDate", v)}
                   />
                   <TimeInput
-                    label={`항공편 ${index + 1} 시각`}
-                    value={flight.time}
-                    onChange={(v) => change("time", v)}
+                    label={`항공편 ${index + 1} 출발 시각`}
+                    value={flight.departTime || flight.time}
+                    onChange={(v) => change("departTime", v)}
                   />
-                  <Field
-                    accessibilityLabel={`항공편 ${index + 1} 공항`}
-                    placeholder="공항 이름 · 터미널 또는 주소"
-                    value={flight.query}
-                    onChangeText={(v) => change("query", v)}
-                    maxLength={300}
+                  <DateField
+                    label={`항공편 ${index + 1} 도착 날짜 · 도착지 현지 기준`}
+                    value={flight.arriveDate || flight.date}
+                    onChange={(v) => change("arriveDate", v)}
                   />
-                  <Label>도착 후 / 출발 전 여유 · 분</Label>
-                  <Field
-                    accessibilityLabel={`항공편 ${index + 1} 여유`}
-                    value={String(flight.buffer)}
-                    keyboardType="number-pad"
-                    onChangeText={(v) => change("buffer", Number(v))}
-                    maxLength={3}
+                  <TimeInput
+                    label={`항공편 ${index + 1} 도착 시각`}
+                    value={flight.arriveTime || flight.time}
+                    onChange={(v) => change("arriveTime", v)}
                   />
+                  {!flight.fromAirport &&
+                    !flight.toAirport &&
+                    !!flight.query && (
+                      <P>
+                        기존 공항: {flight.query}. 수정하려면 출발·도착 공항을
+                        입력하세요.
+                      </P>
+                    )}
+                  <Action
+                    title="항공편 웹에서 확인 ↗"
+                    secondary
+                    onPress={() =>
+                      Linking.openURL(
+                        "https://www.google.com/search?q=" +
+                          encodeURIComponent(
+                            [
+                              flight.airline,
+                              flight.number,
+                              flight.fromAirport,
+                              flight.toAirport,
+                              flight.departDate || flight.date,
+                              "flight",
+                            ]
+                              .filter(Boolean)
+                              .join(" "),
+                          ),
+                      ).catch(() => setError("항공편 검색을 열지 못했어요."))
+                    }
+                  />
+                  <P>
+                    공항은 앱 안에서 검색해요. 실제 운항편 자동 조회는 아직
+                    연결되지 않았어요. 예약 내역을 보고 현지 날짜와 시각을
+                    입력해 주세요.
+                  </P>
+                  <Action
+                    title="이 항공편 사용"
+                    onPress={() => {
+                      if (
+                        !flight.fromAirport?.trim() ||
+                        !flight.toAirport?.trim()
+                      ) {
+                        setError(
+                          "출발 공항과 도착 공항을 입력해 주세요. 미정이면 입력 중 상태로 두고 다음으로 넘어갈 수 있어요.",
+                        );
+                        return;
+                      }
+                      update(
+                        "flights",
+                        c.flights.map((f) =>
+                          f.id === flight.id
+                            ? {
+                                ...f,
+                                pending: false,
+                                query:
+                                  f.kind === "arrival"
+                                    ? f.toAirport!
+                                    : f.fromAirport!,
+                                date:
+                                  (f.kind === "arrival"
+                                    ? f.arriveDate
+                                    : f.departDate) || f.date,
+                                time:
+                                  (f.kind === "arrival"
+                                    ? f.arriveTime
+                                    : f.departTime) || f.time,
+                              }
+                            : f,
+                        ),
+                      );
+                      setError("");
+                      setMessage(
+                        "항공편을 계획에 사용해요. 아래에서 저장하고 다음으로 이동하세요.",
+                      );
+                    }}
+                  />
+                  <P>
+                    입국·수하물 수령 또는 탑승 준비 시간은 관광 일정과 겹치지
+                    않도록 확보해요. 실제 공항 이동 시간은 별도로 고려해요.
+                  </P>
                   <Action
                     title={`항공편 ${index + 1} 입력 삭제`}
                     secondary
                     onPress={() =>
                       update(
                         "flights",
-                        c.flights.filter((_, i) => i !== index),
+                        c.flights.filter((f) => f.id !== flight.id),
                       )
                     }
                   />
                 </View>
               );
             })}
-            <Action
-              title="＋ 항공편 추가"
-              secondary
-              onPress={() =>
-                update("flights", [
-                  ...c.flights,
-                  {
-                    id: uid(),
-                    kind: "arrival",
-                    date: trip.start,
-                    time: "10:00",
-                    query: "",
-                    buffer: 120,
-                  },
-                ])
-              }
-            />
+            {(["arrival", "departure"] as const).map((kind) => (
+              <Action
+                key={kind}
+                title={
+                  kind === "arrival"
+                    ? "＋ 가는 항공편 추가"
+                    : "＋ 돌아오는 항공편 추가"
+                }
+                secondary
+                onPress={() =>
+                  update("flights", [
+                    ...c.flights,
+                    {
+                      id: uid(),
+                      kind,
+                      date: kind === "arrival" ? trip.start : trip.end,
+                      time: "10:00",
+                      query: "",
+                      buffer: 120,
+                      pending: true,
+                    },
+                  ])
+                }
+              />
+            ))}
           </>,
         )}
         {panel(

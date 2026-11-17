@@ -172,3 +172,12 @@ export async function liveLeg(
   legCache.set(k, fact);
   return fact;
 }
+
+export async function searchPlaceAddress(
+  city: string,
+  country: string,
+  name: string,
+): Promise<import("./matching").GoogleMatch[]> {
+  const data = await call({ kind: "place-search", city, country, name });
+  return Array.isArray(data.places) ? data.places : [];
+}

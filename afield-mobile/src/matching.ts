@@ -27,6 +27,10 @@ export async function matchPlace(
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
+      if (/expired|renew.*key/i.test(String(data?.detail || "")))
+        throw Error(
+          "주소 검색 서비스의 Google API 키가 만료됐어요. 검색 연결을 갱신해야 해요. 아래 Google Maps에서 주소를 확인해 직접 입력할 수도 있어요.",
+        );
       if (
         response.status === 403 ||
         String(data?.detail || "")

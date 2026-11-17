@@ -117,7 +117,12 @@ export function buildPlanRequest(trip: Trip, routeContext?: RouteContext) {
       start: c.rangeStart || trip.start,
       end: c.rangeEnd || trip.end,
     },
-    conditions: { ...c, durations: {}, notes: c.notes },
+    conditions: {
+      ...c,
+      flights: c.flights.filter((f) => !f.pending),
+      durations: {},
+      notes: c.notes,
+    },
     places: places.map((p) => ({
       id: p.id,
       placeId: p.id,

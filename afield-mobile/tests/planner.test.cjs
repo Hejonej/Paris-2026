@@ -644,3 +644,28 @@ test("wire identifiers do not rewrite user notes or place names that happen to e
   assert.equal(payload.places[0].name, "p1");
   assert.equal(payload.places[0].id, "AFIELD_001");
 });
+
+test("unfinished optional flights survive saving without closing usable days or creating airport anchors", () => {
+  const t = trip(),
+    c = planner.defaultConditions(t);
+  c.flights = [
+    {
+      id: "later",
+      kind: "departure",
+      date: t.start,
+      time: "00:01",
+      query: "",
+      buffer: 120,
+      pending: true,
+    },
+  ];
+  assert.equal(planner.conditionsError(t, c), "");
+  const result = planner.savePlanning([t], t.id, c);
+  assert.equal(result.ok, true);
+  assert.equal(result.trips[0].planning.flights[0].pending, true);
+  const base = planner.dayBase(t, c, t.start),
+    without = planner.dayBase(t, { ...c, flights: [] }, t.start);
+  assert.equal(base.start, without.start);
+  assert.equal(base.end, without.end);
+  assert.equal(JSON.stringify(base.anchors), JSON.stringify(without.anchors));
+});

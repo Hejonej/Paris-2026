@@ -4,6 +4,7 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { webGeography } = require("./web-geography.cjs");
 const { readConfig, computeRoute } = require("./maps-dev.cjs");
+const { searchPlaces } = require("./places-dev.cjs");
 const sessionPath = path.join(__dirname, "..", ".afield-bridge.local.json");
 function session() {
   if (!readConfig().apiKey) return "";
@@ -144,12 +145,14 @@ function middleware(token = session()) {
       if (active)
         return send(429, { message: "다른 지도 조회가 진행 중이에요." });
       active = true;
-      if (data.kind === "leg" && ++elements > 2400)
+      if (["leg", "place-search"].includes(data.kind) && ++elements > 2400)
         throw Error("개발용 지도 조회 한도에 도달했어요.");
       let result =
-        data.kind === "leg"
-          ? await computeRoute(data)
-          : await matrix(data.addresses, data.modes);
+        data.kind === "place-search"
+          ? await searchPlaces(data)
+          : data.kind === "leg"
+            ? await computeRoute(data)
+            : await matrix(data.addresses, data.modes);
       result = { ...result };
       if (data.kind !== "leg" && data.geography) {
         if (elements + data.geography.places?.length > 2400)

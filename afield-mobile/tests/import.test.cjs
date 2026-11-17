@@ -400,3 +400,9 @@ test("nested dict post containers are retained while their URL leaves are dedupl
   assert.equal(parsed[0].posts[0].caption, "카페 둘러보기 🌿");
   assert.equal(ig.repairText("café 🌿"), "café 🌿");
 });
+
+test("airport search preserves web Korean English and IATA matching", () => {
+  const { searchAirports } = load("src/airports.ts");
+  for (const q of ["도쿄", "Tokyo", "HND"])
+    assert.ok(searchAirports(q).some((a) => a[0] === "HND"));
+});

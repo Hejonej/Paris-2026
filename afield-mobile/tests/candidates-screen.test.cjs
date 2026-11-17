@@ -2331,3 +2331,77 @@ test("candidate navigation launched from the wizard returns to AI planning inste
   assert.equal(h.navigation.at(-1).pathname, "/trip/[tripId]/plan");
   await act(async () => view.tree.unmount());
 });
+
+test("hotel search shares the typed name with the saved hotel field and displays permission failures", async () => {
+  const h = harness({ tripId: "paris" }, null, {
+    fetcher: async () => ({
+      ok: false,
+      status: 403,
+      json: async () => ({ detail: "Permission denied" }),
+    }),
+    routeFetcher: async () => ({
+      ok: false,
+      json: async () => ({ message: "Places API (New) 권한을 확인해 주세요." }),
+    }),
+  });
+  const v = await mountScreen(h, "src/app/trip/[tripId]/plan.tsx");
+  await act(async () => tapText(v, "＋ 숙소 추가"));
+  const field = (label) =>
+    v.tree.root.findAll(
+      (n) => n.type === "TextInput" && n.props.accessibilityLabel === label,
+    )[0];
+  await act(async () =>
+    field("장소 검색어").props.onChangeText("Daiichi Hotel Tokyo"),
+  );
+  assert.equal(field("숙소 1 이름").props.value, "Daiichi Hotel Tokyo");
+  await act(async () => field("숙소 1 이름").props.onChangeText("Tokyo Hotel"));
+  assert.equal(field("장소 검색어").props.value, "Tokyo Hotel");
+  await act(async () => tapText(v, "이름으로 주소 검색"));
+  assert.ok(words(v.tree).includes("Places API (New)"));
+  assert.equal(field("숙소 1 주소").props.value, "");
+  await act(async () => v.tree.unmount());
+});
+
+test("airport autocomplete accepts Korean, English and codes; unfinished flights save and do not block the next step", async () => {
+  const h = harness({ tripId: "paris" });
+  const v = await mountScreen(h, "src/app/trip/[tripId]/plan.tsx");
+  await act(async () => tapText(v, "＋ 가는 항공편 추가"));
+  const field = (label) =>
+    v.tree.root.findAll(
+      (n) => n.type === "TextInput" && n.props.accessibilityLabel === label,
+    )[0];
+  await act(async () => field("항공편 1 출발 공항").props.onChangeText("인천"));
+  let airport = v.tree.root.findAll(
+    (n) =>
+      n.type === "Pressable" &&
+      n.props.accessibilityLabel === "항공편 1 출발 공항: 인천국제공항 ICN",
+  )[0];
+  assert.ok(airport);
+  await act(async () => airport.props.onPress());
+  await act(async () => field("항공편 1 도착 공항").props.onChangeText("CDG"));
+  airport = v.tree.root.findAll(
+    (n) =>
+      n.type === "Pressable" &&
+      n.props.accessibilityLabel ===
+        "항공편 1 도착 공항: 파리 샤를드골 공항 CDG",
+  )[0];
+  assert.ok(airport);
+  await act(async () => airport.props.onPress());
+  await act(async () => tapText(v, "이 항공편 사용"));
+  await act(async () => tapText(v, "＋ 돌아오는 항공편 추가"));
+  await act(async () => tapText(v, "저장하고 장소 모으기"));
+  const flights = v.store.trips[0].planning.flights;
+  assert.equal(flights.length, 2);
+  assert.equal(flights[0].pending, false);
+  assert.ok(flights[0].query.includes("CDG"));
+  assert.equal(flights[1].pending, true);
+  assert.ok(words(v.tree).includes("가고 싶은 곳을 모아보세요"));
+  const raw = h.raw;
+  await act(async () => v.tree.unmount());
+  const resumed = await mountScreen(
+    harness({ tripId: "paris" }, raw),
+    "src/app/trip/[tripId]/plan.tsx",
+  );
+  assert.equal(resumed.store.trips[0].planning.flights[1].pending, true);
+  await act(async () => resumed.tree.unmount());
+});
