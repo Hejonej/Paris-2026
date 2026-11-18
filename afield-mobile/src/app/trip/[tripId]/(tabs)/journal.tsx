@@ -29,11 +29,17 @@ export default function Journal() {
       b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt),
   );
   const locations =
-    trip?.days.flatMap((day) =>
-      day.items
-        .filter((e) => !e.anchorKey || !!e.location)
-        .map((entry) => ({ date: day.date, entry })),
-    ) || [];
+    trip?.days
+      .flatMap((day) =>
+        day.items
+          .filter((e) => !e.anchorKey || !!e.location)
+          .map((entry) => ({ date: day.date, entry })),
+      )
+      .sort(
+        (a, b) =>
+          Number(!!b.entry.visitedOn) - Number(!!a.entry.visitedOn) ||
+          b.date.localeCompare(a.date),
+      ) || [];
   function start(record?: JournalEntry) {
     photoSession.current++;
     saving.current = false;
@@ -237,6 +243,7 @@ export default function Journal() {
                 </Text>
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 15, color: ui.ink }}>
+                    {entry.visitedOn ? "✓ " : ""}
                     {entry.name}
                   </Text>
                   <Text style={{ fontSize: 12, color: ui.muted, marginTop: 4 }}>

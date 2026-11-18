@@ -1,3 +1,7 @@
+import { dayVisits, visitEligible } from "../../../../visits";
+import { Sheet } from "../../../../sheet";
+import { lockReason } from "../../../../manualEditing";
+import { localToday } from "../../../../planner";
 import { RouteTime } from "../../../../routeTimeUI";
 import { dayBase, planningModes } from "../../../../planner";
 import { editHaptic } from "../../../../haptics";
@@ -41,8 +45,14 @@ import { ui } from "../../../../theme";
 export default function Itinerary() {
   const { tripId, date, updatedEntry, addedPlace, planApplied, manualEdited } =
     useTripParams();
-  const { trips, setMode, setTag, undoManualEdit, canUndoManualEdit } =
-    useTrips();
+  const {
+    trips,
+    setMode,
+    setTag,
+    undoManualEdit,
+    canUndoManualEdit,
+    setVisit,
+  } = useTrips();
   const trip = trips.find((t) => t.id === tripId);
   const { pendingPosts } = inspirationProgress(trip);
   const [selection, setSelection] = useState(date || "");
@@ -50,6 +60,8 @@ export default function Itinerary() {
     new Set(),
   );
   const [editNotice, setEditNotice] = useState("");
+  const [reviewDay, setReviewDay] = useState(false);
+  const [visitNotice, setVisitNotice] = useState("");
   const [error, setError] = useState("");
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -60,8 +72,23 @@ export default function Itinerary() {
   useEffect(() => {
     if (date) setSelection(date);
     setError("");
+    setReviewDay(false);
+    setVisitNotice("");
   }, [date, tripId]);
+  useEffect(() => {
+    setVisitNotice("");
+    setReviewDay(false);
+  }, [selection]);
   const day = trip?.days.find((d) => d.date === selection) || trip?.days[0];
+  const visits = trip && day ? dayVisits(trip, day) : null;
+  function toggleVisit(item: Entry) {
+    if (!day) return;
+    const r = setVisit(tripId, day.date, item.id, !item.visitedOn);
+    if (r.ok) {
+      editHaptic();
+      setVisitNotice(r.message);
+    } else setError(r.message);
+  }
   const base =
     trip?.planning && day ? dayBase(trip, trip.planning, day.date) : undefined;
   const locatedStops =
@@ -265,6 +292,43 @@ export default function Itinerary() {
           <P>
             {day.items.length}개의 일정 · 경로 찾기는 현재 위치에서 출발해요.
           </P>
+          {!!visits?.places.length && (
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 12,
+              }}
+            >
+              <Text style={{ fontSize: 14, color: ui.muted }}>
+                다녀온 곳 {visits.done.length}/{visits.places.length}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setReviewDay(true)}
+                style={{
+                  minHeight: 44,
+                  justifyContent: "center",
+                  paddingHorizontal: 10,
+                }}
+              >
+                <Text
+                  style={{ fontSize: 14, fontWeight: "600", color: ui.blue }}
+                >
+                  하루 정리
+                </Text>
+              </Pressable>
+            </View>
+          )}
+          {!!visitNotice && (
+            <Text
+              accessibilityRole="alert"
+              style={{ fontSize: 13, color: ui.muted, marginBottom: 12 }}
+            >
+              {visitNotice}
+            </Text>
+          )}
           {!!addedPlace && day.items.some((e) => e.placeId === addedPlace) && (
             <Text
               accessibilityRole="alert"
@@ -352,8 +416,50 @@ export default function Itinerary() {
             return (
               <View key={item.id}>
                 <View style={styles.entry}>
-                  <Text style={styles.time}>{item.time}</Text>
+                  <View style={{ width: 44, alignItems: "center" }}>
+                    <Text style={[styles.time, { width: undefined }]}>
+                      {item.time}
+                    </Text>
+                    {trip && visitEligible(item, trip) && (
+                      <Pressable
+                        accessibilityRole="checkbox"
+                        accessibilityLabel={`${placeText(item.name)} 방문 완료`}
+                        accessibilityState={{
+                          checked: item.visitedOn === day.date,
+                        }}
+                        onPress={() => toggleVisit(item)}
+                        style={{
+                          width: 44,
+                          height: 44,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Ionicons
+                          name={
+                            item.visitedOn
+                              ? "checkmark-circle"
+                              : "ellipse-outline"
+                          }
+                          size={23}
+                          color={item.visitedOn ? ui.blue : ui.muted}
+                        />
+                      </Pressable>
+                    )}
+                  </View>
                   <View style={styles.content}>
+                    {!!item.visitedOn && (
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          fontWeight: "600",
+                          color: ui.blue,
+                          marginTop: 4,
+                        }}
+                      >
+                        다녀왔어요
+                      </Text>
+                    )}
                     <View
                       style={{
                         flexDirection: "row",
@@ -746,6 +852,121 @@ export default function Itinerary() {
           }
         />
       )}
+      {!!visits?.places.length && (
+        <Action
+          title="하루 정리 · 다녀온 곳과 남은 곳"
+          secondary
+          onPress={() => setReviewDay(true)}
+        />
+      )}
+      <Sheet
+        visible={reviewDay}
+        title="하루 정리"
+        onClose={() => setReviewDay(false)}
+      >
+        {trip && day && visits && (
+          <View>
+            <Text style={s.title}>{dateLabel(day.date)}</Text>
+            <P>
+              다녀온 곳 {visits.done.length}곳 · 아직 체크하지 않은 곳{" "}
+              {visits.remaining.length}곳
+            </P>
+            <P>
+              체크하지 않았다고 못 간 곳으로 확정하지 않아요. 다녀온 곳은 지금
+              체크하고, 남은 곳은 필요할 때 날짜와 시간을 바꿔 주세요.
+            </P>
+            {day.date === trip.end && (
+              <P>
+                여행의 마지막 날이에요. 남은 곳을 자동으로 다음 날에 넣거나
+                지우지 않아요.
+              </P>
+            )}
+            {visits.places.map((item) => {
+              const locked = lockReason(trip, day.date, item);
+              return (
+                <View
+                  key={item.id}
+                  style={{
+                    borderTopWidth: 1,
+                    borderTopColor: ui.line,
+                    paddingVertical: 12,
+                  }}
+                >
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 10,
+                    }}
+                  >
+                    <Pressable
+                      accessibilityRole="checkbox"
+                      accessibilityLabel={`하루 정리: ${placeText(item.name)} 방문 완료`}
+                      accessibilityState={{ checked: !!item.visitedOn }}
+                      onPress={() => toggleVisit(item)}
+                      style={{
+                        width: 44,
+                        height: 44,
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Ionicons
+                        name={
+                          item.visitedOn
+                            ? "checkmark-circle"
+                            : "ellipse-outline"
+                        }
+                        size={24}
+                        color={item.visitedOn ? ui.blue : ui.muted}
+                      />
+                    </Pressable>
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={{
+                          fontSize: 16,
+                          fontWeight: "600",
+                          color: ui.ink,
+                        }}
+                      >
+                        {placeText(item.name)}
+                      </Text>
+                      <Text
+                        style={{ fontSize: 13, color: ui.muted, marginTop: 4 }}
+                      >
+                        {item.time} ·{" "}
+                        {item.visitedOn
+                          ? "다녀왔어요"
+                          : "아직 체크하지 않았어요"}
+                      </Text>
+                    </View>
+                  </View>
+                  {!item.visitedOn &&
+                    (locked ? (
+                      <P>{locked} · 기존 일정은 그대로 유지해요.</P>
+                    ) : (
+                      <Action
+                        title={`${placeText(item.name)} 날짜·시간 편집`}
+                        secondary
+                        onPress={() => {
+                          setReviewDay(false);
+                          manualEdit(item.id);
+                        }}
+                      />
+                    ))}
+                </View>
+              );
+            })}
+            {day.date > localToday() && (
+              <P>
+                여행 전에는 일정을 살펴보고 편집할 수 있어요. 방문 체크는 해당
+                날짜부터 할 수 있어요.
+              </P>
+            )}
+            <Action title="정리 마치기" onPress={() => setReviewDay(false)} />
+          </View>
+        )}
+      </Sheet>
       <View style={{ marginTop: 20 }}>
         <Action
           title={day ? "이 날짜에 갈 장소 찾기" : "예시 장소 둘러보기"}

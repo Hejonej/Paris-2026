@@ -1,3 +1,4 @@
+import { setVisit } from "./visits";
 import { applyManualEdit, editSnapshot } from "./manualEditing";
 import type { Day } from "./data";
 import { saveJournal, deleteJournal, validJournalEntry } from "./journal";
@@ -50,6 +51,12 @@ type Store = {
       note: string;
       photoUri?: string;
     },
+  ) => Result;
+  setVisit: (
+    tripId: string,
+    date: string,
+    entryId: string,
+    visited: boolean,
   ) => Result;
   deleteJournal: (tripId: string, recordId: string) => Result;
   trips: Trip[];
@@ -227,6 +234,9 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
                         typeof x.id === "string" &&
                         typeof x.name === "string" &&
                         typeof x.time === "string" &&
+                        (x.visitedOn === undefined ||
+                          (typeof x.visitedOn === "string" &&
+                            x.visitedOn === d.date)) &&
                         (x.origin === undefined || x.origin === "ai") &&
                         (x.anchorKey === undefined ||
                           typeof x.anchorKey === "string") &&
@@ -333,6 +343,11 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       );
       delete editUndo.current[id];
       return { ok: true, message: "수동 편집을 되돌렸어요." };
+    },
+    setVisit: (tripId, date, entryId, visited) => {
+      const r = setVisit(current.current, tripId, date, entryId, visited);
+      if (r.ok) update(r.trips);
+      return { ok: r.ok, message: r.message };
     },
     saveJournal: (tripId, input) => {
       const r = saveJournal(current.current, tripId, input);

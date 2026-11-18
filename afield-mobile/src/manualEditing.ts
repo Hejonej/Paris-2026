@@ -9,6 +9,7 @@ export const editSnapshot = (trip: Trip) =>
     records: trip.journal?.map((r) => [r.entryId, r.date]),
   });
 export function lockReason(trip: Trip, date: string, entry: Entry): string {
+  if (entry.visitedOn) return "다녀온 장소 보호";
   if (entry.must) return "꼭 갈 곳 보호";
   if (entry.anchorKey) return "고정 시간 보호";
   if (trip.journal?.some((r) => r.entryId === entry.id)) return "기록 연결됨";

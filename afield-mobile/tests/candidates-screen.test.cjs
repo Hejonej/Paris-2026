@@ -2406,3 +2406,91 @@ test("airport autocomplete accepts Korean, English and codes; unfinished flights
   assert.equal(resumed.store.trips[0].planning.flights[1].pending, true);
   await act(async () => resumed.tree.unmount());
 });
+
+test("visit check persists, can undo, protects completed manual edits and day review returns to itinerary editing", async () => {
+  const h = harness({ tripId: "paris", date: "2026-11-13" });
+  const view = await mountScreen(
+    h,
+    "src/app/trip/[tripId]/(tabs)/itinerary.tsx",
+  );
+  const checkbox = () =>
+    view.tree.root.findAll(
+      (n) =>
+        n.type === "Pressable" &&
+        n.props.accessibilityLabel === "Musée Carnavalet 방문 완료",
+    )[0];
+  assert.equal(checkbox().props.accessibilityState.checked, false);
+  const original = JSON.parse(JSON.stringify(view.store.trips[0].days));
+  await act(async () => checkbox().props.onPress());
+  assert.equal(checkbox().props.accessibilityState.checked, true);
+  assert.equal(view.store.trips[0].days[1].items[0].visitedOn, "2026-11-13");
+  assert.equal(
+    h
+      .load("src/manualEditing.ts")
+      .lockReason(
+        view.store.trips[0],
+        "2026-11-13",
+        view.store.trips[0].days[1].items[0],
+      ),
+    "다녀온 장소 보호",
+  );
+  const raw = h.raw;
+  await act(async () => view.tree.unmount());
+  const h2 = harness({ tripId: "paris", date: "2026-11-13" }, raw);
+  const resumed = await mountScreen(
+    h2,
+    "src/app/trip/[tripId]/(tabs)/itinerary.tsx",
+  );
+  let check = resumed.tree.root.findAll(
+    (n) =>
+      n.type === "Pressable" &&
+      n.props.accessibilityLabel === "Musée Carnavalet 방문 완료",
+  )[0];
+  assert.equal(check.props.accessibilityState.checked, true);
+  await act(async () => check.props.onPress());
+  assert.equal(
+    JSON.stringify(resumed.store.trips[0].days),
+    JSON.stringify(original),
+  );
+  await act(async () => tapText(resumed, "하루 정리 · 다녀온 곳과 남은 곳"));
+  assert.ok(
+    words(resumed.tree).includes(
+      "체크하지 않았다고 못 간 곳으로 확정하지 않아요",
+    ),
+  );
+  await act(async () => tapText(resumed, "Musée Carnavalet 날짜·시간 편집"));
+  assert.equal(h2.navigation.at(-1).pathname, "/trip/[tripId]/edit-itinerary");
+  assert.equal(h2.navigation.at(-1).params.entryId, "original-3");
+  await act(async () => resumed.tree.unmount());
+});
+
+test("visit checks reject future days and nonvisit anchors without altering schedule", async () => {
+  const h = harness({ tripId: "paris" }),
+    v = await mount(h);
+  const original = JSON.stringify(v.store.trips);
+  const visit = h.load("src/visits.ts");
+  assert.equal(
+    visit.setVisit(
+      v.store.trips,
+      "paris",
+      "2026-11-13",
+      "original-3",
+      true,
+      "2026-11-12",
+    ).ok,
+    false,
+  );
+  assert.equal(
+    visit.setVisit(
+      v.store.trips,
+      "paris",
+      "2026-11-12",
+      "original-2",
+      true,
+      "2026-11-18",
+    ).ok,
+    false,
+  );
+  assert.equal(JSON.stringify(v.store.trips), original);
+  await act(async () => v.tree.unmount());
+});

@@ -9,6 +9,7 @@ export type EntryLocation = {
 export type ActivityTag =
   "shopping" | "sightseeing" | "meal" | "cafe" | "stay" | "transport" | "other";
 export type Entry = {
+  visitedOn?: string;
   needsTransitCheck?: boolean;
   durationMinutes?: number;
   origin?: "ai";
