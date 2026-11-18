@@ -2464,7 +2464,7 @@ test("visit check persists, can undo, protects completed manual edits and day re
   await act(async () => resumed.tree.unmount());
 });
 
-test("visit checks reject future days and nonvisit anchors without altering schedule", async () => {
+test("visit checks allow future dates, remain reversible and reject nonvisit anchors", async () => {
   const h = harness({ tripId: "paris" }),
     v = await mount(h);
   const original = JSON.stringify(v.store.trips);
@@ -2478,7 +2478,7 @@ test("visit checks reject future days and nonvisit anchors without altering sche
       true,
       "2026-11-12",
     ).ok,
-    false,
+    true,
   );
   assert.equal(
     visit.setVisit(
@@ -2522,19 +2522,17 @@ test("move proposal application persists original identity and history, refuses 
     v = await mount(h);
   const { prepareReplan } = h.load("src/replanning.ts");
   const work = prepareReplan(v.store.trips[0], t.start, ["move-original"]);
-  const draft = h
-    .load("src/aiPlanner.ts")
-    .decodePlan(work.trip, {
-      suggestions: [
-        {
-          type: "ADD",
-          placeId: "replan-move-original",
-          date: t.end,
-          time: "11:00",
-          reason: "거리와 남은 일정 고려",
-        },
-      ],
-    });
+  const draft = h.load("src/aiPlanner.ts").decodePlan(work.trip, {
+    suggestions: [
+      {
+        type: "ADD",
+        placeId: "replan-move-original",
+        date: t.end,
+        time: "11:00",
+        reason: "거리와 남은 일정 고려",
+      },
+    ],
+  });
   assert.equal(draft.rows.length, 1);
   const proposal = { ...work, draft };
   await act(async () =>

@@ -1,7 +1,6 @@
 import { dayVisits, visitEligible } from "../../../../visits";
 import { Sheet } from "../../../../sheet";
 import { lockReason } from "../../../../manualEditing";
-import { localToday } from "../../../../planner";
 import { RouteTime } from "../../../../routeTimeUI";
 import { dayBase, planningModes } from "../../../../planner";
 import { editHaptic } from "../../../../haptics";
@@ -974,12 +973,6 @@ export default function Itinerary() {
                 </View>
               );
             })}
-            {day.date > localToday() && (
-              <P>
-                여행 전에는 일정을 살펴보고 편집할 수 있어요. 방문 체크는 해당
-                날짜부터 할 수 있어요.
-              </P>
-            )}
             <Action
               title="못 간 곳, 남은 날짜에 나눠 배치"
               secondary

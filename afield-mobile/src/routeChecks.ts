@@ -1,3 +1,4 @@
+import { formatMinutes } from "./duration";
 import { reservedMinutes } from "./visitTiming";
 import type { Trip, TravelMode } from "./data";
 import type { PlanRow, PlanningConditions } from "./planner";
@@ -140,7 +141,7 @@ export function routeConflicts(
             ? `${a.name} → ${b.name}: 대중교통 시간을 조회하지 못했어요. 긴 도보 시간으로 대신 배치하지 않아요.`
             : `${a.name} → ${b.name}: 선택한 이동수단의 경로를 확인하지 못했어요. 주소나 이동수단을 확인해 주세요.`
           : gap < assessment.minutes + c.buffer
-            ? `${a.name} → ${b.name}: ${assessment.kind === "pending" ? "검토용 이동 공간" : "이동"} ${assessment.minutes}분과 여유 ${c.buffer}분이 필요하지만 ${gap}분밖에 없어요.`
+            ? `${a.name} → ${b.name}: ${assessment.kind === "pending" ? "검토용 이동 공간" : "이동"} ${formatMinutes(assessment.minutes)}과 여유 ${c.buffer}분이 필요하지만 ${formatMinutes(Math.max(0, gap))}밖에 없어요.`
             : "";
       if (message) {
         if (a.proposal) errors.set(a.id, message);
@@ -178,5 +179,5 @@ export function routeExplanation(
   const label = { walking: "도보", transit: "대중교통", driving: "차" }[
     assessment.route.mode
   ];
-  return `${a.name}에서 ${label} ${assessment.minutes}분과 여유 ${c.buffer}분을 확보했어요. 숙소·고정 일정·식사 사이의 빈 시간에 배치했어요.`;
+  return `${a.name}에서 ${label} ${formatMinutes(assessment.minutes)}과 여유 ${c.buffer}분을 확보했어요. 숙소·고정 일정·식사 사이의 빈 시간에 배치했어요.`;
 }

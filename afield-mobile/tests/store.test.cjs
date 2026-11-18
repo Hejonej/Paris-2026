@@ -25,27 +25,29 @@ function moduleFor(path, storage) {
           ? moduleFor("src/placeText.ts", storage)
           : name === "./replanning"
             ? moduleFor("src/replanning.ts", storage)
-            : name === "./visits"
-              ? moduleFor("src/visits.ts", storage)
-              : name === "./manualEditing"
-                ? moduleFor("src/manualEditing.ts", storage)
-                : name === "./journal"
-                  ? moduleFor("src/journal.ts", storage)
-                  : name === "./planner"
-                    ? moduleFor("src/planner.ts", storage)
-                    : name === "./data"
-                      ? moduleFor("src/data.ts", storage)
-                      : name === "./activities"
-                        ? moduleFor("src/activities.ts", storage)
-                        : name === "./instagram"
-                          ? moduleFor("src/instagram.ts", storage)
-                          : name === "./routing"
-                            ? moduleFor("src/routing.ts", storage)
-                            : name === "./tripEditing"
-                              ? moduleFor("src/tripEditing.ts", storage)
-                              : name === "./planning"
-                                ? moduleFor("src/planning.ts", storage)
-                                : require(name);
+            : name === "./duration"
+              ? moduleFor("src/duration.ts", storage)
+              : name === "./visits"
+                ? moduleFor("src/visits.ts", storage)
+                : name === "./manualEditing"
+                  ? moduleFor("src/manualEditing.ts", storage)
+                  : name === "./journal"
+                    ? moduleFor("src/journal.ts", storage)
+                    : name === "./planner"
+                      ? moduleFor("src/planner.ts", storage)
+                      : name === "./data"
+                        ? moduleFor("src/data.ts", storage)
+                        : name === "./activities"
+                          ? moduleFor("src/activities.ts", storage)
+                          : name === "./instagram"
+                            ? moduleFor("src/instagram.ts", storage)
+                            : name === "./routing"
+                              ? moduleFor("src/routing.ts", storage)
+                              : name === "./tripEditing"
+                                ? moduleFor("src/tripEditing.ts", storage)
+                                : name === "./planning"
+                                  ? moduleFor("src/planning.ts", storage)
+                                  : require(name);
   vm.runInNewContext(source, {
     exports: module.exports,
     module,

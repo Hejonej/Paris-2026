@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useRef, useState } from "react";
 import {
   View,
@@ -148,7 +149,12 @@ export default function Replan() {
                 <Text
                   style={{ fontSize: 17, fontWeight: "600", color: ui.ink }}
                 >
-                  {selected.has(row.id) ? "☑" : "☐"} {placeText(row.name)}
+                  <Ionicons
+                    name={selected.has(row.id) ? "checkbox" : "square-outline"}
+                    size={24}
+                    color={selected.has(row.id) ? ui.blue : ui.muted}
+                  />{" "}
+                  {placeText(row.name)}
                 </Text>
                 <P>
                   {dateLabel(proposal.sourceDate)} {original?.time} →{" "}
@@ -196,8 +202,13 @@ export default function Replan() {
               style={{ minHeight: 48, paddingVertical: 16 }}
             >
               <Text style={{ fontSize: 15, lineHeight: 23, color: ui.blue }}>
-                {consent ? "☑" : "☐"} 대중교통 시간이 확인되지 않은 구간이
-                있어요. 임시 배치임을 확인하고 적용해요.
+                <Ionicons
+                  name={consent ? "checkbox" : "square-outline"}
+                  size={24}
+                  color={ui.blue}
+                />{" "}
+                대중교통 시간이 확인되지 않은 구간이 있어요. 임시 배치임을
+                확인하고 적용해요.
               </Text>
             </Pressable>
           )}
@@ -308,18 +319,47 @@ export default function Replan() {
                   borderBottomColor: ui.line,
                 }}
               >
-                <Text
+                <View
                   style={{
-                    fontSize: 16,
-                    fontWeight: "600",
-                    color: locked ? ui.muted : ui.ink,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 12,
                   }}
                 >
-                  {ids.has(e.id) ? "☑" : "☐"} {placeText(e.name)}
-                </Text>
-                <Text style={{ fontSize: 13, color: ui.muted, marginTop: 5 }}>
-                  {locked || `${e.time} · 날짜와 시간을 AI가 다시 제안해요.`}
-                </Text>
+                  <View
+                    style={{
+                      width: 44,
+                      height: 44,
+                      justifyContent: "center",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Ionicons
+                      name={ids.has(e.id) ? "checkbox" : "square-outline"}
+                      size={24}
+                      color={
+                        locked ? ui.line : ids.has(e.id) ? ui.blue : ui.muted
+                      }
+                    />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        fontWeight: "600",
+                        color: locked ? ui.muted : ui.ink,
+                      }}
+                    >
+                      {placeText(e.name)}
+                    </Text>
+                    <Text
+                      style={{ fontSize: 13, color: ui.muted, marginTop: 5 }}
+                    >
+                      {locked ||
+                        `${e.time} · 날짜와 시간을 AI가 다시 제안해요.`}
+                    </Text>
+                  </View>
+                </View>
               </Pressable>
             );
           })}

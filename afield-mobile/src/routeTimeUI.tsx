@@ -1,3 +1,4 @@
+import { formatSeconds } from "./duration";
 import React, { useEffect, useRef, useState } from "react";
 import { View, Text, Pressable, Linking } from "react-native";
 import type { TravelMode } from "./data";
@@ -51,6 +52,10 @@ export function RouteTime({
         <Text style={{ fontSize: 14, lineHeight: 21, color: ui.blue }}>
           대중교통 소요시간 미확인
         </Text>
+        <Text style={{ fontSize: 12, lineHeight: 18, color: ui.muted }}>
+          현재 연결에서 전철·버스 시간이 확인되지 않았어요. Google Maps에서
+          경로를 확인해 주세요.
+        </Text>
         <Pressable
           accessibilityRole="button"
           onPress={() =>
@@ -77,7 +82,7 @@ export function RouteTime({
         <>
           <Text style={{ fontSize: 14, fontWeight: "600", color: ui.ink }}>
             Google Maps · {modeLabels[mode]}{" "}
-            {Math.ceil(fact.durationSeconds / 60)}분 ·{" "}
+            {formatSeconds(fact.durationSeconds)} ·{" "}
             {(fact.distanceMeters / 1000).toFixed(2)}km
           </Text>
           <Text style={{ fontSize: 12, lineHeight: 18, color: ui.muted }}>

@@ -776,3 +776,13 @@ test("replanning moves only explicitly accepted originals with stable IDs and ke
     /남은 여행 날짜/,
   );
 });
+
+test("travel duration text uses hours and minutes without changing numeric planning inputs", () => {
+  const { formatMinutes, formatSeconds } = load("src/duration.ts");
+  assert.equal(formatMinutes(106), "1시간 46분");
+  assert.equal(formatMinutes(60), "1시간");
+  assert.equal(formatMinutes(46), "46분");
+  assert.equal(formatSeconds(6360), "1시간 46분");
+  assert.equal(formatSeconds(3601), "1시간 1분");
+  assert.equal(formatMinutes(193), "3시간 13분");
+});
