@@ -51,13 +51,17 @@ export function Page({
       show?.remove();
       hide?.remove();
     };
-  }, []);
+  }, [viewportHeight]);
   useEffect(() => {
     scroll.current?.scrollTo({ y: 0, animated: false });
   }, [resetKey]);
   return (
     <SearchVisibility.Provider
       value={(anchor, height) => {
+        if (!height) {
+          if (search.current?.anchor === anchor) search.current = null;
+          return;
+        }
         search.current = { anchor, height };
         reveal();
       }}

@@ -37,7 +37,20 @@ export type JournalEntry = {
   photoUri?: string;
   createdAt: string;
 };
+export type MoveHistory = {
+  id: string;
+  createdAt: string;
+  changes: {
+    entryId: string;
+    name: string;
+    fromDate: string;
+    fromTime: string;
+    toDate: string;
+    toTime: string;
+  }[];
+};
 export type Trip = {
+  replanHistory?: MoveHistory[];
   journal?: JournalEntry[];
   coverUri?: string;
   planning?: PlanningConditions;

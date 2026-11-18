@@ -669,3 +669,110 @@ test("unfinished optional flights survive saving without closing usable days or 
   assert.equal(base.end, without.end);
   assert.equal(JSON.stringify(base.anchors), JSON.stringify(without.anchors));
 });
+
+test("replanning moves only explicitly accepted originals with stable IDs and keeps declined, booked and completed entries", () => {
+  const { prepareReplan, applyReplan } = load("src/replanning.ts");
+  const t = trip();
+  t.days[0].items = [
+    {
+      id: "missed-a",
+      name: "Test Gallery",
+      time: "10:00",
+      placeId: "p1",
+      customTag: "나만의 태그",
+      location: {
+        label: "Gallery",
+        query: "Gallery Sydney",
+        description: "Original address",
+      },
+    },
+    {
+      id: "missed-b",
+      name: "Test Shop",
+      time: "11:00",
+      placeId: "p2",
+      location: {
+        label: "Shop",
+        query: "Shop Sydney",
+        description: "Original",
+      },
+    },
+    {
+      id: "done",
+      name: "Visited",
+      time: "14:00",
+      visitedOn: t.start,
+      location: { label: "Visited", query: "Visited Sydney", description: "" },
+    },
+    {
+      id: "fixed",
+      name: "Reservation",
+      time: "18:00",
+      must: true,
+      anchorKey: "booking",
+      durationMinutes: 60,
+    },
+  ];
+  const before = JSON.stringify(t);
+  const work = prepareReplan(
+    t,
+    t.start,
+    ["missed-a", "missed-b"],
+    "2027-01-31",
+  );
+  assert.equal(JSON.stringify(t), before);
+  assert.equal(work.trip.days[0].items.length, 2);
+  const draft = ai.decodePlan(work.trip, {
+    suggestions: [
+      {
+        type: "ADD",
+        placeId: "replan-missed-a",
+        date: t.end,
+        time: "10:00",
+        reason: "nearby",
+      },
+      {
+        type: "ADD",
+        placeId: "replan-missed-b",
+        date: t.end,
+        time: "15:00",
+        reason: "nearby",
+      },
+    ],
+  });
+  assert.equal(draft.rows.length, 2);
+  const proposal = { ...work, draft };
+  const r = applyReplan([t], t.id, proposal, [draft.rows[0].id]);
+  assert.equal(r.ok, true, r.message);
+  const next = r.trips[0];
+  assert.equal(
+    next.days[0].items.find((e) => e.id === "missed-b").time,
+    "11:00",
+  );
+  assert.equal(
+    next.days[0].items.find((e) => e.id === "done").visitedOn,
+    t.start,
+  );
+  assert.equal(next.days[0].items.find((e) => e.id === "fixed").time, "18:00");
+  const moved = next.days[1].items.find((e) => e.id === "missed-a");
+  assert.equal(moved.customTag, "나만의 태그");
+  assert.equal(moved.location.query, "Gallery Sydney");
+  assert.equal(next.days.flatMap((d) => d.items).length, 4);
+  assert.equal(next.importedPlaces.length, t.importedPlaces.length);
+  assert.equal(
+    applyReplan([next], t.id, proposal, [draft.rows[0].id]).ok,
+    false,
+  );
+  assert.throws(
+    () => prepareReplan(t, t.start, ["done"], "2027-01-31"),
+    /보호/,
+  );
+  assert.throws(
+    () => prepareReplan(t, t.start, ["fixed"], "2027-01-31"),
+    /보호/,
+  );
+  assert.throws(
+    () => prepareReplan(t, t.end, ["missed-a"], "2027-01-31"),
+    /남은 여행 날짜/,
+  );
+});

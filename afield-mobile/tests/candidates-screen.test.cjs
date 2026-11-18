@@ -2494,3 +2494,74 @@ test("visit checks reject future days and nonvisit anchors without altering sche
   assert.equal(JSON.stringify(v.store.trips), original);
   await act(async () => v.tree.unmount());
 });
+
+test("move proposal application persists original identity and history, refuses stale reuse and undo restores both atomically", async () => {
+  const seed = harness({ tripId: "paris" });
+  const base = seed.load("src/data.ts").trips[0];
+  const t = {
+    ...base,
+    start: "2027-01-01",
+    end: "2027-01-02",
+    days: [
+      {
+        date: "2027-01-01",
+        items: [
+          {
+            id: "move-original",
+            name: "Musée Carnavalet",
+            time: "10:00",
+            placeId: "carnavalet",
+            customTag: "전시",
+          },
+        ],
+      },
+      { date: "2027-01-02", items: [] },
+    ],
+  };
+  const h = harness({ tripId: "paris" }, JSON.stringify([t])),
+    v = await mount(h);
+  const { prepareReplan } = h.load("src/replanning.ts");
+  const work = prepareReplan(v.store.trips[0], t.start, ["move-original"]);
+  const draft = h
+    .load("src/aiPlanner.ts")
+    .decodePlan(work.trip, {
+      suggestions: [
+        {
+          type: "ADD",
+          placeId: "replan-move-original",
+          date: t.end,
+          time: "11:00",
+          reason: "거리와 남은 일정 고려",
+        },
+      ],
+    });
+  assert.equal(draft.rows.length, 1);
+  const proposal = { ...work, draft };
+  await act(async () =>
+    assert.equal(
+      v.store.applyReplan("paris", proposal, [draft.rows[0].id]).ok,
+      true,
+    ),
+  );
+  assert.equal(v.store.trips[0].days[1].items[0].id, "move-original");
+  assert.equal(v.store.trips[0].days[1].items[0].customTag, "전시");
+  assert.equal(v.store.trips[0].replanHistory.length, 1);
+  await act(async () =>
+    assert.equal(
+      v.store.applyReplan("paris", proposal, [draft.rows[0].id]).ok,
+      false,
+    ),
+  );
+  const raw = h.raw;
+  const restored = await mount(harness({ tripId: "paris" }, raw));
+  assert.equal(
+    restored.store.trips[0].replanHistory[0].changes[0].entryId,
+    "move-original",
+  );
+  assert.equal(restored.store.trips[0].days[1].items.length, 1);
+  await act(async () => restored.tree.unmount());
+  await act(async () => assert.equal(v.store.undoManualEdit("paris").ok, true));
+  assert.equal(v.store.trips[0].days[0].items[0].id, "move-original");
+  assert.equal(v.store.trips[0].replanHistory, undefined);
+  await act(async () => v.tree.unmount());
+});

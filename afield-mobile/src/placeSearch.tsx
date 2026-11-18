@@ -34,6 +34,8 @@ export function PlaceSearch({
   const reveal = useSearchVisibility();
   useEffect(() => {
     if (results.length) reveal(anchor, Math.min(results.length * 88, 200) + 36);
+    else reveal(anchor, 0);
+    return () => reveal(anchor, 0);
   }, [results]);
   useEffect(() => {
     setQuery(name);
@@ -112,6 +114,7 @@ export function PlaceSearch({
         />
         {!!results.length && (
           <SearchDropdown
+            anchor={anchor}
             count={results.length}
             label="Google Maps · 검색 결과"
           >

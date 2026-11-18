@@ -1,3 +1,8 @@
+import {
+  applyReplan,
+  validMoveHistory,
+  type ReplanProposal,
+} from "./replanning";
 import { setVisit } from "./visits";
 import { applyManualEdit, editSnapshot } from "./manualEditing";
 import type { Day } from "./data";
@@ -51,6 +56,12 @@ type Store = {
       note: string;
       photoUri?: string;
     },
+  ) => Result;
+  applyReplan: (
+    tripId: string,
+    proposal: ReplanProposal,
+    selected: string[],
+    acceptPending?: boolean,
   ) => Result;
   setVisit: (
     tripId: string,
@@ -145,7 +156,12 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   const [loadFailed, setLoadFailed] = useState(false);
-  const editUndo = useRef<Record<string, { before: Day[]; after: string }>>({});
+  const editUndo = useRef<
+    Record<
+      string,
+      { before: Day[]; beforeHistory?: Trip["replanHistory"]; after: string }
+    >
+  >({});
   const queue = useRef(Promise.resolve());
   useEffect(() => {
     AsyncStorage.getItem(KEY)
@@ -159,6 +175,10 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
                 typeof t.id === "string" &&
                 typeof t.name === "string" &&
                 typeof t.city === "string" &&
+                (t.replanHistory === undefined ||
+                  (Array.isArray(t.replanHistory) &&
+                    t.replanHistory.length <= 100 &&
+                    t.replanHistory.every(validMoveHistory))) &&
                 (t.journal === undefined ||
                   (Array.isArray(t.journal) &&
                     t.journal.every(validJournalEntry))) &&
@@ -315,6 +335,25 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     };
   }
   const value: Store = {
+    applyReplan: (id, proposal, selected, acceptPending) => {
+      const before = current.current.find((t) => t.id === id);
+      const r = applyReplan(
+        current.current,
+        id,
+        proposal,
+        selected,
+        acceptPending,
+      );
+      if (r.ok && before) {
+        editUndo.current[id] = {
+          before: before.days,
+          beforeHistory: before.replanHistory,
+          after: editSnapshot(r.trips.find((t) => t.id === id)!),
+        };
+        update(r.trips);
+      }
+      return { ok: r.ok, message: r.message };
+    },
     canUndoManualEdit: (id) => !!editUndo.current[id],
     applyManualEdit: (id, days, snapshot) => {
       const before = current.current.find((t) => t.id === id);
@@ -322,6 +361,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       if (result.ok && before) {
         editUndo.current[id] = {
           before: before.days,
+          beforeHistory: before.replanHistory,
           after: editSnapshot(result.trips.find((t) => t.id === id)!),
         };
         update(result.trips);
@@ -338,7 +378,14 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         };
       update(
         current.current.map((t) =>
-          t.id === id ? { ...t, days: undo.before, planDraft: undefined } : t,
+          t.id === id
+            ? {
+                ...t,
+                days: undo.before,
+                replanHistory: undo.beforeHistory,
+                planDraft: undefined,
+              }
+            : t,
         ),
       );
       delete editUndo.current[id];

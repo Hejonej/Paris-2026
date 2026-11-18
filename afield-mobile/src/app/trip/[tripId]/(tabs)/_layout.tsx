@@ -5,7 +5,8 @@ import {
   useRouter,
   usePathname,
 } from "expo-router";
-import { Pressable, Text } from "react-native";
+import { AppHeader } from "../../../../appHeader";
+import { Pressable, Text, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ui } from "../../../../theme";
@@ -23,6 +24,7 @@ export default function TripTabs() {
   const returning =
     returnTo === "itinerary" && pathname.endsWith("/candidates");
   const insets = useSafeAreaInsets();
+  const { fontScale } = useWindowDimensions();
   const { trips } = useTrips();
   const trip = trips.find((t) => t.id === tripId);
   const icon =
@@ -35,6 +37,19 @@ export default function TripTabs() {
     <Tabs
       screenOptions={{
         freezeOnBlur: false,
+        header: ({ options }) => (
+          <AppHeader
+            title={
+              typeof options.headerTitle === "string"
+                ? options.headerTitle
+                : options.title || "Afield"
+            }
+            backContent={options.headerLeft?.({
+              tintColor: ui.ink,
+              canGoBack: true,
+            })}
+          />
+        ),
         headerLeft: () => (
           <Pressable
             accessibilityRole="button"
@@ -90,7 +105,7 @@ export default function TripTabs() {
         tabBarStyle: {
           backgroundColor: ui.surface,
           borderTopColor: ui.line,
-          height: 60 + insets.bottom,
+          height: 60 + Math.max(0, (fontScale - 1) * 16) + insets.bottom,
           paddingBottom: Math.max(insets.bottom, 8),
           paddingTop: 6,
         },

@@ -22,32 +22,35 @@ export function AppHeader({
         borderColor: ui.line,
       }}
     >
-      <View style={{ height: 56, justifyContent: "center" }}>
+      <View
+        style={{
+          minHeight: 56,
+          paddingVertical: 4,
+          flexDirection: "row",
+          alignItems: "center",
+        }}
+      >
+        {back && (
+          <View style={{ maxWidth: "44%", flexShrink: 1 }}>
+            {backContent || <DetailBack />}
+          </View>
+        )}
         <Text
-          numberOfLines={1}
+          accessibilityRole="header"
+          numberOfLines={2}
           style={{
+            flex: 1,
+            minWidth: 0,
             fontSize: 17,
             fontWeight: "700",
             color: ui.ink,
-            textAlign: "center",
-            paddingHorizontal: 112,
+            textAlign: back ? "left" : "center",
+            paddingHorizontal: 16,
+            paddingVertical: 8,
           }}
         >
           {title}
         </Text>
-        {back && (
-          <View
-            style={{
-              position: "absolute",
-              left: 0,
-              top: 4,
-              bottom: 4,
-              justifyContent: "center",
-            }}
-          >
-            {backContent || <DetailBack />}
-          </View>
-        )}
       </View>
     </View>
   );

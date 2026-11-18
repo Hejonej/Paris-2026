@@ -5,6 +5,7 @@ import { legKey } from "./routing";
 export const editSnapshot = (trip: Trip) =>
   JSON.stringify({
     days: trip.days,
+    history: trip.replanHistory,
     conditions: trip.planning,
     records: trip.journal?.map((r) => [r.entryId, r.date]),
   });

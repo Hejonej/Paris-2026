@@ -13,14 +13,23 @@ export function SearchDropdown({
   count,
   label = "검색 결과",
   maxHeight = 200,
+  anchor,
 }: {
   children: React.ReactNode;
   count: number;
   label?: string;
   maxHeight?: number;
+  anchor?: SearchAnchor;
 }) {
+  const reveal = useSearchVisibility();
   return (
-    <View testID="inline-search-dropdown" style={styles.panel}>
+    <View
+      testID="inline-search-dropdown"
+      style={styles.panel}
+      onLayout={(e) => {
+        if (anchor) reveal(anchor, e.nativeEvent.layout.height);
+      }}
+    >
       <Text style={styles.caption}>
         {label} {count}
       </Text>

@@ -29,6 +29,8 @@ export function AirportField({
   useEffect(() => {
     if (open && hits.length)
       reveal(anchor, Math.min(hits.length * 72, 200) + 36);
+    else reveal(anchor, 0);
+    return () => reveal(anchor, 0);
   }, [open, value]);
   useEffect(
     () => () => {
@@ -72,7 +74,7 @@ export function AirportField({
           maxLength={160}
         />
         {open && !!hits.length && (
-          <SearchDropdown count={hits.length}>
+          <SearchDropdown anchor={anchor} count={hits.length}>
             {hits.map((a) => (
               <Pressable
                 key={a[0]}

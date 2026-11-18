@@ -321,6 +321,23 @@ export default function Itinerary() {
               </Pressable>
             </View>
           )}
+          {trip?.replanHistory?.flatMap((h) =>
+            h.changes
+              .filter((c) => c.fromDate === day.date)
+              .map((c) => (
+                <Text
+                  key={h.id + c.entryId}
+                  style={{
+                    fontSize: 13,
+                    lineHeight: 20,
+                    color: ui.muted,
+                    marginBottom: 8,
+                  }}
+                >
+                  {placeText(c.name)} → {dateLabel(c.toDate)} {c.toTime}로 옮김
+                </Text>
+              )),
+          )}
           {!!visitNotice && (
             <Text
               accessibilityRole="alert"
@@ -963,6 +980,17 @@ export default function Itinerary() {
                 날짜부터 할 수 있어요.
               </P>
             )}
+            <Action
+              title="못 간 곳, 남은 날짜에 나눠 배치"
+              secondary
+              onPress={() => {
+                setReviewDay(false);
+                router.push({
+                  pathname: "/trip/[tripId]/replan",
+                  params: { tripId, date: day.date },
+                });
+              }}
+            />
             <Action title="정리 마치기" onPress={() => setReviewDay(false)} />
           </View>
         )}
