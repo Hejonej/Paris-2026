@@ -377,54 +377,63 @@ export default function Itinerary() {
               </Text>
             </View>
           )}
-          {base?.origin && firstStop && (
-            <View style={styles.entry}>
-              <View style={{ width: 44, alignItems: "center", paddingTop: 8 }}>
-                <Ionicons name="navigate-outline" size={19} color={ui.muted} />
-                <Text style={{ fontSize: 13, color: ui.muted, marginTop: 5 }}>
-                  첫 이동
-                </Text>
-              </View>
-              <View style={styles.content}>
-                <Text
-                  style={{
-                    fontSize: 14,
-                    lineHeight: 21,
-                    color: ui.muted,
-                    marginTop: 4,
-                  }}
+          {base?.origin &&
+            firstStop &&
+            base.origin.query.trim().toLowerCase() !==
+              firstStop.query.trim().toLowerCase() && (
+              <View style={styles.entry}>
+                <View
+                  style={{ width: 44, alignItems: "center", paddingTop: 8 }}
                 >
-                  {base.origin.name}에서 출발
-                </Text>
-                <Text
-                  style={{
-                    fontSize: 16,
-                    lineHeight: 23,
-                    fontWeight: "600",
-                    color: ui.ink,
-                    marginBottom: 8,
-                  }}
-                >
-                  {placeText(locatedStops[0].entry.name)}까지
-                </Text>
-                <RouteTime
-                  unavailableTransit={japanTransit}
-                  key={base.origin.query + firstStop.query}
-                  from={base.origin.query}
-                  to={firstStop.query}
-                  mode={
-                    day.travelModes?.[
-                      legKey("origin", locatedStops[0].entry.id)
-                    ] ||
-                    (locatedStops[0]?.entry.needsTransitCheck
-                      ? "transit"
-                      : planningModes(trip?.planning)[0])
-                  }
-                  pendingTransit={!!locatedStops[0]?.entry.needsTransitCheck}
-                />
+                  <Ionicons
+                    name="navigate-outline"
+                    size={19}
+                    color={ui.muted}
+                  />
+                  <Text style={{ fontSize: 13, color: ui.muted, marginTop: 5 }}>
+                    첫 이동
+                  </Text>
+                </View>
+                <View style={styles.content}>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      lineHeight: 21,
+                      color: ui.muted,
+                      marginTop: 4,
+                    }}
+                  >
+                    {base.origin.name}에서 출발
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 16,
+                      lineHeight: 23,
+                      fontWeight: "600",
+                      color: ui.ink,
+                      marginBottom: 8,
+                    }}
+                  >
+                    {placeText(locatedStops[0].entry.name)}까지
+                  </Text>
+                  <RouteTime
+                    unavailableTransit={japanTransit}
+                    key={base.origin.query + firstStop.query}
+                    from={base.origin.query}
+                    to={firstStop.query}
+                    mode={
+                      day.travelModes?.[
+                        legKey("origin", locatedStops[0].entry.id)
+                      ] ||
+                      (locatedStops[0]?.entry.needsTransitCheck
+                        ? "transit"
+                        : planningModes(trip?.planning)[0])
+                    }
+                    pendingTransit={!!locatedStops[0]?.entry.needsTransitCheck}
+                  />
+                </View>
               </View>
-            </View>
-          )}
+            )}
           {day.items.map((item, index) => {
             const stop = journeyStop(trip!, day, index);
             const location = stop.location;
@@ -887,42 +896,45 @@ export default function Itinerary() {
               </View>
             );
           })}
-          {base?.destination && lastStop && (
-            <View
-              style={{
-                paddingVertical: 12,
-                borderTopWidth: 1,
-                borderColor: ui.line,
-                marginTop: 12,
-              }}
-            >
-              <Text style={styles.legTitle}>
-                마지막 장소 → {base.destination.name}
-              </Text>
-              <RouteTime
-                unavailableTransit={japanTransit}
-                key={lastStop.query + base.destination.query}
-                from={lastStop.query}
-                to={base.destination.query}
-                mode={
-                  day.travelModes?.[
-                    legKey(
-                      locatedStops[locatedStops.length - 1].entry.id,
-                      "destination",
-                    )
-                  ] ||
-                  (locatedStops[locatedStops.length - 1]?.entry
-                    .needsTransitCheck
-                    ? "transit"
-                    : planningModes(trip?.planning)[0])
-                }
-                pendingTransit={
-                  !!locatedStops[locatedStops.length - 1]?.entry
-                    .needsTransitCheck
-                }
-              />
-            </View>
-          )}
+          {base?.destination &&
+            lastStop &&
+            base.destination.query.trim().toLowerCase() !==
+              lastStop.query.trim().toLowerCase() && (
+              <View
+                style={{
+                  paddingVertical: 12,
+                  borderTopWidth: 1,
+                  borderColor: ui.line,
+                  marginTop: 12,
+                }}
+              >
+                <Text style={styles.legTitle}>
+                  마지막 장소 → {base.destination.name}
+                </Text>
+                <RouteTime
+                  unavailableTransit={japanTransit}
+                  key={lastStop.query + base.destination.query}
+                  from={lastStop.query}
+                  to={base.destination.query}
+                  mode={
+                    day.travelModes?.[
+                      legKey(
+                        locatedStops[locatedStops.length - 1].entry.id,
+                        "destination",
+                      )
+                    ] ||
+                    (locatedStops[locatedStops.length - 1]?.entry
+                      .needsTransitCheck
+                      ? "transit"
+                      : planningModes(trip?.planning)[0])
+                  }
+                  pendingTransit={
+                    !!locatedStops[locatedStops.length - 1]?.entry
+                      .needsTransitCheck
+                  }
+                />
+              </View>
+            )}
           {!day.items.length && (
             <P>
               아직 정해둔 일정이 없어요. 장소를 직접 추가하거나 AI로 계획해
