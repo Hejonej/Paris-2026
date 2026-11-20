@@ -32,7 +32,7 @@ async function connection(signal?: AbortSignal) {
     );
   return { token, url };
 }
-async function call(body: object, signal?: AbortSignal) {
+async function performCall(body: object, signal?: AbortSignal) {
   const { token, url } = await connection(signal);
   const controller = new AbortController();
   const abort = () => controller.abort();
@@ -51,7 +51,15 @@ async function call(body: object, signal?: AbortSignal) {
       signal: controller.signal,
     });
     const data = await r.json();
-    if (!r.ok) throw Error(data.message || "이동 시간 조회에 실패했어요.");
+    if (!r.ok) {
+      const error = Error(
+        data.message || "이동 시간 조회에 실패했어요.",
+      ) as Error & { retryBusy?: boolean };
+      error.retryBusy =
+        r.status === 429 &&
+        /다른.*(조회|지도)|진행 중/.test(data.message || "");
+      throw error;
+    }
     return data;
   } catch (e) {
     if (controller.signal.aborted)
@@ -65,6 +73,30 @@ async function call(body: object, signal?: AbortSignal) {
     clearTimeout(timer);
     signal?.removeEventListener("abort", abort);
   }
+}
+// Serialize map requests so automatic timeline queries do not collide with each other.
+let requestQueue: Promise<unknown> = Promise.resolve();
+function call(body: object, signal?: AbortSignal) {
+  const task = requestQueue.then(async () => {
+    for (let attempt = 0; ; attempt++) {
+      if (signal?.aborted) throw Error("지도 조회를 취소했어요.");
+      try {
+        return await performCall(body, signal);
+      } catch (error) {
+        if (
+          !(error as Error & { retryBusy?: boolean }).retryBusy ||
+          attempt >= 2 ||
+          signal?.aborted
+        )
+          throw error;
+        await new Promise((resolve) =>
+          setTimeout(resolve, 500 * (attempt + 1)),
+        );
+      }
+    }
+  });
+  requestQueue = task.catch(() => {});
+  return task;
 }
 export async function planningRoutes(
   trip: Trip,

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { View, Text, Pressable, Image, Alert } from "react-native";
 import { Page, H, P, Label, Action, Field, s } from "../../../../ui";
 import { Sheet } from "../../../../sheet";
@@ -9,7 +9,13 @@ import type { JournalEntry } from "../../../../data";
 import { chooseTripPhoto } from "../../../../tripPhoto";
 import { ui } from "../../../../theme";
 export default function Journal() {
-  const { tripId } = useTripParams();
+  const {
+    tripId,
+    entryId: requestedEntryId,
+    date: requestedDate,
+    writeRecord,
+  } = useTripParams();
+  const openedRecord = useRef("");
   const store = useTrips();
   const trip = store.trips.find((t) => t.id === tripId);
   const [open, setOpen] = useState(false);
@@ -52,6 +58,28 @@ export default function Journal() {
     setConfirmDelete(false);
     setOpen(true);
   }
+  useEffect(() => {
+    if (
+      !store.ready ||
+      !trip ||
+      !writeRecord ||
+      openedRecord.current === writeRecord
+    )
+      return;
+    const requested = trip.days
+      .find((d) => d.date === requestedDate)
+      ?.items.find((e) => e.id === requestedEntryId);
+    if (!requested) return;
+    openedRecord.current = writeRecord;
+    const record = trip.journal?.find(
+      (r) => r.entryId === requestedEntryId && r.date === requestedDate,
+    );
+    start(record);
+    if (!record) {
+      setEntryId(requestedEntryId);
+      setDate(requestedDate);
+    }
+  }, [store.ready, tripId, writeRecord]);
   function close() {
     photoSession.current++;
     setOpen(false);
@@ -201,6 +229,21 @@ export default function Journal() {
           <>
             <Label>{dateLabel(editing.date)}</Label>
             <Text style={s.title}>{editing.placeName}</Text>
+          </>
+        ) : writeRecord && requestedEntryId === entryId && !!entryId ? (
+          <>
+            <Label>{dateLabel(date)}</Label>
+            <Text style={s.title}>
+              {
+                locations.find((x) => x.entry.id === entryId && x.date === date)
+                  ?.entry.name
+              }
+            </Text>
+            <Action
+              title="다른 장소 선택"
+              tone="link"
+              onPress={() => setEntryId("")}
+            />
           </>
         ) : (
           <>

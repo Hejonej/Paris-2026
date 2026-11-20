@@ -1,5 +1,5 @@
 import { formatSeconds } from "./duration";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, Pressable, Linking } from "react-native";
 import type { TravelMode } from "./data";
 import type { RouteFact } from "./routeFacts";
@@ -11,50 +11,50 @@ export function RouteTime({
   to,
   mode,
   pendingTransit = false,
+  unavailableTransit = false,
 }: {
   from: string;
   to: string;
   mode: TravelMode;
   pendingTransit?: boolean;
+  unavailableTransit?: boolean;
 }) {
   const [fact, setFact] = useState<RouteFact>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const request = useRef<AbortController | null>(null);
+  const [retry, setRetry] = useState(0);
+  const needsMap = mode === "transit" && (pendingTransit || unavailableTransit);
   useEffect(() => {
     setFact(undefined);
     setError("");
-    setBusy(false);
-    return () => request.current?.abort();
-  }, [from, to, mode]);
-  async function load() {
-    if (request.current) return;
-    const controller = new AbortController();
-    request.current = controller;
-    setBusy(true);
-    setError("");
-    try {
-      const value = await liveLeg(from, to, mode, controller.signal);
-      if (!controller.signal.aborted) setFact(value);
-    } catch (e) {
-      if (!controller.signal.aborted)
-        setError(e instanceof Error ? e.message : "이동 시간 조회 실패");
-    } finally {
-      if (request.current === controller) {
-        request.current = null;
-        setBusy(false);
-      }
+    if (needsMap) {
+      setBusy(false);
+      return;
     }
-  }
-  if (pendingTransit)
+    const controller = new AbortController();
+    setBusy(true);
+    liveLeg(from, to, mode, controller.signal)
+      .then((value) => {
+        if (!controller.signal.aborted) setFact(value);
+      })
+      .catch((e) => {
+        if (!controller.signal.aborted)
+          setError(
+            e && typeof e.message === "string"
+              ? e.message
+              : "이동 시간을 불러오지 못했어요.",
+          );
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setBusy(false);
+      });
+    return () => controller.abort();
+  }, [from, to, mode, needsMap, retry]);
+  if (needsMap)
     return (
       <View style={{ gap: 4 }}>
         <Text style={{ fontSize: 14, lineHeight: 21, color: ui.blue }}>
           대중교통 소요시간 미확인
-        </Text>
-        <Text style={{ fontSize: 12, lineHeight: 18, color: ui.muted }}>
-          현재 연결에서 전철·버스 시간이 확인되지 않았어요. Google Maps에서
-          경로를 확인해 주세요.
         </Text>
         <Pressable
           accessibilityRole="button"
@@ -80,13 +80,12 @@ export function RouteTime({
     <View style={{ gap: 4 }}>
       {fact ? (
         <>
-          <Text style={{ fontSize: 14, fontWeight: "600", color: ui.ink }}>
-            Google Maps · {modeLabels[mode]}{" "}
-            {formatSeconds(fact.durationSeconds)} ·{" "}
+          <Text style={{ fontSize: 16, fontWeight: "600", color: ui.ink }}>
+            {modeLabels[mode]} · {formatSeconds(fact.durationSeconds)} ·{" "}
             {(fact.distanceMeters / 1000).toFixed(2)}km
           </Text>
-          <Text style={{ fontSize: 12, lineHeight: 18, color: ui.muted }}>
-            조회 시점 기준 ·{" "}
+          <Text style={{ fontSize: 13, lineHeight: 20, color: ui.muted }}>
+            Google Maps · 조회 시점 기준 ·{" "}
             {new Date(fact.retrievedAt).toLocaleTimeString("ko-KR", {
               hour: "2-digit",
               minute: "2-digit",
@@ -97,13 +96,13 @@ export function RouteTime({
         <Pressable
           accessibilityRole="button"
           disabled={busy}
-          onPress={load}
+          onPress={() => setRetry((v) => v + 1)}
           style={{ minHeight: 44, justifyContent: "center" }}
         >
           <Text style={{ fontSize: 14, color: ui.blue, fontWeight: "600" }}>
             {busy
-              ? "Google 이동 시간 조회 중…"
-              : `${modeLabels[mode]} 이동 시간 확인`}
+              ? `${modeLabels[mode]} 시간 불러오는 중…`
+              : `${modeLabels[mode]} 시간 다시 불러오기`}
           </Text>
         </Pressable>
       )}

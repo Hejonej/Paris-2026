@@ -2563,3 +2563,117 @@ test("move proposal application persists original identity and history, refuses 
   assert.equal(v.store.trips[0].replanHistory, undefined);
   await act(async () => v.tree.unmount());
 });
+
+test("route time loads automatically on mode change, uses cache and offers Maps for unsupported transit", async () => {
+  const calls = [];
+  const h = harness({}, null, {
+    routeFetcher: async (_url, config) => {
+      const b = JSON.parse(config.body);
+      calls.push(b.mode);
+      return {
+        ok: true,
+        json: async () => ({
+          mode: b.mode,
+          durationSeconds: b.mode === "walking" ? 6360 : 1200,
+          distanceMeters: 8000,
+          retrievedAt: new Date().toISOString(),
+        }),
+      };
+    },
+  });
+  const { RouteTime } = h.load("src/routeTimeUI.tsx");
+  let tree;
+  await act(async () => {
+    tree = create(
+      React.createElement(RouteTime, { from: "A", to: "B", mode: "walking" }),
+    );
+  });
+  assert.deepEqual(calls, ["walking"]);
+  assert.ok(words(tree).includes("1시간 46분"));
+  await act(async () =>
+    tree.update(
+      React.createElement(RouteTime, { from: "A", to: "B", mode: "driving" }),
+    ),
+  );
+  assert.deepEqual(calls, ["walking", "driving"]);
+  assert.ok(words(tree).includes("20분"));
+  await act(async () =>
+    tree.update(
+      React.createElement(RouteTime, { from: "A", to: "B", mode: "walking" }),
+    ),
+  );
+  assert.equal(calls.length, 2);
+  await act(async () =>
+    tree.update(
+      React.createElement(RouteTime, {
+        from: "A",
+        to: "B",
+        mode: "transit",
+        unavailableTransit: true,
+      }),
+    ),
+  );
+  assert.equal(calls.length, 2);
+  assert.ok(words(tree).includes("Google Maps에서 전철·버스 확인"));
+  await act(async () => tree.unmount());
+});
+
+test("visited-place diary link opens a preselected photo/memo entry and saves without moving the itinerary", async () => {
+  const h = harness({
+    tripId: "paris",
+    entryId: "original-3",
+    date: "2026-11-13",
+    writeRecord: "new-record",
+  });
+  const v = await mountScreen(h, "src/app/trip/[tripId]/(tabs)/journal.tsx");
+  const before = JSON.stringify(v.store.trips[0].days);
+  const memo = v.tree.root.findAll(
+    (n) => n.type === "TextInput" && n.props.accessibilityLabel === "기록 메모",
+  )[0];
+  assert.ok(memo);
+  assert.ok(words(v.tree).includes("다른 장소 선택"));
+  await act(async () => memo.props.onChangeText("직접 보니 더 좋았던 곳"));
+  await act(async () => tapText(v, "기록 저장"));
+  assert.equal(v.store.trips[0].journal[0].entryId, "original-3");
+  assert.equal(v.store.trips[0].journal[0].note, "직접 보니 더 좋았던 곳");
+  assert.equal(JSON.stringify(v.store.trips[0].days), before);
+  await act(async () => v.tree.unmount());
+});
+
+test("automatic route lookup recovers from a briefly busy previous request without another user tap", async () => {
+  let calls = 0;
+  const h = harness({}, null, {
+    routeFetcher: async (_url, config) => {
+      const b = JSON.parse(config.body);
+      calls++;
+      return calls === 1
+        ? {
+            ok: false,
+            status: 429,
+            json: async () => ({ message: "다른 지도 조회가 진행 중이에요." }),
+          }
+        : {
+            ok: true,
+            json: async () => ({
+              mode: b.mode,
+              durationSeconds: 600,
+              distanceMeters: 700,
+              retrievedAt: new Date().toISOString(),
+            }),
+          };
+    },
+  });
+  const { RouteTime } = h.load("src/routeTimeUI.tsx");
+  let tree;
+  await act(async () => {
+    tree = create(
+      React.createElement(RouteTime, { from: "C", to: "D", mode: "walking" }),
+    );
+  });
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 650));
+  });
+  assert.equal(calls, 2);
+  assert.ok(words(tree).includes("10분"));
+  await act(async () => tree.unmount());
+});

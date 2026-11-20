@@ -4,6 +4,7 @@ export function routeValue(value: string | string[] | undefined): string {
 }
 export function useTripParams() {
   const params = useLocalSearchParams<{
+    writeRecord?: string | string[];
     manualEdited?: string | string[];
     addToDay?: string | string[];
     returnTo?: string | string[];
@@ -20,6 +21,7 @@ export function useTripParams() {
     date?: string | string[];
   }>();
   return {
+    writeRecord: routeValue(params.writeRecord),
     manualEdited: routeValue(params.manualEdited),
     addToDay: routeValue(params.addToDay),
     returnTo: routeValue(params.returnTo),

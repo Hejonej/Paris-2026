@@ -53,6 +53,10 @@ export default function Itinerary() {
     setVisit,
   } = useTrips();
   const trip = trips.find((t) => t.id === tripId);
+  const japanTransit =
+    /japan|일본|日本|東京|tokyo|도쿄|osaka|오사카|kyoto|교토|fukuoka|후쿠오카|sapporo|삿포로|nagoya|나고야|yokohama|요코하마/i.test(
+      (trip?.country || "") + " " + (trip?.city || ""),
+    );
   const { pendingPosts } = inspirationProgress(trip);
   const [selection, setSelection] = useState(date || "");
   const [expandedReasons, setExpandedReasons] = useState<Set<string>>(
@@ -288,9 +292,7 @@ export default function Itinerary() {
             </Text>
           )}
           <Text style={s.title}>{dateLabel(day.date)}</Text>
-          <P>
-            {day.items.length}개의 일정 · 경로 찾기는 현재 위치에서 출발해요.
-          </P>
+          <P>{day.items.length}개 일정</P>
           {!!visits?.places.length && (
             <View
               style={{
@@ -376,29 +378,51 @@ export default function Itinerary() {
             </View>
           )}
           {base?.origin && firstStop && (
-            <View
-              style={{
-                paddingVertical: 12,
-                borderBottomWidth: 1,
-                borderColor: ui.line,
-                marginBottom: 12,
-              }}
-            >
-              <Text style={styles.legTitle}>{base.origin.name} → 첫 장소</Text>
-              <RouteTime
-                key={base.origin.query + firstStop.query}
-                from={base.origin.query}
-                to={firstStop.query}
-                mode={
-                  day.travelModes?.[
-                    legKey("origin", locatedStops[0].entry.id)
-                  ] ||
-                  (locatedStops[0]?.entry.needsTransitCheck
-                    ? "transit"
-                    : planningModes(trip?.planning)[0])
-                }
-                pendingTransit={!!locatedStops[0]?.entry.needsTransitCheck}
-              />
+            <View style={styles.entry}>
+              <View style={{ width: 44, alignItems: "center", paddingTop: 8 }}>
+                <Ionicons name="navigate-outline" size={19} color={ui.muted} />
+                <Text style={{ fontSize: 13, color: ui.muted, marginTop: 5 }}>
+                  첫 이동
+                </Text>
+              </View>
+              <View style={styles.content}>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    lineHeight: 21,
+                    color: ui.muted,
+                    marginTop: 4,
+                  }}
+                >
+                  {base.origin.name}에서 출발
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 16,
+                    lineHeight: 23,
+                    fontWeight: "600",
+                    color: ui.ink,
+                    marginBottom: 8,
+                  }}
+                >
+                  {placeText(locatedStops[0].entry.name)}까지
+                </Text>
+                <RouteTime
+                  unavailableTransit={japanTransit}
+                  key={base.origin.query + firstStop.query}
+                  from={base.origin.query}
+                  to={firstStop.query}
+                  mode={
+                    day.travelModes?.[
+                      legKey("origin", locatedStops[0].entry.id)
+                    ] ||
+                    (locatedStops[0]?.entry.needsTransitCheck
+                      ? "transit"
+                      : planningModes(trip?.planning)[0])
+                  }
+                  pendingTransit={!!locatedStops[0]?.entry.needsTransitCheck}
+                />
+              </View>
             </View>
           )}
           {day.items.map((item, index) => {
@@ -465,16 +489,31 @@ export default function Itinerary() {
                   </View>
                   <View style={styles.content}>
                     {!!item.visitedOn && (
-                      <Text
+                      <View
                         style={{
-                          fontSize: 12,
-                          fontWeight: "600",
-                          color: ui.blue,
+                          alignSelf: "flex-start",
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 4,
+                          backgroundColor: ui.blueSoft,
+                          paddingHorizontal: 8,
+                          paddingVertical: 4,
+                          borderRadius: 6,
                           marginTop: 4,
+                          marginBottom: 4,
                         }}
                       >
-                        다녀왔어요
-                      </Text>
+                        <Ionicons name="checkmark" size={14} color={ui.blue} />
+                        <Text
+                          style={{
+                            fontSize: 13,
+                            fontWeight: "600",
+                            color: ui.blue,
+                          }}
+                        >
+                          방문 완료!
+                        </Text>
+                      </View>
                     )}
                     <View
                       style={{
@@ -505,7 +544,18 @@ export default function Itinerary() {
                             : editLocation(item)
                         }
                       >
-                        <Text style={styles.title}>{placeText(item.name)}</Text>
+                        <Text
+                          style={[
+                            styles.title,
+                            item.visitedOn && {
+                              textDecorationLine: "line-through",
+                              textDecorationColor: ui.muted,
+                              color: ui.muted,
+                            },
+                          ]}
+                        >
+                          {placeText(item.name)}
+                        </Text>
                       </Pressable>
                       <ActivityButton
                         name={placeText(item.name)}
@@ -523,6 +573,47 @@ export default function Itinerary() {
                         }}
                       />
                     </View>
+                    {!!item.visitedOn && (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`${placeText(item.name)} 방문 기록`}
+                        onPress={() =>
+                          router.navigate({
+                            pathname: "/trip/[tripId]/journal",
+                            params: {
+                              tripId,
+                              date: day.date,
+                              entryId: item.id,
+                              writeRecord: `${Date.now()}-${item.id}`,
+                            },
+                          })
+                        }
+                        style={{
+                          minHeight: 44,
+                          flexDirection: "row",
+                          gap: 6,
+                          alignItems: "center",
+                          alignSelf: "flex-start",
+                        }}
+                      >
+                        <Ionicons
+                          name="book-outline"
+                          size={16}
+                          color={ui.blue}
+                        />
+                        <Text
+                          style={{
+                            fontSize: 14,
+                            fontWeight: "600",
+                            color: ui.blue,
+                          }}
+                        >
+                          {trip?.journal?.some((r) => r.entryId === item.id)
+                            ? "기록 보기"
+                            : "기록 남기기"}
+                        </Text>
+                      </Pressable>
+                    )}
                     {item.needsTransitCheck && (
                       <Text
                         style={{
@@ -640,6 +731,7 @@ export default function Itinerary() {
                       {placeText(laterLocated.entry.name)}
                     </Text>
                     <RouteTime
+                      unavailableTransit={japanTransit}
                       key={location.query + laterLocated.location.query}
                       from={location.query}
                       to={laterLocated.location.query}
@@ -654,9 +746,9 @@ export default function Itinerary() {
                       pendingTransit={!!item.needsTransitCheck}
                     />
                     <Text
-                      style={{ fontSize: 12, lineHeight: 18, color: ui.muted }}
+                      style={{ fontSize: 14, lineHeight: 22, color: ui.muted }}
                     >
-                      사이의 식사·휴식 장소가 정해지면 동선이 달라질 수 있어요.
+                      식사·휴식 장소를 정하면 이 구간도 다시 확인해요.
                     </Text>
                   </View>
                 )}
@@ -713,6 +805,7 @@ export default function Itinerary() {
                         {route ? (
                           <View>
                             <RouteTime
+                              unavailableTransit={japanTransit}
                               key={JSON.stringify([
                                 location?.query,
                                 nextStop?.location?.query,
@@ -807,6 +900,7 @@ export default function Itinerary() {
                 마지막 장소 → {base.destination.name}
               </Text>
               <RouteTime
+                unavailableTransit={japanTransit}
                 key={lastStop.query + base.destination.query}
                 from={lastStop.query}
                 to={base.destination.query}
@@ -1022,7 +1116,7 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 18, fontWeight: "700", color: ui.ink },
   description: { fontSize: 14, color: ui.muted, lineHeight: 20, marginTop: 3 },
-  location: { fontSize: 13, color: ui.accent, marginTop: 5 },
+  location: { fontSize: 14, lineHeight: 21, color: ui.accent, marginTop: 5 },
   actions: {
     flexDirection: "row",
     alignItems: "center",
@@ -1050,7 +1144,7 @@ const styles = StyleSheet.create({
   },
   textButton: { minHeight: 44, justifyContent: "center", paddingHorizontal: 4 },
   link: { fontSize: 14, fontWeight: "600", color: ui.blue },
-  mutedLink: { fontSize: 13, color: ui.muted },
+  mutedLink: { fontSize: 14, color: ui.muted },
   leg: {
     marginLeft: 56,
     borderLeftWidth: 1,
@@ -1060,7 +1154,13 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
     paddingRight: 12,
   },
-  legTitle: { fontSize: 13, color: ui.muted, marginBottom: 8 },
+  legTitle: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "600",
+    color: ui.ink,
+    marginBottom: 8,
+  },
   modes: { flexDirection: "row", gap: 2, flexWrap: "wrap" },
   mode: {
     minHeight: 44,
@@ -1068,7 +1168,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 9,
   },
-  duration: { fontSize: 12, lineHeight: 18, color: ui.muted, marginTop: 6 },
+  duration: { fontSize: 14, lineHeight: 22, color: ui.muted, marginTop: 6 },
   routeButton: {
     minHeight: 44,
     justifyContent: "center",
