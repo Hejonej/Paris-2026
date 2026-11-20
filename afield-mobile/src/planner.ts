@@ -8,6 +8,8 @@ import type { Trip, Entry, ActivityTag } from "./data";
 import { inferActivity } from "./activities";
 import { validDate } from "./tripEditing";
 export type Stay = {
+  arrivalPreference?: "auto" | "later";
+  luggageDropConfirmed?: boolean;
   id: string;
   name: string;
   query: string;
@@ -186,6 +188,10 @@ export function validConditions(c: unknown): c is PlanningConditions {
           s.inTime,
           s.outTime,
         ].every((v) => typeof v === "string" && v.length <= 300) &&
+        (s.arrivalPreference === undefined ||
+          ["auto", "later"].includes(s.arrivalPreference)) &&
+        (s.luggageDropConfirmed === undefined ||
+          typeof s.luggageDropConfirmed === "boolean") &&
         validDate(s.checkIn) &&
         validDate(s.checkOut) &&
         Number.isFinite(minutes(s.inTime)) &&
@@ -314,12 +320,39 @@ export function localToday() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
-export function dayBase(trip: Trip, c: PlanningConditions, date: string) {
+export type ArrivalContext = {
+  airport: string;
+  airportName: string;
+  arrivalTime: string;
+  airportReadyTime: string;
+  airportReadyDate: string;
+  hotelArrivalDate: string;
+  hotelArrivalTime: string;
+  hotel: string;
+  hotelName: string;
+  hotelArrivalMinutes: number;
+  checkInFrom: string;
+  hotelFirst: boolean;
+  action: "check_in" | "luggage_drop" | "explore_first";
+  travelVerified: boolean;
+  luggageNeedsConfirmation: boolean;
+};
+export function dayBase(
+  trip: Trip,
+  c: PlanningConditions,
+  date: string,
+  routeContext?: RouteContext,
+) {
   const issues: string[] = [];
+  const advisories: string[] = [];
   const anchors: PlanRow[] = [];
+  let arrivalContext: ArrivalContext | undefined;
+  let arrivalTransfer: PendingTransfer | undefined;
   if (date < localToday())
     return {
       date,
+      arrivalContext,
+      arrivalTransfer,
       start: 0,
       end: 0,
       anchors,
@@ -332,6 +365,14 @@ export function dayBase(trip: Trip, c: PlanningConditions, date: string) {
     end = minutes(c.end);
   const existing = trip.days.find((d) => d.date === date)?.items || [];
   const add = (row: PlanRow, soft = false) => {
+    const saved = existing.find((e) => e.anchorKey === row.id);
+    if (saved) {
+      if (saved.time !== row.time)
+        issues.push(
+          `${date} ${row.name}: 기존 확정 시각과 새 조건이 달라요. 기존 일정을 보호하므로 먼저 확인해 주세요.`,
+        );
+      return;
+    }
     const t = minutes(row.time);
     if (
       existing.some(
@@ -442,11 +483,107 @@ export function dayBase(trip: Trip, c: PlanningConditions, date: string) {
       .filter((f) => !f.pending)
       .filter((f) => f.kind === "departure" && f.date === stay.checkOut)
       .sort((a, b) => stamp(a.date, a.time) - stamp(b.date, b.time))[0];
-    if (arrival)
+    let hotelFirst = false;
+    let dropAt: number | undefined;
+    let pendingHotel = false;
+    let readyAt: number | undefined;
+    let eta: number | undefined;
+    if (arrival) {
+      readyAt = stamp(arrival.date, arrival.time) + arrival.buffer;
+      const assessment = routeContext
+        ? assessRoute(routeContext, arrival.query, stay.query, planningModes(c))
+        : undefined;
+      const transfer =
+        assessment?.kind === "known" || assessment?.kind === "pending"
+          ? assessment.minutes
+          : 0;
+      pendingHotel = assessment?.kind === "pending";
+      eta = readyAt + transfer + c.buffer;
+      checkIn = Math.max(checkIn, eta);
+      if (
+        routeContext &&
+        assessment?.kind === "missing" &&
+        arrival.date === date &&
+        stay.arrivalPreference !== "later" &&
+        eta >= stamp(stay.checkIn, stay.inTime)
+      )
+        issues.push(
+          `${stay.name}: 공항에서 숙소까지 이동 시간을 확인하지 못했어요. 공항과 숙소 주소를 확인해 주세요.`,
+        );
+      const canCheckIn = eta >= stamp(stay.checkIn, stay.inTime);
+      hotelFirst =
+        stay.arrivalPreference !== "later" &&
+        (canCheckIn || !!stay.luggageDropConfirmed);
+      if (hotelFirst && !canCheckIn) dropAt = eta;
+      if (arrival.date === date) {
+        arrivalContext = {
+          airport: arrival.query,
+          airportName: arrival.toAirport || arrival.query,
+          arrivalTime: arrival.time,
+          airportReadyTime: clock((readyAt - epoch(date)) % 1440),
+          airportReadyDate: new Date(readyAt * 60000)
+            .toISOString()
+            .slice(0, 10),
+          hotelArrivalDate: new Date(eta * 60000).toISOString().slice(0, 10),
+          hotelArrivalTime: clock((((eta - epoch(date)) % 1440) + 1440) % 1440),
+          hotel: stay.query,
+          hotelName: stay.name,
+          hotelArrivalMinutes: eta - epoch(date),
+          checkInFrom: stay.inTime,
+          hotelFirst,
+          action: hotelFirst
+            ? dropAt !== undefined
+              ? "luggage_drop"
+              : "check_in"
+            : "explore_first",
+          travelVerified: assessment?.kind === "known",
+          luggageNeedsConfirmation: !canCheckIn && !stay.luggageDropConfirmed,
+        };
+        if (
+          stay.arrivalPreference !== "later" &&
+          !canCheckIn &&
+          !stay.luggageDropConfirmed
+        )
+          advisories.push(
+            `${stay.name}: 체크인 전 도착이에요. 짐 보관 가능 여부는 확인되지 않아 숙소 방문을 필수로 넣지 않았어요.`,
+          );
+      }
+      if (
+        hotelFirst &&
+        (arrival.date === date ||
+          Math.floor((dropAt ?? checkIn) / 1440) ===
+            Math.floor(epoch(date) / 1440))
+      )
+        start = Math.max(
+          start,
+          (dropAt ?? checkIn) - epoch(date) + (dropAt !== undefined ? 0 : 30),
+        );
+      if (hotelFirst && pendingHotel && arrival.date === date) {
+        const at = dropAt ?? checkIn,
+          targetDate = new Date(at * 60000).toISOString().slice(0, 10);
+        arrivalTransfer = {
+          date: targetDate,
+          from: arrival.query,
+          to: stay.query,
+          fromName: arrival.toAirport || "도착 공항",
+          toName: stay.name,
+          planSlotMinutes: 30,
+          rowIds: [
+            `${dropAt !== undefined ? "drop" : "in"}-${stay.id}-${targetDate}`,
+          ],
+        };
+      }
+    }
+    if (stay.arrivalPreference === "later") {
       checkIn = Math.max(
         checkIn,
-        stamp(arrival.date, arrival.time) + arrival.buffer + c.buffer,
+        stamp(arrival?.date || stay.checkIn, c.end) - 30,
       );
+      if (date === (arrival?.date || stay.checkIn))
+        advisories.push(
+          `${stay.name}: 숙소 방문을 하루 마무리로 계획했어요. 늦은 체크인 가능 여부는 직접 확인해 주세요.`,
+        );
+    }
     if (departure)
       checkOut = Math.min(
         checkOut,
@@ -462,6 +599,21 @@ export function dayBase(trip: Trip, c: PlanningConditions, date: string) {
         );
       return;
     }
+    if (dropAt !== undefined)
+      addAt(
+        {
+          id: `drop-${stay.id}`,
+          date,
+          kind: "stay",
+          name: `짐 맡기기 · ${stay.name}`,
+          query: stay.query,
+          reason:
+            "사용자가 체크인 전 짐 보관 가능 여부를 확인한 숙소 · 머무는 시간은 고정하지 않아요.",
+          tag: "stay",
+        },
+        dropAt,
+        0,
+      );
     addAt(
       {
         id: `in-${stay.id}`,
@@ -469,7 +621,7 @@ export function dayBase(trip: Trip, c: PlanningConditions, date: string) {
         kind: "stay",
         name: `체크인 · ${stay.name}`,
         query: stay.query,
-        reason: `체크인 가능 ${stay.inTime} 이후 · 도착편 여유 반영, 수속 30분 가정`,
+        reason: `체크인 가능 ${stay.inTime} 이후 · ${hotelFirst && dropAt === undefined ? "공항 이동 후 숙소 먼저 방문" : "도착 조건 반영"}, 수속 30분 계획`,
         tag: "stay",
       },
       checkIn,
@@ -505,6 +657,7 @@ export function dayBase(trip: Trip, c: PlanningConditions, date: string) {
       }),
     );
   const hardIssues = [...issues];
+  issues.push(...advisories);
   [
     {
       name: "점심",
@@ -551,6 +704,8 @@ export function dayBase(trip: Trip, c: PlanningConditions, date: string) {
   );
   return {
     date,
+    arrivalContext,
+    arrivalTransfer,
     start,
     end,
     anchors,
@@ -606,7 +761,7 @@ export function validateRows(
         d.date >= (c.rangeStart || trip.start) &&
         d.date <= (c.rangeEnd || trip.end),
     )
-    .map((d) => dayBase(trip, c, d.date));
+    .map((d) => dayBase(trip, c, d.date, routeContext));
   const used = new Set(
     trip.days.flatMap((d) =>
       d.items.flatMap((e) =>
@@ -812,28 +967,30 @@ export function applyDraft(
         ...d.items,
         ...all
           .filter((r) => r.date === d.date)
-          .map((r): Entry => ({
-            id: `ai-${draft.id}-${r.id}`,
-            name: r.name,
-            time: r.time,
-            ...(r.kind !== "place" && r.duration > 0
-              ? { durationMinutes: r.duration }
-              : {}),
-            origin: "ai",
-            ...(pendingIds.has(r.id) ? { needsTransitCheck: true } : {}),
-            anchorKey: r.kind !== "place" ? r.id : undefined,
-            placeId: r.placeId,
-            tag: r.tag,
-            must: !!r.placeId && c.mustIds.includes(r.placeId),
-            location: r.query
-              ? {
-                  label: r.name,
-                  query: r.query,
-                  description: r.reason,
-                  ...(r.placeId ? { placeId: r.placeId } : {}),
-                }
-              : undefined,
-          })),
+          .map(
+            (r): Entry => ({
+              id: `ai-${draft.id}-${r.id}`,
+              name: r.name,
+              time: r.time,
+              ...(r.kind !== "place" && r.duration > 0
+                ? { durationMinutes: r.duration }
+                : {}),
+              origin: "ai",
+              ...(pendingIds.has(r.id) ? { needsTransitCheck: true } : {}),
+              anchorKey: r.kind !== "place" ? r.id : undefined,
+              placeId: r.placeId,
+              tag: r.tag,
+              must: !!r.placeId && c.mustIds.includes(r.placeId),
+              location: r.query
+                ? {
+                    label: r.name,
+                    query: r.query,
+                    description: r.reason,
+                    ...(r.placeId ? { placeId: r.placeId } : {}),
+                  }
+                : undefined,
+            }),
+          ),
       ].sort((a, b) => a.time.localeCompare(b.time)),
     })),
   };

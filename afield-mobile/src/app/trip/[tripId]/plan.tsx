@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { collectPendingTransfers } from "../../../routeChecks";
 import { planningRoutes } from "../../../liveRoutes";
 import { placeText } from "../../../placeText";
@@ -1251,6 +1252,94 @@ export default function Plan() {
                       onChange={(v) => change("outTime", v)}
                     />
                   </View>
+                  <Label>도착일 동선</Label>
+                  {(
+                    [
+                      ["auto", "체크인 가능하면 숙소 먼저"],
+                      ["later", "관광 후 숙소 방문"],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <Pressable
+                      key={value}
+                      accessibilityRole="radio"
+                      accessibilityLabel={label}
+                      accessibilityState={{
+                        checked: (stay.arrivalPreference || "auto") === value,
+                      }}
+                      onPress={() => change("arrivalPreference", value)}
+                      style={{
+                        minHeight: 44,
+                        flexDirection: "row",
+                        gap: 8,
+                        alignItems: "center",
+                      }}
+                    >
+                      <Ionicons
+                        name={
+                          (stay.arrivalPreference || "auto") === value
+                            ? "radio-button-on"
+                            : "radio-button-off"
+                        }
+                        size={22}
+                        color={
+                          (stay.arrivalPreference || "auto") === value
+                            ? ui.blue
+                            : ui.muted
+                        }
+                      />
+                      <Text style={{ fontSize: 15, color: ui.ink, flex: 1 }}>
+                        {label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                  {stay.arrivalPreference !== "later" && (
+                    <Pressable
+                      accessibilityRole="checkbox"
+                      accessibilityLabel="체크인 전 짐 보관 가능 여부 확인"
+                      accessibilityState={{
+                        checked: !!stay.luggageDropConfirmed,
+                      }}
+                      onPress={() =>
+                        update(
+                          "stays",
+                          c.stays.map((s) =>
+                            s.id === stay.id
+                              ? {
+                                  ...s,
+                                  luggageDropConfirmed: !s.luggageDropConfirmed,
+                                }
+                              : s,
+                          ),
+                        )
+                      }
+                      style={{ minHeight: 48, paddingVertical: 8 }}
+                    >
+                      <Text
+                        style={{ fontSize: 15, lineHeight: 22, color: ui.ink }}
+                      >
+                        <Ionicons
+                          name={
+                            stay.luggageDropConfirmed
+                              ? "checkbox"
+                              : "square-outline"
+                          }
+                          size={24}
+                          color={stay.luggageDropConfirmed ? ui.blue : ui.muted}
+                        />{" "}
+                        체크인 전 짐 보관이 가능한 숙소예요
+                      </Text>
+                      <Text
+                        style={{
+                          fontSize: 13,
+                          lineHeight: 20,
+                          color: ui.muted,
+                          marginTop: 4,
+                        }}
+                      >
+                        숙소에 확인한 경우에만 선택해 주세요.
+                      </Text>
+                    </Pressable>
+                  )}
                   <Action
                     title={`숙소 ${index + 1} 입력 삭제`}
                     secondary

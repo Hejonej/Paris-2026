@@ -786,3 +786,179 @@ test("travel duration text uses hours and minutes without changing numeric plann
   assert.equal(formatSeconds(3601), "1시간 1분");
   assert.equal(formatMinutes(193), "3시간 13분");
 });
+
+function arrivalFixture() {
+  const t = trip(),
+    c = t.planning;
+  c.mode = "driving";
+  c.modes = ["driving"];
+  c.selectedIds = ["p1"];
+  c.mustIds = [];
+  c.flights = [
+    {
+      id: "arrival",
+      kind: "arrival",
+      date: t.start,
+      time: "12:00",
+      query: "Sydney Airport",
+      buffer: 120,
+    },
+  ];
+  c.stays = [
+    {
+      id: "hotel",
+      name: "Test Hotel",
+      query: "Hotel Sydney",
+      checkIn: t.start,
+      checkOut: t.end,
+      inTime: "15:00",
+      outTime: "11:00",
+    },
+  ];
+  const query = t.importedPlaces.find((p) => p.id === "p1").query,
+    now = new Date().toISOString();
+  const facts = {
+    provider: "Google Maps",
+    retrievedAt: now,
+    policyVersion: 3,
+    routes: [
+      ["Sydney Airport", "Hotel Sydney", 90],
+      ["Hotel Sydney", query, 15],
+      [query, "Hotel Sydney", 15],
+    ].map(([from, to, m]) => ({
+      from,
+      to,
+      mode: "driving",
+      durationSeconds: m * 60,
+      distanceMeters: 10000,
+      retrievedAt: now,
+    })),
+  };
+  return { t, c, facts };
+}
+test("arrival day accounts for airport preparation and actual airport-hotel travel before hotel-first sightseeing", () => {
+  const { t, c, facts } = arrivalFixture();
+  const base = planner.dayBase(t, c, t.start, facts);
+  assert.equal(base.arrivalContext.hotelFirst, true);
+  assert.equal(base.arrivalContext.action, "check_in");
+  assert.equal(base.arrivalContext.hotelArrivalMinutes, 16 * 60);
+  assert.equal(base.start, 16 * 60 + 30);
+  assert.equal(
+    base.anchors.find((a) => a.id.startsWith("in-hotel")).time,
+    "16:00",
+  );
+  const payload = ai.buildPlanRequest(t, facts);
+  assert.equal(payload.dayConstraints[0].arrivalFlow.airport, "Sydney Airport");
+  assert.equal(payload.dayConstraints[0].arrivalFlow.hotelFirst, true);
+  const early = ai.decodePlan(
+    t,
+    {
+      suggestions: [
+        { type: "ADD", placeId: "p1", date: t.start, time: "15:00" },
+      ],
+    },
+    facts,
+  );
+  assert.equal(early.rows.length, 0);
+  const after = ai.decodePlan(
+    t,
+    {
+      suggestions: [
+        { type: "ADD", placeId: "p1", date: t.start, time: "17:30" },
+      ],
+    },
+    facts,
+  );
+  assert.equal(after.rows.length, 1);
+});
+test("early hotel arrival does not invent luggage storage; explicit confirmation adds a protected luggage stop", () => {
+  const { t, c, facts } = arrivalFixture();
+  c.flights[0].time = "06:00";
+  facts.routes[0].durationSeconds = 30 * 60;
+  let base = planner.dayBase(t, c, t.start, facts);
+  assert.equal(base.arrivalContext.hotelFirst, false);
+  assert.equal(base.arrivalContext.luggageNeedsConfirmation, true);
+  assert.equal(base.hardIssues.length, 0);
+  assert.equal(
+    base.anchors.some((a) => a.id.startsWith("drop-")),
+    false,
+  );
+  assert.doesNotThrow(() => ai.buildPlanRequest(t, facts));
+  c.stays[0].luggageDropConfirmed = true;
+  base = planner.dayBase(t, c, t.start, facts);
+  assert.equal(base.arrivalContext.action, "luggage_drop");
+  assert.equal(
+    base.anchors.find((a) => a.id.startsWith("drop-")).time,
+    "09:00",
+  );
+  assert.equal(base.start, 9 * 60);
+  c.stays[0].arrivalPreference = "later";
+  base = planner.dayBase(t, c, t.start, facts);
+  assert.equal(base.arrivalContext.hotelFirst, false);
+  assert.equal(
+    base.anchors.some((a) => a.id.startsWith("drop-")),
+    false,
+  );
+  assert.equal(
+    base.anchors.find((a) => a.id.startsWith("in-hotel")).time,
+    "19:30",
+  );
+});
+test("updated arrival timing never duplicates or moves an already accepted hotel anchor", () => {
+  const { t, c, facts } = arrivalFixture();
+  t.days[0].items = [
+    {
+      id: "old-hotel",
+      name: "체크인 · Test Hotel",
+      time: "15:00",
+      anchorKey: "in-hotel-" + t.start,
+      tag: "stay",
+      durationMinutes: 30,
+      location: { label: "Hotel", query: "Hotel Sydney", description: "" },
+    },
+  ];
+  const before = JSON.stringify(t.days);
+  const base = planner.dayBase(t, c, t.start, facts);
+  assert.ok(base.hardIssues.some((x) => x.includes("기존 확정 시각")));
+  assert.equal(
+    base.anchors.some((a) => a.id === "in-hotel-" + t.start),
+    false,
+  );
+  assert.equal(JSON.stringify(t.days), before);
+});
+
+test("unverified airport-to-hotel transit is disclosed and cannot be applied without explicit acknowledgement", () => {
+  const { t, c, facts } = arrivalFixture();
+  c.mode = "mixed";
+  c.modes = ["walking", "transit"];
+  facts.allowUnverifiedTransit = true;
+  facts.routes.forEach((r, i) => {
+    r.mode = "walking";
+    if (i > 0) r.durationSeconds = 600;
+  });
+  const draft = ai.decodePlan(
+    t,
+    {
+      suggestions: [
+        { type: "ADD", placeId: "p1", date: t.start, time: "17:30" },
+      ],
+    },
+    facts,
+  );
+  assert.equal(draft.rows.length, 1, JSON.stringify(draft.unplaced));
+  assert.ok(
+    draft.pendingTransfers.some(
+      (p) => p.from === "Sydney Airport" && p.to === "Hotel Sydney",
+    ),
+  );
+  t.planDraft = draft;
+  assert.equal(planner.applyDraft([t], t.id, [draft.rows[0].id]).ok, false);
+  const applied = planner.applyDraft([t], t.id, [draft.rows[0].id], true);
+  assert.equal(applied.ok, true, applied.message);
+  assert.equal(
+    applied.trips[0].days[0].items.find((e) =>
+      e.anchorKey?.startsWith("in-hotel"),
+    ).needsTransitCheck,
+    true,
+  );
+});

@@ -36,7 +36,7 @@ export function fillRouteSlots(
         d.date >= (c.rangeStart || trip.start) &&
         d.date <= (c.rangeEnd || trip.end),
     )
-    .map((d) => dayBase(trip, c, d.date))
+    .map((d) => dayBase(trip, c, d.date, facts))
     .filter((b) => !b.hardIssues.length);
   const routeCost = (base: (typeof bases)[number], visits: PlanRow[]) => {
     const physical = [

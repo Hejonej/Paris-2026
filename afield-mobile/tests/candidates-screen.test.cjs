@@ -2677,3 +2677,53 @@ test("automatic route lookup recovers from a briefly busy previous request witho
   assert.ok(words(tree).includes("10분"));
   await act(async () => tree.unmount());
 });
+
+test("arrival-day hotel preference and confirmed luggage storage save with the staged planning form", async () => {
+  const h = harness({ tripId: "paris" }),
+    v = await mountScreen(h, "src/app/trip/[tripId]/plan.tsx");
+  await act(async () => tapText(v, "＋ 숙소 추가"));
+  const field = (label) =>
+    v.tree.root.findAll(
+      (n) => n.type === "TextInput" && n.props.accessibilityLabel === label,
+    )[0];
+  await act(async () => field("숙소 1 이름").props.onChangeText("Test Hotel"));
+  await act(async () =>
+    field("숙소 1 주소").props.onChangeText("Test Hotel Paris"),
+  );
+  await act(async () =>
+    v.tree.root
+      .findAll(
+        (n) =>
+          n.type === "Pressable" &&
+          n.props.accessibilityLabel === "체크인 전 짐 보관 가능 여부 확인",
+      )[0]
+      .props.onPress(),
+  );
+  await act(async () =>
+    v.tree.root
+      .findAll(
+        (n) =>
+          n.type === "Pressable" &&
+          n.props.accessibilityLabel === "관광 후 숙소 방문",
+      )[0]
+      .props.onPress(),
+  );
+  await act(async () => tapText(v, "저장하고 장소 모으기"));
+  assert.equal(v.store.trips[0].planning.stays[0].luggageDropConfirmed, true);
+  assert.equal(v.store.trips[0].planning.stays[0].arrivalPreference, "later");
+  const raw = h.raw;
+  await act(async () => v.tree.unmount());
+  const resumed = await mountScreen(
+    harness({ tripId: "paris" }, raw),
+    "src/app/trip/[tripId]/plan.tsx",
+  );
+  assert.equal(
+    resumed.store.trips[0].planning.stays[0].arrivalPreference,
+    "later",
+  );
+  assert.equal(
+    resumed.store.trips[0].planning.stays[0].luggageDropConfirmed,
+    true,
+  );
+  await act(async () => resumed.tree.unmount());
+});

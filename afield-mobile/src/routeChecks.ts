@@ -7,6 +7,7 @@ import { assessRoute, transitUnavailable } from "./routeFacts";
 import type { RouteContext, PendingTransfer } from "./routeFacts";
 const minute = (s: string) => Number(s.slice(0, 2)) * 60 + Number(s.slice(3));
 type Base = {
+  arrivalTransfer?: PendingTransfer;
   date: string;
   start: number;
   end: number;
@@ -102,8 +103,9 @@ export function collectPendingTransfers(
   bases: Base[],
   facts: RouteContext,
 ): PendingTransfer[] {
-  return bases.flatMap((base) =>
-    edgesFor(trip, base, rows).flatMap(([a, b]) =>
+  return bases.flatMap((base) => [
+    ...(base.arrivalTransfer ? [base.arrivalTransfer] : []),
+    ...edgesFor(trip, base, rows).flatMap(([a, b]) =>
       assessRoute(facts, a.query!, b.query!, modes(c)).kind === "pending"
         ? [
             {
@@ -121,7 +123,7 @@ export function collectPendingTransfers(
           ]
         : [],
     ),
-  );
+  ]);
 }
 export function routeConflicts(
   trip: Trip,

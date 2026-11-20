@@ -96,6 +96,23 @@ export default function Itinerary() {
           .map((_, i) => journeyStop(trip, day, i))
           .filter((stop) => !!stop.location)
       : [];
+  const arrivalFlight = trip?.planning?.flights
+    .filter((f) => !f.pending && f.kind === "arrival" && f.date === day?.date)
+    .sort((a, b) => a.time.localeCompare(b.time))[0];
+  const arrivalEntry =
+    arrivalFlight &&
+    day?.items.find(
+      (e) => e.anchorKey === `flight-${arrivalFlight.id}-${day.date}`,
+    );
+  const airportNext = arrivalFlight
+    ? locatedStops.find(
+        (stop) =>
+          stop.entry.id !== arrivalEntry?.id &&
+          stop.location?.query.trim().toLowerCase() !==
+            arrivalFlight.query.trim().toLowerCase() &&
+          stop.entry.time >= arrivalFlight.time,
+      )
+    : undefined;
   const firstStop = locatedStops[0]?.location;
   const lastStop = locatedStops[locatedStops.length - 1]?.location;
   const updatedIndex = day?.items.findIndex((e) => e.id === updatedEntry) ?? -1;
@@ -319,7 +336,8 @@ export default function Itinerary() {
                     marginTop: 4,
                   }}
                 >
-                  {day.items.length}개 일정
+                  {day.items.length + (arrivalFlight && !arrivalEntry ? 1 : 0)}
+                  개 일정
                   {visits?.places.length
                     ? ` · 장소 ${visits.done.length}/${visits.places.length} 방문`
                     : ""}
@@ -423,7 +441,71 @@ export default function Itinerary() {
               </Text>
             </View>
           )}
-          {base?.origin &&
+          {arrivalFlight && (
+            <View style={styles.entry}>
+              <View style={{ width: 44, alignItems: "center" }}>
+                <Text style={styles.time}>{arrivalFlight.time}</Text>
+                <Ionicons name="airplane-outline" size={22} color={ui.ink} />
+              </View>
+              <View style={styles.content}>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    lineHeight: 21,
+                    color: ui.muted,
+                    marginTop: 6,
+                  }}
+                >
+                  공항 도착
+                  {arrivalFlight.number ? ` · ${arrivalFlight.number}` : ""}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 17,
+                    lineHeight: 25,
+                    fontWeight: "600",
+                    color: ui.ink,
+                    marginTop: 4,
+                  }}
+                >
+                  {arrivalFlight.toAirport || arrivalFlight.query}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 13,
+                    lineHeight: 20,
+                    color: ui.muted,
+                    marginTop: 5,
+                  }}
+                >
+                  입국·수하물 수령 후 이동
+                </Text>
+                {airportNext?.location && (
+                  <View style={{ marginTop: 12 }}>
+                    <Text style={styles.legTitle}>
+                      다음 · {placeText(airportNext.entry.name)}
+                    </Text>
+                    <RouteTime
+                      from={arrivalFlight.query}
+                      to={airportNext.location.query}
+                      mode={
+                        day.travelModes?.[
+                          legKey(
+                            arrivalEntry?.id || "origin",
+                            airportNext.entry.id,
+                          )
+                        ] || planningModes(trip?.planning)[0]
+                      }
+                      unavailableTransit={japanTransit}
+                      pendingTransit={!!airportNext.entry.needsTransitCheck}
+                    />
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
+          {!arrivalFlight &&
+            base?.origin &&
             firstStop &&
             base.origin.query.trim().toLowerCase() !==
               firstStop.query.trim().toLowerCase() && (
@@ -481,6 +563,7 @@ export default function Itinerary() {
               </View>
             )}
           {day.items.map((item, index) => {
+            if (item.id === arrivalEntry?.id) return null;
             const stop = journeyStop(trip!, day, index);
             const location = stop.location;
             const next = day.items[index + 1];
