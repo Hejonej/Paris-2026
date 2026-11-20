@@ -64,7 +64,6 @@ export default function Itinerary() {
   );
   const [editNotice, setEditNotice] = useState("");
   const [reviewDay, setReviewDay] = useState(false);
-  const [visitNotice, setVisitNotice] = useState("");
   const [error, setError] = useState("");
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -76,10 +75,8 @@ export default function Itinerary() {
     if (date) setSelection(date);
     setError("");
     setReviewDay(false);
-    setVisitNotice("");
   }, [date, tripId]);
   useEffect(() => {
-    setVisitNotice("");
     setReviewDay(false);
   }, [selection]);
   const day = trip?.days.find((d) => d.date === selection) || trip?.days[0];
@@ -89,7 +86,6 @@ export default function Itinerary() {
     const r = setVisit(tripId, day.date, item.id, !item.visitedOn);
     if (r.ok) {
       editHaptic();
-      setVisitNotice(r.message);
     } else setError(r.message);
   }
   const base =
@@ -291,37 +287,95 @@ export default function Itinerary() {
               AI 제안 {planApplied}곳과 식사·고정 일정을 추가했어요.
             </Text>
           )}
-          <Text style={s.title}>{dateLabel(day.date)}</Text>
-          <P>{day.items.length}개 일정</P>
-          {!!visits?.places.length && (
+          <View
+            style={{
+              paddingTop: 8,
+              paddingBottom: 16,
+              marginBottom: 12,
+              borderBottomWidth: 1,
+              borderBottomColor: ui.line,
+            }}
+          >
             <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: 12,
-              }}
+              style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
             >
-              <Text style={{ fontSize: 14, color: ui.muted }}>
-                다녀온 곳 {visits.done.length}/{visits.places.length}
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => setReviewDay(true)}
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text
+                  accessibilityRole="header"
+                  style={{
+                    fontSize: 21,
+                    lineHeight: 29,
+                    fontWeight: "700",
+                    color: ui.ink,
+                  }}
+                >
+                  {dateLabel(day.date)}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    lineHeight: 21,
+                    color: ui.muted,
+                    marginTop: 4,
+                  }}
+                >
+                  {day.items.length}개 일정
+                  {visits?.places.length
+                    ? ` · 장소 ${visits.done.length}/${visits.places.length} 방문`
+                    : ""}
+                </Text>
+              </View>
+              {!!visits?.places.length && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="하루 정리 열기"
+                  onPress={() => setReviewDay(true)}
+                  style={{
+                    minHeight: 44,
+                    paddingHorizontal: 12,
+                    justifyContent: "center",
+                    borderWidth: 1,
+                    borderColor: ui.line,
+                    borderRadius: 8,
+                    backgroundColor: ui.surface,
+                  }}
+                >
+                  <Text
+                    style={{ fontSize: 14, fontWeight: "600", color: ui.ink }}
+                  >
+                    하루 정리
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+            {!!visits?.places.length && (
+              <View
+                accessibilityRole="progressbar"
+                accessibilityLabel="다녀온 장소"
+                accessibilityValue={{
+                  min: 0,
+                  max: visits.places.length,
+                  now: visits.done.length,
+                  text: `${visits.places.length}곳 중 ${visits.done.length}곳 방문`,
+                }}
                 style={{
-                  minHeight: 44,
-                  justifyContent: "center",
-                  paddingHorizontal: 10,
+                  height: 3,
+                  borderRadius: 2,
+                  backgroundColor: ui.line,
+                  marginTop: 12,
+                  overflow: "hidden",
                 }}
               >
-                <Text
-                  style={{ fontSize: 14, fontWeight: "600", color: ui.blue }}
-                >
-                  하루 정리
-                </Text>
-              </Pressable>
-            </View>
-          )}
+                <View
+                  style={{
+                    height: 3,
+                    width: `${(visits.done.length / visits.places.length) * 100}%`,
+                    backgroundColor: ui.blue,
+                  }}
+                />
+              </View>
+            )}
+          </View>
           {trip?.replanHistory?.flatMap((h) =>
             h.changes
               .filter((c) => c.fromDate === day.date)
@@ -338,14 +392,6 @@ export default function Itinerary() {
                   {placeText(c.name)} → {dateLabel(c.toDate)} {c.toTime}로 옮김
                 </Text>
               )),
-          )}
-          {!!visitNotice && (
-            <Text
-              accessibilityRole="alert"
-              style={{ fontSize: 13, color: ui.muted, marginBottom: 12 }}
-            >
-              {visitNotice}
-            </Text>
           )}
           {!!addedPlace && day.items.some((e) => e.placeId === addedPlace) && (
             <Text
@@ -635,15 +681,21 @@ export default function Itinerary() {
                         대중교통 시간 확인 필요 · 임시 배치
                       </Text>
                     )}
-                    <Text style={styles.description} numberOfLines={2}>
-                      {entryDescription(stop.suggestion ? stop.entry : item)}
-                    </Text>
-                    {location && (
-                      <Text style={styles.location} numberOfLines={1}>
-                        {stop.suggestion ? "추천 시작점 · " : ""}
-                        {location.label}
+                    {!!entryDescription(
+                      stop.suggestion ? stop.entry : item,
+                    )?.trim() && (
+                      <Text style={styles.description} numberOfLines={2}>
+                        {entryDescription(stop.suggestion ? stop.entry : item)}
                       </Text>
                     )}
+                    {location &&
+                      (stop.suggestion ||
+                        placeText(location.label) !== placeText(item.name)) && (
+                        <Text style={styles.location} numberOfLines={1}>
+                          {stop.suggestion ? "추천 시작점 · " : ""}
+                          {location.label}
+                        </Text>
+                      )}
                     {stop.suggestion && (
                       <>
                         <Pressable
